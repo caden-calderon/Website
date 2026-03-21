@@ -6,59 +6,83 @@ Art direction is locked: dense pointillism/stipple rendering inspired by Andreio
 
 Evolved from ASCII → dithering → points/surfels. This is the final visual direction.
 
+## What Exists Now (March 21, 2026)
+
+The Phase 1 feasibility scaffold is built and producing compelling results. Both tracks (3D mesh and 2D image) work through the same engine and renderer.
+
+### Engine (`src/lib/engine/`, zero Svelte deps)
+
+- **Core**: `SampleSet` canonical data structure with typed arrays (positions, colors, radii, opacities, + optional ids, normals, orientations, velocities, anchors, barycentrics, uv)
+- **Ingest**: `MeshAdapter` (glTF → world-space surface samples) + `ImageAdapter` (image → stipple with ML depth, outlier suppression, luminance radius)
+- **Algorithms**: rejection sampling (fast) + CDF importance sampling (better density), both with seeded PRNG and density gamma control
+- **Processing**: composable `Pipeline` with `ColorProcessor` (HSL grading, contrast)
+- **Rendering**: `GLPointRenderer` implementing `RendererAdapter`, custom GLSL shaders with extensive live-tunable controls
+- **Preprocessing**: lazy-loaded ML modules for background removal and depth estimation
+
+### Shader Controls (all live-tunable via uniforms)
+
+- Point size (direct pixel or perspective-scaled)
+- Exposure/brightness (RGB multiply, preserves saturation)
+- Saturation (0–5, applied in HSL before exposure)
+- Dark cutoff (fade dark points into black background, 0–1)
+- Color noise (per-point hue/saturation jitter for broken-color pointillist look)
+- Hue shift (global palette rotation)
+- Warmth (color temperature, cool blue ↔ warm amber)
+- Edge sharpness (soft gaussian ↔ hard circle)
+- Additive vs normal blending toggle
+- Opacity, depth fade
+
+### ML Preprocessing (browser-side, lazy-loaded)
+
+- **Background removal**: `@imgly/background-removal` (~40MB ONNX model). Toggle on/off, cached after first run.
+- **Depth estimation**: `@huggingface/transformers` with Depth Anything V2. 6 model options from DA V2 Small q8 (27MB, fast) to MiDaS DPT-Hybrid (500MB). Creates true 3D displacement from 2D images — understands scene geometry, not just brightness.
+- **Normal displacement**: computes surface normals from depth gradients, displaces points laterally for volumetric form (arms look cylindrical, faces rounded).
+
+### Image Adapter Features
+
+- Outlier suppression (kill isolated bright points in dark neighborhoods)
+- Luminance-based radius scaling (bright = larger points)
+- Density gamma for contrast control
+- ML depth map integration (overrides luminance-based depth when available)
+- Normal-based lateral displacement
+
+### App Layer
+
+- SvelteKit + Threlte 8 scaffold
+- `UnrealBloomPass` post-processing (custom render loop via `useTask`)
+- Full controls UI (scrollable, all parameters, ML preprocessing buttons with loading state)
+- Mesh mode (procedural torus knot) + image mode (upload + process)
+
+### Tests & Quality
+
+- 22 tests passing (SampleSet, algorithms, pipeline, mesh adapter)
+- 0 type errors, 0 warnings
+- TypeScript strict mode, no `any` escape hatches
+
 ## Key Decisions Made
 
 - **Art style**: Dense colored pointillism, NOT sparse point clouds or ASCII
 - **Visual reference**: [Andreion — Amazon Conflux](https://andreion.com/amazon-conflux)
-- **Stack**: SvelteKit + Threlte 8 + raw Three.js engine core
-- **Renderer strategy**: WebGL2 first with `THREE.Points` as the initial renderer implementation, but behind a renderer adapter boundary so splats/surfels can replace it later
-- **Canonical representation**: point-sampled core with optional surfel-oriented attributes for meshes/characters
-- **Content architecture**: typed content graph/manifests are required early so site, train props, and AI share one source of truth
-- **AI character**: launch-critical, but not Phase 1 implementation work
-- **AI backend**: provider abstraction first; final vendor/model choice stays flexible until character integration
+- **Stack**: SvelteKit + Threlte 8 + raw Three.js engine core (confirmed, working)
+- **Renderer**: `THREE.Points` + custom `ShaderMaterial`, behind `RendererAdapter` interface
+- **ML depth**: Depth Anything V2 Small q8 as default, 6 models available. DA V2 Base fp16 produces noticeably better detail (cloth wrinkles, facial features) but is slower.
+- **Background removal**: `@imgly/background-removal` (AGPL). Works well for artwork and photos.
+- **Content architecture**: typed content graph/manifests defined (interfaces only, per agreed scope)
+- **AI character**: launch-critical, but not Phase 1. Provider abstraction, not hard-coded vendor.
 - **Project structure**: single repo, engine in `src/lib/engine/` with zero framework deps
-- **Phase 1 scope**: two tracks — 3D mesh and 2D image, proving the runtime works on both
-- **Ship stance**: public launch requires both experiential and functional layers
-- **Mobile stance**: website-first support on mobile; desktop remains the target for the full experience until the 3D layer is proven performant enough
-- **Customizability**: highly modular, all visual params tunable at runtime
-- **Quality bar**: FAANG-level code quality from the start — strict TS, typed arrays, clean interfaces
+- **Quality bar**: FAANG-level from the start
 
-## Technical Defaults
+## Visual Quality Status
 
-- Renderer: `THREE.Points` + custom `ShaderMaterial` for the first feasibility pass
-- First 3D asset path: Blender mesh → glTF → `MeshSurfaceSampler`
-- First 2D asset path: fast interactive image sampling
-- Quality benchmark path: source image → weighted Voronoi stippling
-- Post-processing: `UnrealBloomPass`
-- Testing: Vitest for engine unit tests
+The renderer is approaching the Andreion reference quality. Key remaining gaps:
+- Colors still slightly less vibrant than Andreion's (his work likely has additional color processing in the offline pipeline)
+- Our work is real-time and interactive, which is significantly more ambitious than his pre-rendered approach
+- The dark cutoff + outlier suppression + color noise combination gets close to the reference look when tuned well
 
-## Review Findings
+## What Happens Next
 
-Andreion's Conflux work is pre-rendered (Processing/p5.js → MP4/PNG). Not real-time. Chromatic's goal is real-time and interactive, which is significantly more ambitious.
-
-- Weighted Voronoi stippling is appropriate as a quality benchmark, not the default live path
-- fast primitive distribution / blue-noise-like approaches are better default candidates for interactive iteration
-- mesh/character rendering likely wants optional surfel-style attributes rather than permanently limiting the system to bare isotropic dots
-- video/live input should be treated as a later adapter problem built around temporal persistence and advection, not as the constraint that defines Phase 1
-
-## Review Outcome
-
-Claude's feasibility scaffold is now in place and has passed a staff-level review pass. The core corrections from review:
-
-- `MeshAdapter` now samples into world space instead of raw geometry-local space, so transformed glTF-style meshes will not render in the wrong location/orientation
-- ingest adapters now preserve more of the canonical sample contract by populating stable `ids`, and image/mesh UVs where available
-- the page upload flow now revokes blob URLs instead of leaking browser memory on repeated uploads or teardown
-- adapter coverage now includes mesh transform, normal, ID, UV, and material-fallback behaviour
-
-## Residual Risks
-
-- The main route still ships a very large client chunk because the full Three.js/Threlte demo lives directly in `+page.svelte`
-- `ImageAdapter` and `GLPointRenderer` still lack direct unit coverage
-- the current controls/demo shell are feasibility-grade and not yet aligned with the longer-term website/app-shell separation
-
-## Next Steps
-
-1. Evaluate the visual result and rendering quality now that ingest correctness is fixed
-2. Split or lazy-load the heavy demo route so the eventual site shell is not coupled to the entire 3D stack on first paint
-3. Add direct tests for `ImageAdapter` and `GLPointRenderer` resource/update behaviour
-4. Decide whether the current `THREE.Points` renderer is visually sufficient before broadening scope
+1. Continue iterating on visual quality (color richness, density)
+2. Source proper test assets (Blender glTF models, high-res classical paintings)
+3. Phase 2: animated surface binding for character work
+4. Phase 3: website + content integration
+5. Phase 4: AI character integration

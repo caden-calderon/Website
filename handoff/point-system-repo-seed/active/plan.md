@@ -4,71 +4,45 @@
 
 Build a point-sampled runtime that serves as the visual foundation for Chromatic — a portfolio experience combining a 3D train world, an AI character, and a functional website, all unified by dense stipple/pointillist rendering.
 
-## Core Product Decision
+## Current State
 
-The sample runtime is the platform, but a shippable product also requires a first-class content graph and character layer. The website, train experience, AI character, and all future source adapters are consumers of the same underlying systems.
+Phase 1 feasibility is largely proven. Both tracks produce compelling results:
+- **Track A (3D mesh)**: procedural torus knot with world-space sampling, bloom, orbit controls
+- **Track B (2D image)**: image upload with importance sampling, ML depth estimation, background removal, volumetric displacement
 
-## Phase 1 Build Target
+The engine architecture supports both source types cleanly through the same `RendererAdapter` interface.
 
-Two parallel proof tracks sharing one engine:
+## What's Working
 
-### Track A — 3D Mesh → Samples
+- `SampleSet` → `IngestAdapter` → `ProcessingPipeline` → `RendererAdapter` pipeline
+- Two sampling algorithms (rejection + importance) with density gamma
+- `GLPointRenderer` with 15+ live-tunable shader uniforms
+- ML background removal and depth estimation (6 model options)
+- Normal-based lateral displacement for volumetric form
+- Full controls UI
 
-- load a static glTF test asset
-- sample 50-100k points from mesh surfaces (`MeshSurfaceSampler`)
-- render via `THREE.Points` with custom `ShaderMaterial`
-- black background, per-point color, bloom
+## Remaining Phase 1 Work
 
-### Track B — 2D Image → Samples
+- Source proper test assets (actual Blender glTF model + high-res reference images)
+- Add weighted Voronoi stippling as quality benchmark
+- Continue color quality iteration toward Andreion reference
+- Reduce route chunk size (lazy-load the heavy 3D demo)
+- Add ImageAdapter and GLPointRenderer tests
 
-- load a source image
-- run a fast interactive sampling path first
-- add weighted Voronoi stippling as the quality benchmark path
-- render through the same renderer abstraction
-- same controls, same look
+## Success Criteria
 
-### Shared Infrastructure
-
-- `SampleSet` typed-array data structure with room for stable IDs and source anchors
-- `IngestAdapter` interface with `MeshAdapter` and `ImageAdapter`
-- renderer adapter interface with `THREE.Points` as the first implementation
-- typed content graph/manifests
-- `UnrealBloomPass` post-processing
-- Svelte UI for parameter controls
-- SvelteKit + Threlte 8 scaffold
+- the look approaches the Andreion Conflux reference quality
+- both 3D and 2D sources produce compelling results through the same renderer
+- ML depth creates convincing 3D form from 2D images
+- the architecture extends without rewrites
+- customization knobs produce meaningfully different visual results
+- TypeScript strict, no `any`, proper disposal, typed arrays throughout
 
 ## Architecture Shape
 
 ```
-Source → IngestAdapter → SampleSet → ProcessingPipeline → RendererAdapter → RenderPrimitive
+Source Image → [BG Removal] → [Depth Estimation] → ImageAdapter → SampleSet → Pipeline → GLPointRenderer
+Source Mesh  →                                      MeshAdapter  → SampleSet → Pipeline → GLPointRenderer
 ```
 
-Engine lives in `src/lib/engine/` — pure TypeScript + Three.js, zero Svelte imports. Content manifests and character interfaces sit beside it as first-class systems rather than being postponed to the app layer.
-
-## Stack
-
-- SvelteKit (app shell, routing, API endpoints)
-- Threlte 8 (scene management, camera, events)
-- raw Three.js + TypeScript (point engine core)
-- WebGL2 renderer (Phase 1)
-- Vitest (engine tests)
-
-## Customization Requirements
-
-Every visual parameter must be tunable at runtime:
-
-- algorithm (Voronoi / blue noise / Poisson), density, count
-- point size (base, min/max, attenuation, randomization)
-- color (hue, saturation, brightness, contrast)
-- opacity (global, depth falloff)
-- bloom (strength, radius, threshold)
-- motion (jitter, drift)
-
-## Success Criteria
-
-- the look matches the Andreion Conflux reference quality (dense, painterly, luminous)
-- both 3D and 2D sources produce compelling results through the same renderer abstraction
-- the architecture is clean enough to extend without rewrites
-- the architecture leaves room for content mirroring and character integration without a second foundational redesign
-- customization knobs produce meaningfully different visual results
-- TypeScript strict, no `any`, proper disposal, typed arrays throughout
+Engine lives in `src/lib/engine/` — pure TypeScript + Three.js, zero Svelte imports.

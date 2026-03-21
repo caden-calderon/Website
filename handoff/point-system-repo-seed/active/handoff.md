@@ -2,39 +2,72 @@
 
 ## Status
 
-The feasibility scaffold exists and has now had a staff-level review/refactor pass. The biggest correctness issue found in implementation was mesh ingest sampling in local geometry space; that is fixed, tested, and the handoff now reflects the reviewed state instead of the initial implementation summary.
+Phase 1 feasibility scaffold is built and producing compelling results. Both tracks (3D mesh and 2D image) work. ML preprocessing (background removal + depth estimation) is integrated. Visual quality is approaching the Andreion reference with extensive tuning controls.
+
+The repo has had a staff-level Codex review pass. All tests pass. No type errors.
 
 ## Read Order
 
-1. `README.md` — project overview, what to build first
-2. `vision.md` — product vision, art direction, experience structure, AI character
-3. `architecture.md` — system design, engine structure, stack, and project layout
+1. `README.md` — project overview, what exists
+2. `vision.md` — product vision, art direction, experience structure
+3. `architecture.md` — system design, engine structure, stack decisions
 4. `roadmap.md` — phased delivery plan
-5. `active/*` — current plan, context, and tasks
+5. `active/context.md` — current state, what's built, what's next (START HERE for implementation context)
+6. `active/tasks.md` — completed and upcoming work
+7. `active/plan.md` — Phase 1 build target and success criteria
+
+## Quick Start
+
+```bash
+pnpm install
+pnpm dev        # http://localhost:5173
+pnpm test       # 22 tests
+pnpm check      # 0 errors
+```
+
+Upload an image → toggle "remove background" → toggle "estimate depth" → adjust depth scale and normal displacement → orbit camera to see 3D form. Tune point size, saturation, dark cutoff, color noise for the Andreion look.
 
 ## Legacy Reference
 
-`legacy/CHROMATIC_V2_HANDOFF.md` — the original V2 handoff document from the ASCII/text-art era. Contains detailed thinking on the train compartment concept, content mirroring, character animation pipeline (MediaPipe → mannequin), mobile strategy, project showcase system, and LLM conversation architecture. Much of the product thinking survives; the rendering approach has been replaced by points/surfels.
+`legacy/CHROMATIC_V2_HANDOFF.md` — the original V2 handoff from the ASCII/text-art era. Much product thinking survives (train compartment, content mirroring, character animation, mobile strategy). The rendering approach has been replaced by points/surfels.
 
-`legacy/vision.md` — transitional vision doc from when the project pivoted from ASCII to points. Superseded by the current `vision.md`.
+`legacy/vision.md` — transitional vision doc. Superseded by current `vision.md`.
 
-## Key Context for Reviewers
+## Key Context for New Agents
 
-- The art direction is inspired by [Andreion's Amazon Conflux](https://andreion.com/amazon-conflux) — dense colored pointillism, not sparse point clouds
-- Andreion's work is pre-rendered (Processing/p5.js → video). Chromatic targets real-time interactive rendering, which is more ambitious.
-- The engine (in `src/lib/engine/`) must be framework-agnostic — pure TypeScript + Three.js, zero Svelte imports
-- The canonical runtime is point-sampled with optional surfel-like attributes; `THREE.Points` is the first renderer implementation, not the permanent architectural constraint
-- The product needs a typed content graph/manifests so train props, website routes, showcase modules, and AI knowledge stay aligned
-- The AI character is launch-critical, but provider/model choice should remain abstracted until character integration work begins
-- Public launch requires both the experiential layer and the functional website
-- Mobile should support the website well; the 3D layer may initially fall back to a desktop-only experience
-- Quality bar is high from day one: strict TypeScript, typed arrays, clean interfaces, proper GPU resource disposal
-- Current review status: `pnpm test`, `pnpm check`, and `pnpm build` pass after fixes; build still warns that the root route chunk is very large, which is the main remaining repo-health concern from this pass
+- Art direction: [Andreion's Amazon Conflux](https://andreion.com/amazon-conflux) — dense colored pointillism, not sparse point clouds
+- Andreion's work is pre-rendered. Ours is real-time and interactive — more ambitious.
+- Engine (`src/lib/engine/`) is framework-agnostic — zero Svelte imports
+- `THREE.Points` is the first renderer behind `RendererAdapter` interface — splats can follow
+- ML preprocessing is lazy-loaded and browser-side: `@imgly/background-removal` + `@huggingface/transformers` (Depth Anything V2)
+- Content graph exists as types only — full implementation is later
+- AI character is launch-critical but not Phase 1
+- Quality bar: strict TypeScript, typed arrays, clean interfaces, proper GPU disposal
 
-## Immediate Path
+## What Was Built This Session
 
-1. Review all docs (this handoff)
-2. Judge the current look and motion quality before broadening scope
-3. Reduce the root-route bundle cost so the eventual site shell is not hard-coupled to the full 3D stack
-4. Add direct `ImageAdapter` and renderer coverage
-5. Decide whether `THREE.Points` is visually sufficient or whether splat-oriented work should move forward sooner
+### Engine Core
+- `SampleSet` canonical data structure
+- `MeshAdapter` + `ImageAdapter` ingest
+- Rejection + importance sampling algorithms
+- `GLPointRenderer` with extensive custom GLSL
+- Processing pipeline + ColorProcessor
+- Content graph types
+
+### Visual Quality Controls (all live-tunable)
+- Point size, perspective scaling, edge sharpness
+- Exposure brightness (preserves saturation), saturation (0–5)
+- Dark cutoff, color noise, hue shift, warmth
+- Additive/normal blending, opacity, depth fade
+- Density gamma, outlier suppression, radius from luminance
+- Bloom (strength, radius, threshold)
+
+### ML Preprocessing
+- Background removal (toggle, cached)
+- Depth estimation (6 models: DA V2 Small/Base × q8/fp16, MiDaS, DA V1)
+- Surface normals from depth for lateral volumetric displacement
+
+### Infrastructure
+- SvelteKit + Threlte 8 scaffold
+- Custom bloom render loop
+- 22 tests, 0 errors

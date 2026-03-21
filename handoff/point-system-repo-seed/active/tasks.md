@@ -2,41 +2,69 @@
 
 ## Completed
 
+### Planning & Direction
 - lock the art direction (dense pointillism, Andreion reference)
 - lock the stack (SvelteKit + Threlte 8 + raw Three.js engine)
 - define the project structure (single repo, engine in `src/lib/engine/`)
-- define the initial engine architecture (pipeline, adapters, renderer)
+- define the engine architecture (pipeline, adapters, renderer adapter boundary)
 - define Phase 1 scope (two tracks: 3D mesh + 2D image)
 - research Andreion's technique (pre-rendered Processing/p5.js dithering)
 - research optimal stack (Three.js + Threlte validated as best fit)
-- document everything for Codex review
 - complete Codex architecture review
-- clarify ship stance: both experiential and functional layers are required before public launch
-- clarify mobile stance: website-first fallback is acceptable while desktop remains the full target
-- clarify AI stance: launch-critical, but later than engine/scene/style validation
-- scaffold Phase 1 feasibility implementation (engine core, scene, controls, tests)
-- correct `MeshAdapter` world-space sampling so transformed meshes/glTF nodes render correctly
-- preserve stable IDs and UV metadata in current ingest adapters where available
-- fix uploaded-image blob URL cleanup in the demo page
-- add mesh ingest tests for transforms, normals, IDs, UVs, and material colour fallback
+- clarify ship stance, mobile stance, AI stance
 
-## Next (Phase 1)
+### Engine Implementation
+- scaffold SvelteKit + Threlte 8 project
+- implement SampleSet data structure with typed arrays
+- implement MeshAdapter with world-space sampling, IDs, UVs, normals, material fallback
+- implement ImageAdapter with importance/rejection sampling
+- implement GLPointRenderer with custom GLSL shaders
+- implement processing Pipeline + ColorProcessor
+- implement bloom post-processing (UnrealBloomPass via custom Threlte render loop)
+- implement content graph types (interfaces only)
 
-- [ ] evaluate the visual result against the Andreion reference before expanding scope
-- [ ] reduce initial route chunk size by splitting/lazy-loading the heavy Threlte demo from the site shell
-- [ ] add direct tests for `ImageAdapter`
-- [ ] add direct tests for `GLPointRenderer` buffer reuse/update/disposal behavior
-- [ ] decide whether to keep `THREE.Points` as the Phase 1 renderer or move sooner to splat-like rendering
-- [ ] create/source test assets (simple glTF model + reference image)
-- [ ] tighten the typed content graph/manifests for projects, routes, train props, and AI knowledge
+### Visual Quality Iteration
+- fix point size slider (attenuation constant was too aggressive)
+- switch from additive to normal blending (colors no longer wash out)
+- add edge sharpness control (hard circle vs soft gaussian)
+- add dark cutoff (fade dark points into black background)
+- fix brightness to be exposure/gain (preserves saturation)
+- add color noise (per-point hue/saturation jitter for broken-color effect)
+- add hue shift and warmth (color temperature) controls
+- add outlier suppression (kill isolated bright specs in dark regions)
+- add luminance-based radius scaling
+- add density gamma for contrast control
+
+### ML Preprocessing
+- integrate @imgly/background-removal (browser-side, ~40MB model)
+- integrate @huggingface/transformers with Depth Anything V2 for depth estimation
+- add 6 depth model options (DA V2 Small/Base × q8/fp16 + MiDaS + DA V1)
+- implement depth-to-normals for lateral displacement (volumetric form)
+- fix blob URL revocation bug (convert to blob/dataURL before passing to ML)
+
+### Code Quality
+- fix MeshAdapter world-space sampling bug
+- fix blob URL lifecycle leaks
+- add mesh ingest tests (transforms, normals, IDs, UVs, material fallback)
+- 22 tests passing, 0 type errors, 0 warnings
+
+## Next
+
+- [ ] source proper test assets (Blender glTF model with real geometry + high-res classical paintings)
+- [ ] continue visual quality iteration toward Andreion reference
+- [ ] add weighted Voronoi stippling as quality benchmark algorithm
+- [ ] add direct tests for ImageAdapter and GLPointRenderer
+- [ ] reduce initial route chunk size (lazy-load Threlte demo)
+- [ ] explore color palette presets / LUT-style color grading
+- [ ] evaluate THREE.Points sufficiency vs splat rendering for Phase 2
 
 ## Later (Phase 2+)
 
 - animated surface binding (barycentric coordinates)
-- MediaPipe / Blender body-matching pipeline
+- MediaPipe / Blender body-matching pipeline for character animation
 - pre-recorded animation clip library
 - video/webcam ingest with temporal coherence
-- train compartment scene (Blender)
-- AI character integration
+- train compartment scene (Caden models in Blender)
+- AI character integration (provider abstraction, conversation system)
 - website layer with point-based visual language
-- mobile 3D optimization
+- mobile optimization
