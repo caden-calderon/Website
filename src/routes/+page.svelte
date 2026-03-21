@@ -11,6 +11,7 @@
 	import type { RenderParams, BloomParams } from '$lib/engine/render/types.js';
 	import type { ImageAdapterOptions } from '$lib/engine/ingest/types.js';
 	import type { DepthMap } from '$lib/engine/preprocessing/DepthEstimation.js';
+	import { DEPTH_MODELS } from '$lib/engine/preprocessing/DepthEstimation.js';
 
 	let renderParams = $state<RenderParams>({ ...DEFAULT_RENDER_PARAMS });
 	let bloomParams = $state<BloomParams>({ ...DEFAULT_BLOOM_PARAMS });
@@ -24,6 +25,7 @@
 	let normalDisplacement = $state(0);
 	let removeBg = $state(false);
 	let useDepthMap = $state(false);
+	let depthModelIndex = $state(0);
 	let processingStatus = $state('');
 	let ready = $state(false);
 
@@ -202,14 +204,40 @@
 			return;
 		}
 
-		processingStatus = 'Estimating depth (downloading model on first use)...';
+		processingStatus = 'Estimating depth...';
 		try {
 			const { estimateDepth } = await import('$lib/engine/preprocessing/DepthEstimation.js');
-			currentDepthMap = await estimateDepth(img);
+			currentDepthMap = await estimateDepth(img, {
+				modelIndex: depthModelIndex,
+				onProgress: (s) => { processingStatus = s; },
+			});
 			if (mode === 'image') generateImageSamples(img);
 		} catch (err) {
 			console.error('Depth estimation failed:', err);
 			useDepthMap = false;
+		}
+		processingStatus = '';
+	}
+
+	async function handleDepthModelChange(index: number) {
+		depthModelIndex = index;
+		if (!useDepthMap) return;
+
+		// Re-run depth estimation with the new model
+		const img = getActiveImage();
+		if (!img) return;
+
+		currentDepthMap = null; // clear cache
+		processingStatus = 'Switching depth model...';
+		try {
+			const { estimateDepth } = await import('$lib/engine/preprocessing/DepthEstimation.js');
+			currentDepthMap = await estimateDepth(img, {
+				modelIndex: index,
+				onProgress: (s) => { processingStatus = s; },
+			});
+			if (mode === 'image') generateImageSamples(img);
+		} catch (err) {
+			console.error('Depth estimation failed:', err);
 		}
 		processingStatus = '';
 	}
@@ -243,6 +271,8 @@
 			bind:normalDisplacement
 			bind:removeBg
 			bind:useDepthMap
+			bind:depthModelIndex
+			depthModels={DEPTH_MODELS}
 			{processingStatus}
 			hasImage={originalImage !== null}
 			onRenderParamsChange={handleRenderParamsChange}
@@ -253,6 +283,7 @@
 			onResample={handleResample}
 			onRemoveBg={handleRemoveBg}
 			onEstimateDepth={handleEstimateDepth}
+			onDepthModelChange={handleDepthModelChange}
 		/>
 
 		{#if processingStatus}

@@ -1,27 +1,87 @@
 /**
- * Browser-side monocular depth estimation using Transformers.js
- * with the Depth Anything V2 Small model.
+ * Browser-side monocular depth estimation using Transformers.js.
  *
- * Models are downloaded on first use (~27MB quantized). Subsequent
- * runs use the browser cache. The module is lazy-loaded.
+ * Supports multiple models — downloaded on first use, cached in browser.
+ * The module is lazy-loaded so the main bundle stays small.
  */
 
+type QuantDtype = 'q8' | 'fp16' | 'fp32' | 'q4' | 'q4f16' | 'int8' | 'uint8' | 'auto';
+
+export interface DepthModelInfo {
+	id: string;
+	label: string;
+	description: string;
+	size: string;
+	dtype: QuantDtype;
+}
+
+/** Available depth estimation models, ordered by size/speed. */
+export const DEPTH_MODELS: DepthModelInfo[] = [
+	{
+		id: 'onnx-community/depth-anything-v2-small',
+		label: 'DA V2 Small',
+		description: 'Fast, good quality. Best for iteration.',
+		size: '~27MB',
+		dtype: 'q8',
+	},
+	{
+		id: 'onnx-community/depth-anything-v2-small',
+		label: 'DA V2 Small (fp16)',
+		description: 'Higher precision small model.',
+		size: '~50MB',
+		dtype: 'fp16',
+	},
+	{
+		id: 'onnx-community/depth-anything-v2-base',
+		label: 'DA V2 Base',
+		description: 'More detail, better edges. Slower.',
+		size: '~102MB',
+		dtype: 'q8',
+	},
+	{
+		id: 'onnx-community/depth-anything-v2-base',
+		label: 'DA V2 Base (fp16)',
+		description: 'Highest quality available. Large download.',
+		size: '~195MB',
+		dtype: 'fp16',
+	},
+	{
+		id: 'Xenova/dpt-hybrid-midas',
+		label: 'MiDaS DPT-Hybrid',
+		description: 'Classic depth model. Different characteristics.',
+		size: '~500MB',
+		dtype: 'fp32',
+	},
+	{
+		id: 'Xenova/depth-anything-small-hf',
+		label: 'DA V1 Small',
+		description: 'Original Depth Anything. Compare against V2.',
+		size: '~99MB',
+		dtype: 'fp32',
+	},
+];
+
+// Cache pipelines by model+dtype key to avoid reloading
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-let pipelineInstance: any = null;
+const pipelineCache = new Map<string, any>();
 
-const MODEL_ID = 'onnx-community/depth-anything-v2-small';
+function cacheKey(modelId: string, dtype: string): string {
+	return `${modelId}::${dtype}`;
+}
 
-async function getDepthPipeline() {
-	if (pipelineInstance) return pipelineInstance;
+async function getDepthPipeline(modelId: string, dtype: string) {
+	const key = cacheKey(modelId, dtype);
+	if (pipelineCache.has(key)) return pipelineCache.get(key);
 
 	const { pipeline } = await import('@huggingface/transformers');
 
-	pipelineInstance = await pipeline('depth-estimation', MODEL_ID, {
-		dtype: 'q8', // quantised (~27MB vs ~99MB fp32)
+	const instance = await pipeline('depth-estimation', modelId, {
+		dtype: dtype as 'q8' | 'fp16' | 'fp32',
 		device: typeof navigator !== 'undefined' && 'gpu' in navigator ? 'webgpu' : 'wasm',
 	});
 
-	return pipelineInstance;
+	pipelineCache.set(key, instance);
+	return instance;
 }
 
 /** Convert an image element to a data URL (survives revoked blob URLs). */
@@ -40,33 +100,46 @@ export interface DepthMap {
 	data: Float32Array;
 	width: number;
 	height: number;
+	/** Which model produced this depth map */
+	modelId: string;
+}
+
+export interface EstimateDepthOptions {
+	/** Model index from DEPTH_MODELS array (default 0 = DA V2 Small q8) */
+	modelIndex?: number;
+	/** Progress callback */
+	onProgress?: (status: string) => void;
 }
 
 /**
  * Estimate a depth map from a source image.
  *
- * Uses Depth Anything V2 Small — a monocular depth estimation model that
- * understands scene geometry (objects in front vs behind) rather than just
- * using brightness like our luminance fallback.
- *
  * Returns normalised 0–1 depth values where 0 = farthest, 1 = closest.
  */
-export async function estimateDepth(source: HTMLImageElement): Promise<DepthMap> {
-	const estimator = await getDepthPipeline();
+export async function estimateDepth(
+	source: HTMLImageElement,
+	options: EstimateDepthOptions = {},
+): Promise<DepthMap> {
+	const modelIdx = options.modelIndex ?? 0;
+	const model = DEPTH_MODELS[modelIdx];
+	if (!model) throw new Error(`Invalid model index: ${modelIdx}`);
 
-	// Convert to data URL to avoid revoked blob URL issues
+	options.onProgress?.(`Loading ${model.label} (${model.size})...`);
+
+	const estimator = await getDepthPipeline(model.id, model.dtype);
 	const dataUrl = imageToDataUrl(source);
+
+	options.onProgress?.(`Running ${model.label}...`);
 
 	const result = await estimator(dataUrl);
 	const depthImage = result.predicted_depth;
 	const { dims, data: rawData } = depthImage;
 
-	// dims is [height, width] from pipeline
 	const height = dims[0];
 	const width = dims[1];
 	const pixels = rawData instanceof Float32Array ? rawData : new Float32Array(rawData);
 
-	// Normalise to 0–1 range
+	// Normalise to 0–1
 	let min = Infinity;
 	let max = -Infinity;
 	for (let i = 0; i < pixels.length; i++) {
@@ -80,15 +153,11 @@ export async function estimateDepth(source: HTMLImageElement): Promise<DepthMap>
 		normalised[i] = (pixels[i] - min) / range;
 	}
 
-	return { data: normalised, width, height };
+	return { data: normalised, width, height, modelId: model.id };
 }
 
 /**
  * Compute approximate surface normals from a depth map via gradients.
- *
- * Returns per-pixel [nx, ny, nz] where nx/ny encode the surface slope
- * and nz is approximately 1.0 for flat surfaces. This enables lateral
- * displacement for volumetric form (arms look cylindrical, faces rounded).
  */
 export function depthToNormals(depth: DepthMap, strength: number = 1.0): Float32Array {
 	const { data, width, height } = depth;

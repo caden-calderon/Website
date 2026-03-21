@@ -29,5 +29,5 @@ export { GLPointRenderer } from './render/adapters/GLPointRenderer.js';
 
 // Preprocessing
 export { removeImageBackground } from './preprocessing/BackgroundRemoval.js';
-export { estimateDepth, depthToNormals } from './preprocessing/DepthEstimation.js';
-export type { DepthMap } from './preprocessing/DepthEstimation.js';
+export { estimateDepth, depthToNormals, DEPTH_MODELS } from './preprocessing/DepthEstimation.js';
+export type { DepthMap, DepthModelInfo, EstimateDepthOptions } from './preprocessing/DepthEstimation.js';

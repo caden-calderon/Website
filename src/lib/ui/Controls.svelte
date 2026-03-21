@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { RenderParams, BloomParams } from '$lib/engine/render/types.js';
+	import type { DepthModelInfo } from '$lib/engine/preprocessing/DepthEstimation.js';
 
 	interface Props {
 		renderParams: RenderParams;
@@ -14,6 +15,8 @@
 		normalDisplacement: number;
 		removeBg: boolean;
 		useDepthMap: boolean;
+		depthModelIndex: number;
+		depthModels: DepthModelInfo[];
 		processingStatus: string;
 		hasImage: boolean;
 		onRenderParamsChange: (params: RenderParams) => void;
@@ -24,6 +27,7 @@
 		onResample: () => void;
 		onRemoveBg: () => void;
 		onEstimateDepth: () => void;
+		onDepthModelChange: (index: number) => void;
 	}
 
 	let {
@@ -39,6 +43,8 @@
 		normalDisplacement = $bindable(),
 		removeBg = $bindable(),
 		useDepthMap = $bindable(),
+		depthModelIndex = $bindable(),
+		depthModels,
 		processingStatus,
 		hasImage,
 		onRenderParamsChange,
@@ -49,6 +55,7 @@
 		onResample,
 		onRemoveBg,
 		onEstimateDepth,
+		onDepthModelChange,
 	}: Props = $props();
 
 	let collapsed = $state(false);
@@ -132,6 +139,24 @@
 						>
 							{useDepthMap ? '✓ ' : ''}estimate depth (3D)
 						</button>
+
+						{#if useDepthMap}
+							<select
+								class="rounded bg-white/10 px-2 py-1 text-white/80"
+								value={depthModelIndex}
+								onchange={(e) => {
+									const idx = Number((e.target as HTMLSelectElement).value);
+									depthModelIndex = idx;
+									onDepthModelChange(idx);
+								}}
+								disabled={!!processingStatus}
+							>
+								{#each depthModels as model, i}
+									<option value={i}>{model.label} ({model.size})</option>
+								{/each}
+							</select>
+							<span class="text-white/30">{depthModels[depthModelIndex]?.description}</span>
+						{/if}
 					</div>
 				{/if}
 
