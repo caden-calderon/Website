@@ -4,6 +4,7 @@ import type { IngestAdapter, ImageAdapterOptions } from './types.js';
 import type { AlgorithmInput } from '../algorithms/types.js';
 import { rejectionSampling } from '../algorithms/rejection-sampling.js';
 import { importanceSampling } from '../algorithms/importance-sampling.js';
+import { depthToNormals, type DepthMap } from '../preprocessing/DepthEstimation.js';
 
 type ImageSource = HTMLImageElement | HTMLCanvasElement | ImageBitmap;
 
@@ -14,8 +15,8 @@ function luminance(r: number, g: number, b: number): number {
 /**
  * Converts a 2D image into a point-sampled SampleSet.
  *
- * Points are placed on the XY plane with density proportional to source
- * luminance. Optionally applies Z-depth displacement and outlier suppression.
+ * Supports optional ML-estimated depth maps for true 3D displacement
+ * and lateral normal-based displacement for volumetric form.
  */
 export class ImageAdapter implements IngestAdapter<ImageSource, ImageAdapterOptions> {
 	readonly name = 'image';
@@ -26,6 +27,8 @@ export class ImageAdapter implements IngestAdapter<ImageSource, ImageAdapterOpti
 		const densityGamma = options.densityGamma ?? 1.0;
 		const radiusFromLuminance = options.radiusFromLuminance ?? false;
 		const outlierRadius = options.outlierRadius ?? 0;
+		const normalDisplacement = options.normalDisplacement ?? 0;
+		const depthMap = options.depthMap;
 
 		const input: AlgorithmInput = { pixels: data, width, height };
 		const algOpts = {
@@ -38,7 +41,7 @@ export class ImageAdapter implements IngestAdapter<ImageSource, ImageAdapterOpti
 		const algorithm = options.algorithm === 'importance' ? importanceSampling : rejectionSampling;
 		const result = algorithm.generate(input, algOpts);
 
-		// Pre-compute a luminance map for neighbourhood checks if outlier suppression is on
+		// Pre-compute luminance map for neighbourhood checks
 		let lumMap: Float32Array | null = null;
 		if (outlierRadius > 0) {
 			lumMap = new Float32Array(width * height);
@@ -48,7 +51,13 @@ export class ImageAdapter implements IngestAdapter<ImageSource, ImageAdapterOpti
 			}
 		}
 
-		// First pass: figure out which points survive outlier suppression
+		// Pre-compute surface normals from depth map for lateral displacement
+		let normals: Float32Array | null = null;
+		if (depthMap && normalDisplacement > 0) {
+			normals = depthToNormals(depthMap, 2.0);
+		}
+
+		// First pass: outlier suppression
 		const survived = new Uint8Array(result.count);
 		let survivedCount = 0;
 
@@ -58,7 +67,6 @@ export class ImageAdapter implements IngestAdapter<ImageSource, ImageAdapterOpti
 				const py = Math.floor(result.positions[i * 2 + 1] * height);
 				const r = outlierRadius;
 
-				// Average luminance in neighbourhood
 				let sumLum = 0;
 				let count = 0;
 				for (let dy = -r; dy <= r; dy++) {
@@ -72,8 +80,6 @@ export class ImageAdapter implements IngestAdapter<ImageSource, ImageAdapterOpti
 					}
 				}
 				const avgNeighbourLum = count > 0 ? sumLum / count : 0;
-
-				// Kill this point if it's bright but its neighbourhood is dark
 				if (avgNeighbourLum < 0.08) {
 					survived[i] = 0;
 					continue;
@@ -83,7 +89,7 @@ export class ImageAdapter implements IngestAdapter<ImageSource, ImageAdapterOpti
 			survivedCount++;
 		}
 
-		// Build output SampleSet from survived points
+		// Build output SampleSet
 		const aspect = width / height;
 		const samples = createSampleSet({ count: survivedCount, includeIds: true, includeUv: true });
 
@@ -93,16 +99,41 @@ export class ImageAdapter implements IngestAdapter<ImageSource, ImageAdapterOpti
 
 			const i2 = i * 2;
 			const i3 = i * 3;
-			const x = result.positions[i2];
-			const y = result.positions[i2 + 1];
+			const normX = result.positions[i2];
+			const normY = result.positions[i2 + 1];
 			const lum = result.luminances[i];
 
 			const o3 = outIdx * 3;
 			const o2 = outIdx * 2;
 
-			samples.positions[o3] = (x - 0.5) * aspect;
-			samples.positions[o3 + 1] = -(y - 0.5);
-			samples.positions[o3 + 2] = (lum - 0.3) * depthScale;
+			let xPos = (normX - 0.5) * aspect;
+			let yPos = -(normY - 0.5);
+			let zPos = 0;
+
+			if (depthMap && depthScale > 0) {
+				// Sample depth from the ML-estimated depth map
+				const dpx = Math.min(Math.floor(normX * depthMap.width), depthMap.width - 1);
+				const dpy = Math.min(Math.floor(normY * depthMap.height), depthMap.height - 1);
+				const depthValue = depthMap.data[dpy * depthMap.width + dpx];
+
+				// Depth map: 1.0 = closest, 0.0 = farthest
+				zPos = (depthValue - 0.5) * depthScale;
+
+				// Lateral displacement from surface normals
+				// Creates volumetric form — arms look cylindrical, faces look rounded
+				if (normals && normalDisplacement > 0) {
+					const nIdx = (dpy * depthMap.width + dpx) * 3;
+					xPos += normals[nIdx] * normalDisplacement * 0.05;
+					yPos += normals[nIdx + 1] * normalDisplacement * 0.05;
+				}
+			} else if (depthScale > 0) {
+				// Fallback: luminance-based depth
+				zPos = (lum - 0.3) * depthScale;
+			}
+
+			samples.positions[o3] = xPos;
+			samples.positions[o3 + 1] = yPos;
+			samples.positions[o3 + 2] = zPos;
 
 			samples.colors[o3] = result.colors[i3];
 			samples.colors[o3 + 1] = result.colors[i3 + 1];
@@ -114,8 +145,8 @@ export class ImageAdapter implements IngestAdapter<ImageSource, ImageAdapterOpti
 
 			samples.opacities[outIdx] = 1.0;
 			samples.ids![outIdx] = outIdx;
-			samples.uv![o2] = x;
-			samples.uv![o2 + 1] = y;
+			samples.uv![o2] = normX;
+			samples.uv![o2 + 1] = normY;
 
 			outIdx++;
 		}

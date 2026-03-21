@@ -1,4 +1,5 @@
 import type { SampleSet } from '../core/types.js';
+import type { DepthMap } from '../preprocessing/DepthEstimation.js';
 
 /** Common interface for all source-to-sample converters. */
 export interface IngestAdapter<TSource, TOptions> {
@@ -23,16 +24,22 @@ export interface ImageAdapterOptions {
 	baseRadius?: number;
 	/** Random seed for reproducibility */
 	seed?: number;
-	/** Z-depth displacement scale from luminance (default 0). Set > 0 for relief effect. */
+	/** Z-depth displacement scale (default 0). Set > 0 for depth effect. */
 	depthScale?: number;
 	/** Gamma power curve for density contrast (default 1.0). Higher = more contrast. */
 	densityGamma?: number;
 	/** Scale point radius by local luminance (default false) */
 	radiusFromLuminance?: boolean;
-	/**
-	 * Neighbourhood radius (in pixels) for outlier suppression.
-	 * Bright points surrounded by dark neighbours are killed.
-	 * 0 = off (default 0).
-	 */
+	/** Neighbourhood radius (in pixels) for outlier suppression. 0 = off. */
 	outlierRadius?: number;
+	/**
+	 * ML-estimated depth map for true 3D displacement.
+	 * When provided, overrides luminance-based depth.
+	 */
+	depthMap?: DepthMap;
+	/**
+	 * Lateral displacement strength from depth normals (default 0).
+	 * Creates volumetric bulging — an arm looks cylindrical, not just pushed forward.
+	 */
+	normalDisplacement?: number;
 }

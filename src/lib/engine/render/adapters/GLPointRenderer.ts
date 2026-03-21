@@ -40,6 +40,7 @@ export class GLPointRenderer implements RendererAdapter {
 				uDarkCutoff: { value: params.darkCutoff },
 				uHueShift: { value: params.hueShift },
 				uWarmth: { value: params.warmth },
+				uColorNoise: { value: params.colorNoise },
 			},
 			vertexColors: true,
 			transparent: true,
@@ -75,6 +76,7 @@ export class GLPointRenderer implements RendererAdapter {
 		u.uDarkCutoff.value = params.darkCutoff;
 		u.uHueShift.value = params.hueShift;
 		u.uWarmth.value = params.warmth;
+		u.uColorNoise.value = params.colorNoise;
 
 		this.material.blending = params.additiveBlending
 			? THREE.AdditiveBlending

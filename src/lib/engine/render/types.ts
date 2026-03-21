@@ -27,6 +27,8 @@ export interface RenderParams {
 	hueShift: number;
 	/** Colour temperature shift. Positive = warm/amber, negative = cool/blue. (-1 to 1) */
 	warmth: number;
+	/** Per-point colour noise amount (0–0.3). Broken-colour pointillist effect. */
+	colorNoise: number;
 }
 
 /** Bloom post-processing parameters. */
@@ -64,6 +66,7 @@ export const DEFAULT_RENDER_PARAMS: RenderParams = {
 	darkCutoff: 0.0,
 	hueShift: 0.0,
 	warmth: 0.0,
+	colorNoise: 0.05,
 };
 
 export const DEFAULT_BLOOM_PARAMS: BloomParams = {

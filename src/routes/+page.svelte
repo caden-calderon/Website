@@ -10,6 +10,7 @@
 	import { DEFAULT_RENDER_PARAMS, DEFAULT_BLOOM_PARAMS } from '$lib/engine/render/types.js';
 	import type { RenderParams, BloomParams } from '$lib/engine/render/types.js';
 	import type { ImageAdapterOptions } from '$lib/engine/ingest/types.js';
+	import type { DepthMap } from '$lib/engine/preprocessing/DepthEstimation.js';
 
 	let renderParams = $state<RenderParams>({ ...DEFAULT_RENDER_PARAMS });
 	let bloomParams = $state<BloomParams>({ ...DEFAULT_BLOOM_PARAMS });
@@ -20,12 +21,19 @@
 	let densityGamma = $state(1.1);
 	let radiusFromLuminance = $state(true);
 	let outlierRadius = $state(0);
+	let normalDisplacement = $state(0);
+	let removeBg = $state(false);
+	let useDepthMap = $state(false);
+	let processingStatus = $state('');
 	let ready = $state(false);
 
 	let glRenderer = $state<GLPointRenderer>(undefined!);
 	let meshAdapter = $state<MeshAdapter>(undefined!);
 	let imageAdapter = $state<ImageAdapter>(undefined!);
 	let currentImage = $state<HTMLImageElement | null>(null);
+	let originalImage = $state<HTMLImageElement | null>(null);
+	let bgRemovedImage = $state<HTMLImageElement | null>(null);
+	let currentDepthMap = $state<DepthMap | null>(null);
 	let pendingObjectUrl = $state<string | null>(null);
 
 	onMount(() => {
@@ -41,7 +49,6 @@
 				URL.revokeObjectURL(pendingObjectUrl);
 				pendingObjectUrl = null;
 			}
-
 			glRenderer.dispose();
 		};
 	});
@@ -68,16 +75,25 @@
 			densityGamma,
 			radiusFromLuminance,
 			outlierRadius,
+			depthMap: useDepthMap && currentDepthMap ? currentDepthMap : undefined,
+			normalDisplacement,
 		};
 		const samples = imageAdapter.sample(img, opts);
 		glRenderer.setSamples(samples);
 	}
 
+	/** Get the active image (bg-removed if enabled, otherwise original) */
+	function getActiveImage(): HTMLImageElement | null {
+		if (removeBg && bgRemovedImage) return bgRemovedImage;
+		return originalImage;
+	}
+
 	function handleResample() {
 		if (mode === 'mesh') {
 			generateMeshSamples();
-		} else if (currentImage) {
-			generateImageSamples(currentImage);
+		} else {
+			const img = getActiveImage();
+			if (img) generateImageSamples(img);
 		}
 	}
 
@@ -85,15 +101,17 @@
 		mode = newMode;
 		if (newMode === 'mesh') {
 			generateMeshSamples();
-		} else if (currentImage) {
-			generateImageSamples(currentImage);
+		} else {
+			const img = getActiveImage();
+			if (img) generateImageSamples(img);
 		}
 	}
 
 	function handleAlgorithmChange(newAlgo: 'rejection' | 'importance') {
 		algorithm = newAlgo;
-		if (mode === 'image' && currentImage) {
-			generateImageSamples(currentImage);
+		if (mode === 'image') {
+			const img = getActiveImage();
+			if (img) generateImageSamples(img);
 		}
 	}
 
@@ -107,27 +125,93 @@
 			pendingObjectUrl = null;
 		}
 
+		// Reset preprocessing state
+		bgRemovedImage = null;
+		currentDepthMap = null;
+
 		const img = new Image();
 		const objectUrl = URL.createObjectURL(file);
 
 		img.onload = () => {
+			originalImage = img;
 			currentImage = img;
 			URL.revokeObjectURL(objectUrl);
-			if (pendingObjectUrl === objectUrl) {
-				pendingObjectUrl = null;
-			}
+			if (pendingObjectUrl === objectUrl) pendingObjectUrl = null;
 			if (mode === 'image') generateImageSamples(img);
 		};
 
 		img.onerror = () => {
 			URL.revokeObjectURL(objectUrl);
-			if (pendingObjectUrl === objectUrl) {
-				pendingObjectUrl = null;
-			}
+			if (pendingObjectUrl === objectUrl) pendingObjectUrl = null;
 		};
 
 		pendingObjectUrl = objectUrl;
 		img.src = objectUrl;
+	}
+
+	async function handleRemoveBg() {
+		if (!originalImage) return;
+
+		if (!removeBg) {
+			// Toggled off — switch back to original
+			removeBg = false;
+			currentImage = originalImage;
+			if (mode === 'image') generateImageSamples(originalImage);
+			return;
+		}
+
+		if (bgRemovedImage) {
+			// Already have a cached result
+			currentImage = bgRemovedImage;
+			if (mode === 'image') generateImageSamples(bgRemovedImage);
+			return;
+		}
+
+		// Run background removal
+		processingStatus = 'Removing background (downloading model on first use)...';
+		try {
+			const { removeImageBackground } = await import(
+				'$lib/engine/preprocessing/BackgroundRemoval.js'
+			);
+			const result = await removeImageBackground(originalImage, (p) => {
+				processingStatus = `Removing background... ${Math.round(p * 100)}%`;
+			});
+			bgRemovedImage = result.image;
+			currentImage = result.image;
+			if (mode === 'image') generateImageSamples(result.image);
+		} catch (err) {
+			console.error('Background removal failed:', err);
+			removeBg = false;
+		}
+		processingStatus = '';
+	}
+
+	async function handleEstimateDepth() {
+		const img = getActiveImage();
+		if (!img) return;
+
+		if (!useDepthMap) {
+			currentDepthMap = null;
+			if (mode === 'image') generateImageSamples(img);
+			return;
+		}
+
+		if (currentDepthMap) {
+			// Already have a cached result
+			if (mode === 'image') generateImageSamples(img);
+			return;
+		}
+
+		processingStatus = 'Estimating depth (downloading model on first use)...';
+		try {
+			const { estimateDepth } = await import('$lib/engine/preprocessing/DepthEstimation.js');
+			currentDepthMap = await estimateDepth(img);
+			if (mode === 'image') generateImageSamples(img);
+		} catch (err) {
+			console.error('Depth estimation failed:', err);
+			useDepthMap = false;
+		}
+		processingStatus = '';
 	}
 
 	function handleRenderParamsChange(params: RenderParams) {
@@ -156,12 +240,25 @@
 			bind:densityGamma
 			bind:radiusFromLuminance
 			bind:outlierRadius
+			bind:normalDisplacement
+			bind:removeBg
+			bind:useDepthMap
+			{processingStatus}
+			hasImage={originalImage !== null}
 			onRenderParamsChange={handleRenderParamsChange}
 			onModeChange={handleModeChange}
 			onAlgorithmChange={handleAlgorithmChange}
 			onSampleCountChange={handleSampleCountChange}
 			onImageUpload={handleImageUpload}
 			onResample={handleResample}
+			onRemoveBg={handleRemoveBg}
+			onEstimateDepth={handleEstimateDepth}
 		/>
+
+		{#if processingStatus}
+			<div class="fixed bottom-4 left-4 z-50 rounded bg-black/80 px-4 py-2 font-mono text-xs text-white/80 backdrop-blur">
+				{processingStatus}
+			</div>
+		{/if}
 	{/if}
 </div>

@@ -11,12 +11,19 @@
 		densityGamma: number;
 		radiusFromLuminance: boolean;
 		outlierRadius: number;
+		normalDisplacement: number;
+		removeBg: boolean;
+		useDepthMap: boolean;
+		processingStatus: string;
+		hasImage: boolean;
 		onRenderParamsChange: (params: RenderParams) => void;
 		onModeChange: (mode: 'mesh' | 'image') => void;
 		onAlgorithmChange: (algorithm: 'rejection' | 'importance') => void;
 		onSampleCountChange: (count: number) => void;
 		onImageUpload: (file: File) => void;
 		onResample: () => void;
+		onRemoveBg: () => void;
+		onEstimateDepth: () => void;
 	}
 
 	let {
@@ -29,12 +36,19 @@
 		densityGamma = $bindable(),
 		radiusFromLuminance = $bindable(),
 		outlierRadius = $bindable(),
+		normalDisplacement = $bindable(),
+		removeBg = $bindable(),
+		useDepthMap = $bindable(),
+		processingStatus,
+		hasImage,
 		onRenderParamsChange,
 		onModeChange,
 		onAlgorithmChange,
 		onSampleCountChange,
 		onImageUpload,
 		onResample,
+		onRemoveBg,
+		onEstimateDepth,
 	}: Props = $props();
 
 	let collapsed = $state(false);
@@ -56,7 +70,7 @@
 </script>
 
 <div
-	class="fixed top-4 right-4 z-50 font-mono text-xs select-none"
+	class="fixed top-4 right-4 z-50 max-h-[95vh] overflow-y-auto font-mono text-xs select-none"
 	class:w-64={!collapsed}
 	class:w-auto={collapsed}
 >
@@ -73,49 +87,24 @@
 			<fieldset class="flex gap-2 border-b border-white/10 pb-3">
 				<legend class="mb-1 text-white/50">Source</legend>
 				<label class="flex items-center gap-1">
-					<input
-						type="radio"
-						name="mode"
-						value="mesh"
-						checked={mode === 'mesh'}
-						onchange={() => onModeChange('mesh')}
-					/>
+					<input type="radio" name="mode" value="mesh" checked={mode === 'mesh'} onchange={() => onModeChange('mesh')} />
 					mesh
 				</label>
 				<label class="flex items-center gap-1">
-					<input
-						type="radio"
-						name="mode"
-						value="image"
-						checked={mode === 'image'}
-						onchange={() => onModeChange('image')}
-					/>
+					<input type="radio" name="mode" value="image" checked={mode === 'image'} onchange={() => onModeChange('image')} />
 					image
 				</label>
 			</fieldset>
 
 			{#if mode === 'image'}
-				<!-- Algorithm -->
 				<fieldset class="flex gap-2">
 					<legend class="mb-1 text-white/50">Algorithm</legend>
 					<label class="flex items-center gap-1">
-						<input
-							type="radio"
-							name="algo"
-							value="rejection"
-							checked={algorithm === 'rejection'}
-							onchange={() => onAlgorithmChange('rejection')}
-						/>
+						<input type="radio" name="algo" value="rejection" checked={algorithm === 'rejection'} onchange={() => onAlgorithmChange('rejection')} />
 						rejection
 					</label>
 					<label class="flex items-center gap-1">
-						<input
-							type="radio"
-							name="algo"
-							value="importance"
-							checked={algorithm === 'importance'}
-							onchange={() => onAlgorithmChange('importance')}
-						/>
+						<input type="radio" name="algo" value="importance" checked={algorithm === 'importance'} onchange={() => onAlgorithmChange('importance')} />
 						importance
 					</label>
 				</fieldset>
@@ -125,27 +114,43 @@
 					<input type="file" accept="image/*" class="mt-1 block w-full" onchange={handleFileInput} />
 				</label>
 
-				<!-- Image-specific controls -->
+				<!-- ML Preprocessing -->
+				{#if hasImage}
+					<div class="flex flex-col gap-2 border-b border-white/10 pb-3">
+						<span class="text-white/40">ML preprocessing</span>
+						<button
+							class="rounded px-2 py-1 text-left {removeBg ? 'bg-blue-600/30' : 'bg-white/10'} hover:bg-white/20"
+							onclick={() => { removeBg = !removeBg; onRemoveBg(); }}
+							disabled={!!processingStatus}
+						>
+							{removeBg ? '✓ ' : ''}remove background
+						</button>
+						<button
+							class="rounded px-2 py-1 text-left {useDepthMap ? 'bg-blue-600/30' : 'bg-white/10'} hover:bg-white/20"
+							onclick={() => { useDepthMap = !useDepthMap; onEstimateDepth(); }}
+							disabled={!!processingStatus}
+						>
+							{useDepthMap ? '✓ ' : ''}estimate depth (3D)
+						</button>
+					</div>
+				{/if}
+
+				<!-- Image controls -->
 				<label class="flex flex-col gap-1">
-					<span class="text-white/50">depth relief: {depthScale.toFixed(2)}</span>
-					<input
-						type="range"
-						min="0"
-						max="0.5"
-						step="0.01"
-						bind:value={depthScale}
-					/>
+					<span class="text-white/50">depth scale: {depthScale.toFixed(2)}</span>
+					<input type="range" min="0" max="0.5" step="0.01" bind:value={depthScale} />
 				</label>
+
+				{#if useDepthMap}
+					<label class="flex flex-col gap-1">
+						<span class="text-white/50">normal displacement: {normalDisplacement.toFixed(1)}</span>
+						<input type="range" min="0" max="5" step="0.1" bind:value={normalDisplacement} />
+					</label>
+				{/if}
 
 				<label class="flex flex-col gap-1">
 					<span class="text-white/50">density contrast: {densityGamma.toFixed(1)}</span>
-					<input
-						type="range"
-						min="0.5"
-						max="3.0"
-						step="0.1"
-						bind:value={densityGamma}
-					/>
+					<input type="range" min="0.5" max="3.0" step="0.1" bind:value={densityGamma} />
 				</label>
 
 				<label class="flex items-center gap-2">
@@ -155,33 +160,18 @@
 
 				<label class="flex flex-col gap-1">
 					<span class="text-white/50">outlier suppression: {outlierRadius}px</span>
-					<input
-						type="range"
-						min="0"
-						max="8"
-						step="1"
-						bind:value={outlierRadius}
-					/>
+					<input type="range" min="0" max="8" step="1" bind:value={outlierRadius} />
 				</label>
 			{/if}
 
 			<!-- Sample count -->
 			<label class="flex flex-col gap-1">
 				<span class="text-white/50">samples: {sampleCount.toLocaleString()}</span>
-				<input
-					type="range"
-					min="1000"
-					max="200000"
-					step="1000"
-					value={sampleCount}
-					oninput={(e) => onSampleCountChange(Number((e.target as HTMLInputElement).value))}
-				/>
+				<input type="range" min="1000" max="300000" step="1000" value={sampleCount}
+					oninput={(e) => onSampleCountChange(Number((e.target as HTMLInputElement).value))} />
 			</label>
 
-			<button
-				class="rounded bg-white/10 px-2 py-1 hover:bg-white/20"
-				onclick={onResample}
-			>
+			<button class="rounded bg-white/10 px-2 py-1 hover:bg-white/20" onclick={onResample}>
 				resample
 			</button>
 
@@ -190,127 +180,73 @@
 			<!-- Render params -->
 			<label class="flex flex-col gap-1">
 				<span class="text-white/50">point size: {renderParams.pointSize.toFixed(1)}px</span>
-				<input
-					type="range"
-					min="0.3"
-					max="6"
-					step="0.1"
-					value={renderParams.pointSize}
-					oninput={(e) => updateRender('pointSize', Number((e.target as HTMLInputElement).value))}
-				/>
+				<input type="range" min="0.3" max="6" step="0.1" value={renderParams.pointSize}
+					oninput={(e) => updateRender('pointSize', Number((e.target as HTMLInputElement).value))} />
 			</label>
 
 			<label class="flex items-center gap-2">
-				<input
-					type="checkbox"
-					checked={renderParams.sizeAttenuation}
-					onchange={(e) => updateRender('sizeAttenuation', (e.target as HTMLInputElement).checked)}
-				/>
+				<input type="checkbox" checked={renderParams.sizeAttenuation}
+					onchange={(e) => updateRender('sizeAttenuation', (e.target as HTMLInputElement).checked)} />
 				<span class="text-white/50">perspective scaling</span>
 			</label>
 
 			<label class="flex flex-col gap-1">
 				<span class="text-white/50">brightness: {renderParams.brightness.toFixed(2)}</span>
-				<input
-					type="range"
-					min="0"
-					max="3"
-					step="0.05"
-					value={renderParams.brightness}
-					oninput={(e) => updateRender('brightness', Number((e.target as HTMLInputElement).value))}
-				/>
+				<input type="range" min="0" max="3" step="0.05" value={renderParams.brightness}
+					oninput={(e) => updateRender('brightness', Number((e.target as HTMLInputElement).value))} />
 			</label>
 
 			<label class="flex flex-col gap-1">
 				<span class="text-white/50">saturation: {renderParams.saturation.toFixed(2)}</span>
-				<input
-					type="range"
-					min="0"
-					max="5"
-					step="0.05"
-					value={renderParams.saturation}
-					oninput={(e) => updateRender('saturation', Number((e.target as HTMLInputElement).value))}
-				/>
+				<input type="range" min="0" max="5" step="0.05" value={renderParams.saturation}
+					oninput={(e) => updateRender('saturation', Number((e.target as HTMLInputElement).value))} />
 			</label>
 
 			<label class="flex flex-col gap-1">
 				<span class="text-white/50">opacity: {renderParams.opacity.toFixed(2)}</span>
-				<input
-					type="range"
-					min="0"
-					max="1"
-					step="0.05"
-					value={renderParams.opacity}
-					oninput={(e) => updateRender('opacity', Number((e.target as HTMLInputElement).value))}
-				/>
+				<input type="range" min="0" max="1" step="0.05" value={renderParams.opacity}
+					oninput={(e) => updateRender('opacity', Number((e.target as HTMLInputElement).value))} />
 			</label>
 
 			<label class="flex flex-col gap-1">
 				<span class="text-white/50">depth fade: {renderParams.depthFade.toFixed(2)}</span>
-				<input
-					type="range"
-					min="0"
-					max="5"
-					step="0.1"
-					value={renderParams.depthFade}
-					oninput={(e) => updateRender('depthFade', Number((e.target as HTMLInputElement).value))}
-				/>
+				<input type="range" min="0" max="5" step="0.1" value={renderParams.depthFade}
+					oninput={(e) => updateRender('depthFade', Number((e.target as HTMLInputElement).value))} />
 			</label>
 
 			<label class="flex flex-col gap-1">
 				<span class="text-white/50">edge sharpness: {renderParams.edgeSharpness.toFixed(2)}</span>
-				<input
-					type="range"
-					min="0"
-					max="1"
-					step="0.01"
-					value={renderParams.edgeSharpness}
-					oninput={(e) => updateRender('edgeSharpness', Number((e.target as HTMLInputElement).value))}
-				/>
+				<input type="range" min="0" max="1" step="0.01" value={renderParams.edgeSharpness}
+					oninput={(e) => updateRender('edgeSharpness', Number((e.target as HTMLInputElement).value))} />
 			</label>
 
 			<label class="flex flex-col gap-1">
 				<span class="text-white/50">dark cutoff: {renderParams.darkCutoff.toFixed(2)}</span>
-				<input
-					type="range"
-					min="0"
-					max="1"
-					step="0.01"
-					value={renderParams.darkCutoff}
-					oninput={(e) => updateRender('darkCutoff', Number((e.target as HTMLInputElement).value))}
-				/>
+				<input type="range" min="0" max="1" step="0.01" value={renderParams.darkCutoff}
+					oninput={(e) => updateRender('darkCutoff', Number((e.target as HTMLInputElement).value))} />
+			</label>
+
+			<label class="flex flex-col gap-1">
+				<span class="text-white/50">color noise: {renderParams.colorNoise.toFixed(2)}</span>
+				<input type="range" min="0" max="0.3" step="0.01" value={renderParams.colorNoise}
+					oninput={(e) => updateRender('colorNoise', Number((e.target as HTMLInputElement).value))} />
 			</label>
 
 			<label class="flex flex-col gap-1">
 				<span class="text-white/50">hue shift: {(renderParams.hueShift * 360).toFixed(0)}°</span>
-				<input
-					type="range"
-					min="0"
-					max="1"
-					step="0.01"
-					value={renderParams.hueShift}
-					oninput={(e) => updateRender('hueShift', Number((e.target as HTMLInputElement).value))}
-				/>
+				<input type="range" min="0" max="1" step="0.01" value={renderParams.hueShift}
+					oninput={(e) => updateRender('hueShift', Number((e.target as HTMLInputElement).value))} />
 			</label>
 
 			<label class="flex flex-col gap-1">
 				<span class="text-white/50">warmth: {renderParams.warmth.toFixed(2)}</span>
-				<input
-					type="range"
-					min="-1"
-					max="1"
-					step="0.05"
-					value={renderParams.warmth}
-					oninput={(e) => updateRender('warmth', Number((e.target as HTMLInputElement).value))}
-				/>
+				<input type="range" min="-1" max="1" step="0.05" value={renderParams.warmth}
+					oninput={(e) => updateRender('warmth', Number((e.target as HTMLInputElement).value))} />
 			</label>
 
 			<label class="flex items-center gap-2">
-				<input
-					type="checkbox"
-					checked={renderParams.additiveBlending}
-					onchange={(e) => updateRender('additiveBlending', (e.target as HTMLInputElement).checked)}
-				/>
+				<input type="checkbox" checked={renderParams.additiveBlending}
+					onchange={(e) => updateRender('additiveBlending', (e.target as HTMLInputElement).checked)} />
 				<span class="text-white/50">additive blending</span>
 			</label>
 
@@ -319,38 +255,20 @@
 			<!-- Bloom -->
 			<label class="flex flex-col gap-1">
 				<span class="text-white/50">bloom strength: {bloomParams.strength.toFixed(2)}</span>
-				<input
-					type="range"
-					min="0"
-					max="3"
-					step="0.05"
-					value={bloomParams.strength}
-					oninput={(e) => updateBloom('strength', Number((e.target as HTMLInputElement).value))}
-				/>
+				<input type="range" min="0" max="3" step="0.05" value={bloomParams.strength}
+					oninput={(e) => updateBloom('strength', Number((e.target as HTMLInputElement).value))} />
 			</label>
 
 			<label class="flex flex-col gap-1">
 				<span class="text-white/50">bloom radius: {bloomParams.radius.toFixed(2)}</span>
-				<input
-					type="range"
-					min="0"
-					max="1"
-					step="0.01"
-					value={bloomParams.radius}
-					oninput={(e) => updateBloom('radius', Number((e.target as HTMLInputElement).value))}
-				/>
+				<input type="range" min="0" max="1" step="0.01" value={bloomParams.radius}
+					oninput={(e) => updateBloom('radius', Number((e.target as HTMLInputElement).value))} />
 			</label>
 
 			<label class="flex flex-col gap-1">
 				<span class="text-white/50">bloom threshold: {bloomParams.threshold.toFixed(2)}</span>
-				<input
-					type="range"
-					min="0"
-					max="1"
-					step="0.01"
-					value={bloomParams.threshold}
-					oninput={(e) => updateBloom('threshold', Number((e.target as HTMLInputElement).value))}
-				/>
+				<input type="range" min="0" max="1" step="0.01" value={bloomParams.threshold}
+					oninput={(e) => updateBloom('threshold', Number((e.target as HTMLInputElement).value))} />
 			</label>
 		</div>
 	{/if}

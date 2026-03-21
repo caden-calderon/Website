@@ -26,3 +26,8 @@ export { ColorProcessor } from './processing/ColorProcessor.js';
 export type { RendererAdapter, RenderParams, BloomParams } from './render/types.js';
 export { DEFAULT_RENDER_PARAMS, DEFAULT_BLOOM_PARAMS } from './render/types.js';
 export { GLPointRenderer } from './render/adapters/GLPointRenderer.js';
+
+// Preprocessing
+export { removeImageBackground } from './preprocessing/BackgroundRemoval.js';
+export { estimateDepth, depthToNormals } from './preprocessing/DepthEstimation.js';
+export type { DepthMap } from './preprocessing/DepthEstimation.js';
