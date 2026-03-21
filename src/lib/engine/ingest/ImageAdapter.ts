@@ -1,0 +1,140 @@
+import type { SampleSet } from '../core/types.js';
+import { createSampleSet } from '../core/SampleSet.js';
+import type { IngestAdapter, ImageAdapterOptions } from './types.js';
+import type { AlgorithmInput } from '../algorithms/types.js';
+import { rejectionSampling } from '../algorithms/rejection-sampling.js';
+import { importanceSampling } from '../algorithms/importance-sampling.js';
+
+type ImageSource = HTMLImageElement | HTMLCanvasElement | ImageBitmap;
+
+function luminance(r: number, g: number, b: number): number {
+	return 0.299 * r + 0.587 * g + 0.114 * b;
+}
+
+/**
+ * Converts a 2D image into a point-sampled SampleSet.
+ *
+ * Points are placed on the XY plane with density proportional to source
+ * luminance. Optionally applies Z-depth displacement and outlier suppression.
+ */
+export class ImageAdapter implements IngestAdapter<ImageSource, ImageAdapterOptions> {
+	readonly name = 'image';
+
+	sample(source: ImageSource, options: ImageAdapterOptions): SampleSet {
+		const { width, height, data } = this.extractPixels(source);
+		const depthScale = options.depthScale ?? 0;
+		const densityGamma = options.densityGamma ?? 1.0;
+		const radiusFromLuminance = options.radiusFromLuminance ?? false;
+		const outlierRadius = options.outlierRadius ?? 0;
+
+		const input: AlgorithmInput = { pixels: data, width, height };
+		const algOpts = {
+			count: options.count,
+			baseRadius: options.baseRadius ?? 1.0,
+			seed: options.seed,
+			densityGamma,
+		};
+
+		const algorithm = options.algorithm === 'importance' ? importanceSampling : rejectionSampling;
+		const result = algorithm.generate(input, algOpts);
+
+		// Pre-compute a luminance map for neighbourhood checks if outlier suppression is on
+		let lumMap: Float32Array | null = null;
+		if (outlierRadius > 0) {
+			lumMap = new Float32Array(width * height);
+			for (let i = 0; i < width * height; i++) {
+				const idx = i * 4;
+				lumMap[i] = luminance(data[idx] / 255, data[idx + 1] / 255, data[idx + 2] / 255);
+			}
+		}
+
+		// First pass: figure out which points survive outlier suppression
+		const survived = new Uint8Array(result.count);
+		let survivedCount = 0;
+
+		for (let i = 0; i < result.count; i++) {
+			if (lumMap && outlierRadius > 0) {
+				const px = Math.floor(result.positions[i * 2] * width);
+				const py = Math.floor(result.positions[i * 2 + 1] * height);
+				const r = outlierRadius;
+
+				// Average luminance in neighbourhood
+				let sumLum = 0;
+				let count = 0;
+				for (let dy = -r; dy <= r; dy++) {
+					for (let dx = -r; dx <= r; dx++) {
+						const nx = px + dx;
+						const ny = py + dy;
+						if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+							sumLum += lumMap[ny * width + nx];
+							count++;
+						}
+					}
+				}
+				const avgNeighbourLum = count > 0 ? sumLum / count : 0;
+
+				// Kill this point if it's bright but its neighbourhood is dark
+				if (avgNeighbourLum < 0.08) {
+					survived[i] = 0;
+					continue;
+				}
+			}
+			survived[i] = 1;
+			survivedCount++;
+		}
+
+		// Build output SampleSet from survived points
+		const aspect = width / height;
+		const samples = createSampleSet({ count: survivedCount, includeIds: true, includeUv: true });
+
+		let outIdx = 0;
+		for (let i = 0; i < result.count; i++) {
+			if (!survived[i]) continue;
+
+			const i2 = i * 2;
+			const i3 = i * 3;
+			const x = result.positions[i2];
+			const y = result.positions[i2 + 1];
+			const lum = result.luminances[i];
+
+			const o3 = outIdx * 3;
+			const o2 = outIdx * 2;
+
+			samples.positions[o3] = (x - 0.5) * aspect;
+			samples.positions[o3 + 1] = -(y - 0.5);
+			samples.positions[o3 + 2] = (lum - 0.3) * depthScale;
+
+			samples.colors[o3] = result.colors[i3];
+			samples.colors[o3 + 1] = result.colors[i3 + 1];
+			samples.colors[o3 + 2] = result.colors[i3 + 2];
+
+			samples.radii[outIdx] = radiusFromLuminance
+				? result.radii[i] * (0.6 + lum * 0.8)
+				: result.radii[i];
+
+			samples.opacities[outIdx] = 1.0;
+			samples.ids![outIdx] = outIdx;
+			samples.uv![o2] = x;
+			samples.uv![o2 + 1] = y;
+
+			outIdx++;
+		}
+
+		return samples;
+	}
+
+	private extractPixels(source: ImageSource): ImageData {
+		const w = source instanceof HTMLImageElement ? source.naturalWidth : source.width;
+		const h = source instanceof HTMLImageElement ? source.naturalHeight : source.height;
+
+		const canvas = document.createElement('canvas');
+		canvas.width = w;
+		canvas.height = h;
+
+		const ctx = canvas.getContext('2d');
+		if (!ctx) throw new Error('Failed to get 2D canvas context for image pixel extraction');
+
+		ctx.drawImage(source, 0, 0);
+		return ctx.getImageData(0, 0, w, h);
+	}
+}
