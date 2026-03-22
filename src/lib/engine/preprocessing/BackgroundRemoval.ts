@@ -31,7 +31,7 @@ export const BG_REMOVAL_MODELS: BgRemovalModelInfo[] = [
 		backend: 'transformers',
 	},
 	{
-		id: 'PramaLLC/BEN2-ONNX',
+		id: 'onnx-community/BEN2-ONNX',
 		label: 'BEN2',
 		description: 'Best edge quality. Hair, transparency. MIT license.',
 		size: '~219MB',
@@ -120,15 +120,69 @@ async function removeWithImgly(
 }
 
 /**
+ * Convert a RawImage from transformers.js to a Blob via canvas.
+ * Handles the case where toBlob() may not exist on RawImage.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function rawImageToBlob(rawImage: any): Promise<Blob> {
+	// Try toBlob first (newer transformers.js versions)
+	if (typeof rawImage.toBlob === 'function') {
+		try {
+			const blob = await rawImage.toBlob();
+			if (blob) return blob;
+		} catch {
+			// Fall through to canvas approach
+		}
+	}
+
+	// Fall back to canvas conversion
+	const canvas = document.createElement('canvas');
+	// RawImage has width, height, channels, data properties
+	const width = rawImage.width;
+	const height = rawImage.height;
+	canvas.width = width;
+	canvas.height = height;
+	const ctx = canvas.getContext('2d');
+	if (!ctx) throw new Error('Failed to get canvas context');
+
+	// If toCanvas exists, use it
+	if (typeof rawImage.toCanvas === 'function') {
+		const sourceCanvas = rawImage.toCanvas();
+		ctx.drawImage(sourceCanvas, 0, 0);
+	} else {
+		// Manual pixel copy from RawImage data
+		const channels = rawImage.channels ?? 4;
+		const data = rawImage.data;
+		const imageData = ctx.createImageData(width, height);
+		for (let i = 0; i < width * height; i++) {
+			const srcIdx = i * channels;
+			const dstIdx = i * 4;
+			imageData.data[dstIdx] = data[srcIdx];         // R
+			imageData.data[dstIdx + 1] = channels > 1 ? data[srcIdx + 1] : data[srcIdx]; // G
+			imageData.data[dstIdx + 2] = channels > 2 ? data[srcIdx + 2] : data[srcIdx]; // B
+			imageData.data[dstIdx + 3] = channels > 3 ? data[srcIdx + 3] : 255;          // A
+		}
+		ctx.putImageData(imageData, 0, 0);
+	}
+
+	return new Promise<Blob>((resolve, reject) => {
+		canvas.toBlob(
+			(blob) => (blob ? resolve(blob) : reject(new Error('Canvas toBlob failed'))),
+			'image/png',
+		);
+	});
+}
+
+/**
  * Remove background using Transformers.js background-removal pipeline.
  */
 async function removeWithTransformers(
 	source: HTMLImageElement,
 	modelId: string,
 ): Promise<BackgroundRemovalResult> {
-	const cacheKey = `bg::${modelId}`;
+	const key = `bg::${modelId}`;
 
-	if (!pipelineCache.has(cacheKey)) {
+	if (!pipelineCache.has(key)) {
 		const { pipeline, env } = await import('@huggingface/transformers');
 
 		// Fix SSR contamination
@@ -139,14 +193,14 @@ async function removeWithTransformers(
 			dtype: 'fp16',
 			device: typeof navigator !== 'undefined' && 'gpu' in navigator ? 'webgpu' : 'wasm',
 		});
-		pipelineCache.set(cacheKey, instance);
+		pipelineCache.set(key, instance);
 	}
 
-	const segmenter = pipelineCache.get(cacheKey);
+	const segmenter = pipelineCache.get(key);
 	const dataUrl = imageToDataUrl(source);
 
 	const output = await segmenter(dataUrl);
-	const blob: Blob = await output.toBlob();
+	const blob = await rawImageToBlob(output);
 
 	const img = await blobToImage(blob);
 	return { image: img, blob, modelId };
