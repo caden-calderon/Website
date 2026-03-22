@@ -200,7 +200,9 @@ async function removeWithTransformers(
 	const dataUrl = imageToDataUrl(source);
 
 	const output = await segmenter(dataUrl);
-	const blob = await rawImageToBlob(output);
+	// Pipeline returns an array of RawImage objects
+	const rawImage = Array.isArray(output) ? output[0] : output;
+	const blob = await rawImageToBlob(rawImage);
 
 	const img = await blobToImage(blob);
 	return { image: img, blob, modelId };
