@@ -28,6 +28,7 @@ export { DEFAULT_RENDER_PARAMS, DEFAULT_BLOOM_PARAMS } from './render/types.js';
 export { GLPointRenderer } from './render/adapters/GLPointRenderer.js';
 
 // Preprocessing
-export { removeImageBackground } from './preprocessing/BackgroundRemoval.js';
+export { removeImageBackground, BG_REMOVAL_MODELS } from './preprocessing/BackgroundRemoval.js';
+export type { BgRemovalModelInfo, RemoveBackgroundOptions } from './preprocessing/BackgroundRemoval.js';
 export { estimateDepth, depthToNormals, DEPTH_MODELS } from './preprocessing/DepthEstimation.js';
 export type { DepthMap, DepthModelInfo, EstimateDepthOptions } from './preprocessing/DepthEstimation.js';

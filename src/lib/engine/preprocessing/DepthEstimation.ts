@@ -1,8 +1,8 @@
 /**
  * Browser-side monocular depth estimation using Transformers.js.
  *
- * Supports multiple models — downloaded on first use, cached in browser.
- * The module is lazy-loaded so the main bundle stays small.
+ * Supports multiple models — downloaded on first use, cached in browser
+ * via Cache API. The module is lazy-loaded so the main bundle stays small.
  */
 
 type QuantDtype = 'q8' | 'fp16' | 'fp32' | 'q4' | 'q4f16' | 'int8' | 'uint8' | 'auto';
@@ -61,7 +61,7 @@ export const DEPTH_MODELS: DepthModelInfo[] = [
 	},
 ];
 
-// Cache pipelines by model+dtype key to avoid reloading
+// Cache pipelines by model+dtype key
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const pipelineCache = new Map<string, any>();
 
@@ -73,7 +73,12 @@ async function getDepthPipeline(modelId: string, dtype: string) {
 	const key = cacheKey(modelId, dtype);
 	if (pipelineCache.has(key)) return pipelineCache.get(key);
 
-	const { pipeline } = await import('@huggingface/transformers');
+	const { pipeline, env } = await import('@huggingface/transformers');
+
+	// Fix SSR contamination: SvelteKit evaluates this server-side where
+	// Cache API doesn't exist, setting useBrowserCache to false permanently.
+	env.useBrowserCache = true;
+	env.useFSCache = false;
 
 	const instance = await pipeline('depth-estimation', modelId, {
 		dtype: dtype as 'q8' | 'fp16' | 'fp32',
@@ -113,7 +118,6 @@ export interface EstimateDepthOptions {
 
 /**
  * Estimate a depth map from a source image.
- *
  * Returns normalised 0–1 depth values where 0 = farthest, 1 = closest.
  */
 export async function estimateDepth(

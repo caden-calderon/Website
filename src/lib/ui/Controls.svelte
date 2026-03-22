@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { RenderParams, BloomParams } from '$lib/engine/render/types.js';
 	import type { DepthModelInfo } from '$lib/engine/preprocessing/DepthEstimation.js';
+	import type { BgRemovalModelInfo } from '$lib/engine/preprocessing/BackgroundRemoval.js';
 
 	interface Props {
 		renderParams: RenderParams;
@@ -14,8 +15,10 @@
 		outlierRadius: number;
 		normalDisplacement: number;
 		removeBg: boolean;
+		bgModelIndex: number;
 		useDepthMap: boolean;
 		depthModelIndex: number;
+		bgModels: BgRemovalModelInfo[];
 		depthModels: DepthModelInfo[];
 		processingStatus: string;
 		hasImage: boolean;
@@ -26,6 +29,7 @@
 		onImageUpload: (file: File) => void;
 		onResample: () => void;
 		onRemoveBg: () => void;
+		onBgModelChange: (index: number) => void;
 		onEstimateDepth: () => void;
 		onDepthModelChange: (index: number) => void;
 	}
@@ -42,8 +46,10 @@
 		outlierRadius = $bindable(),
 		normalDisplacement = $bindable(),
 		removeBg = $bindable(),
+		bgModelIndex = $bindable(),
 		useDepthMap = $bindable(),
 		depthModelIndex = $bindable(),
+		bgModels,
 		depthModels,
 		processingStatus,
 		hasImage,
@@ -54,6 +60,7 @@
 		onImageUpload,
 		onResample,
 		onRemoveBg,
+		onBgModelChange,
 		onEstimateDepth,
 		onDepthModelChange,
 	}: Props = $props();
@@ -132,6 +139,24 @@
 						>
 							{removeBg ? '✓ ' : ''}remove background
 						</button>
+
+						{#if removeBg}
+							<select
+								class="rounded bg-white/10 px-2 py-1 text-white/80"
+								value={bgModelIndex}
+								onchange={(e) => {
+									const idx = Number((e.target as HTMLSelectElement).value);
+									bgModelIndex = idx;
+									onBgModelChange(idx);
+								}}
+								disabled={!!processingStatus}
+							>
+								{#each bgModels as model, i}
+									<option value={i}>{model.label} ({model.size})</option>
+								{/each}
+							</select>
+							<span class="text-white/30">{bgModels[bgModelIndex]?.description}</span>
+						{/if}
 						<button
 							class="rounded px-2 py-1 text-left {useDepthMap ? 'bg-blue-600/30' : 'bg-white/10'} hover:bg-white/20"
 							onclick={() => { useDepthMap = !useDepthMap; onEstimateDepth(); }}

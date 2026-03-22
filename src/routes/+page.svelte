@@ -12,6 +12,7 @@
 	import type { ImageAdapterOptions } from '$lib/engine/ingest/types.js';
 	import type { DepthMap } from '$lib/engine/preprocessing/DepthEstimation.js';
 	import { DEPTH_MODELS } from '$lib/engine/preprocessing/DepthEstimation.js';
+	import { BG_REMOVAL_MODELS } from '$lib/engine/preprocessing/BackgroundRemoval.js';
 
 	let renderParams = $state<RenderParams>({ ...DEFAULT_RENDER_PARAMS });
 	let bloomParams = $state<BloomParams>({ ...DEFAULT_BLOOM_PARAMS });
@@ -24,6 +25,7 @@
 	let outlierRadius = $state(0);
 	let normalDisplacement = $state(0);
 	let removeBg = $state(false);
+	let bgModelIndex = $state(1); // BiRefNet Lite default
 	let useDepthMap = $state(false);
 	let depthModelIndex = $state(0);
 	let processingStatus = $state('');
@@ -39,6 +41,13 @@
 	let pendingObjectUrl = $state<string | null>(null);
 
 	onMount(() => {
+		// Request persistent storage so ML model cache survives browser pressure
+		if (navigator.storage?.persist) {
+			navigator.storage.persist().then((granted) => {
+				if (!granted) console.warn('Persistent storage not granted — models may be evicted');
+			});
+		}
+
 		glRenderer = new GLPointRenderer({ params: renderParams });
 		meshAdapter = new MeshAdapter();
 		imageAdapter = new ImageAdapter();
@@ -155,28 +164,36 @@
 		if (!originalImage) return;
 
 		if (!removeBg) {
-			// Toggled off — switch back to original
 			removeBg = false;
 			currentImage = originalImage;
+			bgRemovedImage = null;
 			if (mode === 'image') generateImageSamples(originalImage);
 			return;
 		}
 
-		if (bgRemovedImage) {
-			// Already have a cached result
-			currentImage = bgRemovedImage;
-			if (mode === 'image') generateImageSamples(bgRemovedImage);
-			return;
-		}
+		await runBgRemoval(bgModelIndex);
+	}
 
-		// Run background removal
-		processingStatus = 'Removing background (downloading model on first use)...';
+	async function handleBgModelChange(index: number) {
+		bgModelIndex = index;
+		if (!removeBg || !originalImage) return;
+		bgRemovedImage = null; // clear cache for old model
+		await runBgRemoval(index);
+	}
+
+	async function runBgRemoval(modelIdx: number) {
+		if (!originalImage) return;
+		const model = BG_REMOVAL_MODELS[modelIdx];
+		processingStatus = `Removing background with ${model.label} (${model.size})...`;
 		try {
 			const { removeImageBackground } = await import(
 				'$lib/engine/preprocessing/BackgroundRemoval.js'
 			);
-			const result = await removeImageBackground(originalImage, (p) => {
-				processingStatus = `Removing background... ${Math.round(p * 100)}%`;
+			const result = await removeImageBackground(originalImage, {
+				modelIndex: modelIdx,
+				onProgress: (p) => {
+					processingStatus = `Removing background... ${Math.round(p * 100)}%`;
+				},
 			});
 			bgRemovedImage = result.image;
 			currentImage = result.image;
@@ -270,8 +287,10 @@
 			bind:outlierRadius
 			bind:normalDisplacement
 			bind:removeBg
+			bind:bgModelIndex
 			bind:useDepthMap
 			bind:depthModelIndex
+			bgModels={BG_REMOVAL_MODELS}
 			depthModels={DEPTH_MODELS}
 			{processingStatus}
 			hasImage={originalImage !== null}
@@ -282,6 +301,7 @@
 			onImageUpload={handleImageUpload}
 			onResample={handleResample}
 			onRemoveBg={handleRemoveBg}
+			onBgModelChange={handleBgModelChange}
 			onEstimateDepth={handleEstimateDepth}
 			onDepthModelChange={handleDepthModelChange}
 		/>

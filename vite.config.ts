@@ -11,4 +11,7 @@ export default defineConfig({
 	ssr: {
 		noExternal: ['three', '@threlte/core', '@threlte/extras'],
 	},
+	optimizeDeps: {
+		exclude: ['@huggingface/transformers'],
+	},
 });
