@@ -17,7 +17,7 @@ Phase 1 feasibility is largely proven. Both tracks (3D mesh + 2D image) produce 
 - Surface normal displacement for volumetric form
 - Outlier suppression, luminance radius scaling
 - Bloom post-processing
-- 22 tests, 0 type errors
+- 26 tests, 0 type errors
 
 ### Remaining Phase 1 Work
 
@@ -25,7 +25,7 @@ Phase 1 feasibility is largely proven. Both tracks (3D mesh + 2D image) produce 
 - add weighted Voronoi stippling as quality benchmark algorithm
 - continue color quality iteration
 - reduce route chunk size (lazy-load 3D demo from site shell)
-- add ImageAdapter and GLPointRenderer tests
+- add GLPointRenderer tests
 
 ### Exit Criteria
 

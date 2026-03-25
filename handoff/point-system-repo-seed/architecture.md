@@ -25,7 +25,7 @@
 | Content system | Typed manifests/content graph | Types defined |
 | LLM backend | SvelteKit server routes | Planned |
 | Styling | Tailwind CSS v4 | Working |
-| Testing | Vitest | 22 tests passing |
+| Testing | Vitest | 26 tests passing |
 
 ## Project Structure (Actual)
 

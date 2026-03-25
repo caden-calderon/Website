@@ -8,7 +8,7 @@ Build a point-sampled runtime that serves as the visual foundation for Chromatic
 
 Phase 1 feasibility is largely proven. Both tracks produce compelling results:
 - **Track A (3D mesh)**: procedural torus knot with world-space sampling, bloom, orbit controls
-- **Track B (2D image)**: image upload with importance sampling, ML depth estimation, background removal, volumetric displacement
+- **Track B (2D image)**: image upload with importance sampling, ML depth estimation (6 models), background removal (4 models), volumetric displacement
 
 The engine architecture supports both source types cleanly through the same `RendererAdapter` interface.
 
@@ -17,32 +17,26 @@ The engine architecture supports both source types cleanly through the same `Ren
 - `SampleSet` → `IngestAdapter` → `ProcessingPipeline` → `RendererAdapter` pipeline
 - Two sampling algorithms (rejection + importance) with density gamma
 - `GLPointRenderer` with 15+ live-tunable shader uniforms
-- ML background removal and depth estimation (6 model options)
+- ML background removal (4 models: ISNet, BiRefNet Lite, BEN2, BiRefNet Full)
+- ML depth estimation (6 models: DA V2 Small/Base × q8/fp16, MiDaS, DA V1)
+- Browser compatibility detection + graceful degradation for non-Chromium
+- App-shell image preprocessing rebuild path with source/model caches and stale-request protection
 - Normal-based lateral displacement for volumetric form
-- Full controls UI
+- Full controls UI with model selectors and compatibility notices
 
 ## Remaining Phase 1 Work
 
 - Source proper test assets (actual Blender glTF model + high-res reference images)
 - Add weighted Voronoi stippling as quality benchmark
-- Continue color quality iteration toward Andreion reference
+- Continue color quality iteration (palette presets, LUT-style grading)
 - Reduce route chunk size (lazy-load the heavy 3D demo)
-- Add ImageAdapter and GLPointRenderer tests
-
-## Success Criteria
-
-- the look approaches the Andreion Conflux reference quality
-- both 3D and 2D sources produce compelling results through the same renderer
-- ML depth creates convincing 3D form from 2D images
-- the architecture extends without rewrites
-- customization knobs produce meaningfully different visual results
-- TypeScript strict, no `any`, proper disposal, typed arrays throughout
+- Add GLPointRenderer tests
 
 ## Architecture Shape
 
 ```
-Source Image → [BG Removal] → [Depth Estimation] → ImageAdapter → SampleSet → Pipeline → GLPointRenderer
-Source Mesh  →                                      MeshAdapter  → SampleSet → Pipeline → GLPointRenderer
+Source Image → [BG Removal (4 models)] → [Depth Estimation (6 models)] → ImageAdapter → SampleSet → Pipeline → GLPointRenderer
+Source Mesh  →                                                            MeshAdapter  → SampleSet → Pipeline → GLPointRenderer
 ```
 
 Engine lives in `src/lib/engine/` — pure TypeScript + Three.js, zero Svelte imports.
