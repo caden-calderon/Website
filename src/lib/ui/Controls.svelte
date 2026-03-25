@@ -28,9 +28,9 @@
 		onSampleCountChange: (count: number) => void;
 		onImageUpload: (file: File) => void;
 		onResample: () => void;
-		onRemoveBg: () => void;
+		onRemoveBg: (enabled: boolean) => void;
 		onBgModelChange: (index: number) => void;
-		onEstimateDepth: () => void;
+		onEstimateDepth: (enabled: boolean) => void;
 		onDepthModelChange: (index: number) => void;
 	}
 
@@ -67,6 +67,11 @@
 
 	let collapsed = $state(false);
 
+	const isChromium =
+		typeof navigator !== 'undefined' &&
+		/chrome|chromium|edg|brave|opr|opera/i.test(navigator.userAgent) &&
+		!/firefox/i.test(navigator.userAgent);
+
 	function handleFileInput(e: Event) {
 		const input = e.target as HTMLInputElement;
 		const file = input.files?.[0];
@@ -80,6 +85,11 @@
 
 	function updateBloom<K extends keyof BloomParams>(key: K, value: BloomParams[K]) {
 		bloomParams = { ...bloomParams, [key]: value };
+	}
+
+	function isBgModelSupported(model: BgRemovalModelInfo): boolean {
+		if (model.backend === 'imgly') return true;
+		return isChromium;
 	}
 </script>
 
@@ -97,6 +107,13 @@
 
 	{#if !collapsed}
 		<div class="flex flex-col gap-3 rounded-lg bg-black/80 p-4 text-white/80 backdrop-blur">
+
+			{#if !isChromium}
+				<div class="rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-amber-300/80">
+					For best ML model compatibility, use a Chromium-based browser (Chrome, Edge, Brave, Opera).
+				</div>
+			{/if}
+
 			<!-- Source mode -->
 			<fieldset class="flex gap-2 border-b border-white/10 pb-3">
 				<legend class="mb-1 text-white/50">Source</legend>
@@ -134,7 +151,11 @@
 						<span class="text-white/40">ML preprocessing</span>
 						<button
 							class="rounded px-2 py-1 text-left {removeBg ? 'bg-blue-600/30' : 'bg-white/10'} hover:bg-white/20"
-							onclick={() => { removeBg = !removeBg; onRemoveBg(); }}
+							onclick={() => {
+								const next = !removeBg;
+								removeBg = next;
+								onRemoveBg(next);
+							}}
 							disabled={!!processingStatus}
 						>
 							{removeBg ? '✓ ' : ''}remove background
@@ -146,20 +167,33 @@
 								value={bgModelIndex}
 								onchange={(e) => {
 									const idx = Number((e.target as HTMLSelectElement).value);
+									if (!isBgModelSupported(bgModels[idx])) return;
 									bgModelIndex = idx;
 									onBgModelChange(idx);
 								}}
 								disabled={!!processingStatus}
 							>
 								{#each bgModels as model, i}
-									<option value={i}>{model.label} ({model.size})</option>
+									{@const supported = isBgModelSupported(model)}
+									<option
+										value={i}
+										disabled={!supported}
+										title={supported ? model.description : 'Requires a Chromium-based browser (Chrome, Edge, Brave, Opera)'}
+									>
+										{model.label} ({model.size}){supported ? '' : ' — Chromium only'}
+									</option>
 								{/each}
 							</select>
 							<span class="text-white/30">{bgModels[bgModelIndex]?.description}</span>
 						{/if}
+
 						<button
 							class="rounded px-2 py-1 text-left {useDepthMap ? 'bg-blue-600/30' : 'bg-white/10'} hover:bg-white/20"
-							onclick={() => { useDepthMap = !useDepthMap; onEstimateDepth(); }}
+							onclick={() => {
+								const next = !useDepthMap;
+								useDepthMap = next;
+								onEstimateDepth(next);
+							}}
 							disabled={!!processingStatus}
 						>
 							{useDepthMap ? '✓ ' : ''}estimate depth (3D)
