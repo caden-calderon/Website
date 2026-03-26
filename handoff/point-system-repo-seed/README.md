@@ -16,7 +16,7 @@ Phase 1 feasibility is largely proven. The engine renders 2D images and 3D meshe
 ```bash
 pnpm install
 pnpm dev        # http://localhost:5173
-pnpm test       # 26 tests
+pnpm test       # 48 tests
 pnpm check      # 0 errors
 ```
 

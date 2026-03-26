@@ -2,7 +2,7 @@
 
 ## Status
 
-Phase 1 feasibility scaffold is built and producing compelling results. Both tracks (3D mesh and 2D image) work. ML preprocessing (background removal with 4 model options + depth estimation with 6 model options) is integrated. Visual quality is approaching the Andreion reference with extensive tuning controls. Browser compatibility handling is in place.
+Phase 1 feasibility scaffold is built and producing compelling results. Both tracks (3D mesh and 2D image) work. ML preprocessing (background removal with 6 model options + depth estimation with 6 model options) is integrated. Visual quality is approaching the Andreion reference with extensive tuning controls. Browser compatibility handling is in place.
 
 Multiple Codex review passes have been completed. All tests pass. No type errors.
 
@@ -21,7 +21,7 @@ Multiple Codex review passes have been completed. All tests pass. No type errors
 ```bash
 pnpm install
 pnpm dev        # http://localhost:5173
-pnpm test       # 26 tests
+pnpm test       # 48 tests
 pnpm check      # 0 errors
 ```
 
@@ -55,8 +55,9 @@ Upload an image → toggle "remove background" → toggle "estimate depth" → a
 
 ### Code Quality
 - TypeScript strict, no `any`, typed arrays, proper GPU disposal
-- 26 tests, 0 errors, 0 warnings
+- 48 tests, 0 errors, 0 warnings
 - Pipeline instances and preprocessing results cached by model+source
+- `mergeSampleSets()` preserves optional metadata across mixed inputs, so image/frame composition no longer drops `ids` or `uv`
 
 ## Legacy Reference
 

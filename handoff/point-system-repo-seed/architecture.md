@@ -25,7 +25,7 @@
 | Content system | Typed manifests/content graph | Types defined |
 | LLM backend | SvelteKit server routes | Planned |
 | Styling | Tailwind CSS v4 | Working |
-| Testing | Vitest | 26 tests passing |
+| Testing | Vitest | 48 tests passing |
 
 ## Project Structure (Actual)
 
@@ -71,7 +71,7 @@ WebsiteV2/
 │   │   ├── +layout.svelte
 │   │   └── +page.svelte                        # Demo page (mesh + image modes)
 │   └── app.html, app.css, app.d.ts
-├── tests/engine/                              # 22 tests
+├── tests/engine/                              # 48 tests
 ├── handoff/                                   # Architecture docs, planning, legacy
 └── package.json, vite.config.ts, tsconfig.json
 ```

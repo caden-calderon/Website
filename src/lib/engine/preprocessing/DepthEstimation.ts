@@ -69,8 +69,10 @@ function cacheKey(modelId: string, dtype: string): string {
 	return `${modelId}::${dtype}`;
 }
 
-async function getDepthPipeline(modelId: string, dtype: string) {
-	const key = cacheKey(modelId, dtype);
+import { getPreferredDevice, withTimeout, type OnnxDevice } from './webgpu-probe.js';
+
+async function getDepthPipeline(modelId: string, dtype: string, device: OnnxDevice) {
+	const key = `${cacheKey(modelId, dtype)}::${device}`;
 	if (pipelineCache.has(key)) return pipelineCache.get(key);
 
 	const { pipeline, env } = await import('@huggingface/transformers');
@@ -80,24 +82,32 @@ async function getDepthPipeline(modelId: string, dtype: string) {
 	env.useBrowserCache = true;
 	env.useFSCache = false;
 
+	// Set WASM threads based on crossOriginIsolated (SharedArrayBuffer availability)
+	if (device === 'wasm') {
+		env.backends.onnx.wasm!.numThreads = self.crossOriginIsolated ? navigator.hardwareConcurrency : 1;
+	}
+
 	const instance = await pipeline('depth-estimation', modelId, {
 		dtype: dtype as 'q8' | 'fp16' | 'fp32',
-		device: typeof navigator !== 'undefined' && 'gpu' in navigator ? 'webgpu' : 'wasm',
+		device,
 	});
 
 	pipelineCache.set(key, instance);
 	return instance;
 }
 
-/** Convert an image element to a data URL (survives revoked blob URLs). */
+/** Convert an image element to an opaque data URL (depth models can't handle alpha). */
 function imageToDataUrl(img: HTMLImageElement): string {
 	const canvas = document.createElement('canvas');
 	canvas.width = img.naturalWidth || img.width;
 	canvas.height = img.naturalHeight || img.height;
 	const ctx = canvas.getContext('2d');
 	if (!ctx) throw new Error('Failed to get canvas context');
+	// Fill with black so transparent regions from BG removal become solid
+	ctx.fillStyle = '#000000';
+	ctx.fillRect(0, 0, canvas.width, canvas.height);
 	ctx.drawImage(img, 0, 0);
-	return canvas.toDataURL('image/png');
+	return canvas.toDataURL('image/jpeg', 0.95);
 }
 
 export interface DepthMap {
@@ -130,12 +140,35 @@ export async function estimateDepth(
 
 	options.onProgress?.(`Loading ${model.label} (${model.size})...`);
 
-	const estimator = await getDepthPipeline(model.id, model.dtype);
-	const dataUrl = imageToDataUrl(source);
+	const preferred = await getPreferredDevice();
 
-	options.onProgress?.(`Running ${model.label}...`);
+	async function run(device: OnnxDevice) {
+		const estimator = await getDepthPipeline(model.id, model.dtype, device);
+		const dataUrl = imageToDataUrl(source);
+		options.onProgress?.(`Running ${model.label} (${device})...`);
+		const timeoutMs = device === 'webgpu' ? 30_000 : 120_000;
+		return withTimeout(estimator(dataUrl), timeoutMs, `Depth estimation (${device})`);
+	}
 
-	const result = await estimator(dataUrl);
+	// Device fallback chain: preferred → wasm
+	const fallbackChain: OnnxDevice[] = [preferred];
+	if (preferred !== 'wasm') fallbackChain.push('wasm');
+
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	let result: any;
+	for (let i = 0; i < fallbackChain.length; i++) {
+		const device = fallbackChain[i];
+		try {
+			result = await run(device);
+			break;
+		} catch (error) {
+			pipelineCache.delete(`${cacheKey(model.id, model.dtype)}::${device}`);
+			const isLast = i === fallbackChain.length - 1;
+			if (isLast) throw error;
+			console.warn(`Depth estimation failed on ${device} for ${model.label}, trying next backend.`, error);
+			options.onProgress?.(`Retrying ${model.label}...`);
+		}
+	}
 	const depthImage = result.predicted_depth;
 	const { dims, data: rawData } = depthImage;
 

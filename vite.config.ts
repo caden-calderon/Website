@@ -14,4 +14,11 @@ export default defineConfig({
 	optimizeDeps: {
 		exclude: ['@huggingface/transformers'],
 	},
+	server: {
+		headers: {
+			// Required for SharedArrayBuffer (onnxruntime-web WASM multi-threading)
+			'Cross-Origin-Opener-Policy': 'same-origin',
+			'Cross-Origin-Embedder-Policy': 'credentialless',
+		},
+	},
 });

@@ -1,6 +1,6 @@
 // Core
 export type { SampleSet } from './core/types.js';
-export { createSampleSet, cloneSampleSet } from './core/SampleSet.js';
+export { createSampleSet, cloneSampleSet, mergeSampleSets } from './core/SampleSet.js';
 
 // Ingest
 export type { IngestAdapter, MeshAdapterOptions, ImageAdapterOptions } from './ingest/types.js';
@@ -21,6 +21,8 @@ export { importanceSampling } from './algorithms/importance-sampling.js';
 export type { SampleProcessor, ProcessorParams } from './processing/types.js';
 export { Pipeline } from './processing/Pipeline.js';
 export { ColorProcessor } from './processing/ColorProcessor.js';
+export { FrameGenerator, DEFAULT_FRAME_PARAMS, FRAME_STYLES } from './processing/FrameGenerator.js';
+export type { FrameParams, FrameStyle } from './processing/FrameGenerator.js';
 
 // Render
 export type { RendererAdapter, RenderParams, BloomParams } from './render/types.js';

@@ -34,38 +34,57 @@ The Phase 1 feasibility scaffold is built and producing compelling results. Both
 
 ### ML Preprocessing (browser-side, lazy-loaded, cached)
 
-- **Background removal**: 4 model options:
-  - ISNet via `@imgly/background-removal` (~40MB, fast, works everywhere)
-  - BiRefNet Lite via `@huggingface/transformers` (~115MB, much better quality, MIT, Chromium only)
-  - BEN2 via `@huggingface/transformers` (~219MB, best edges, MIT, Chromium only)
-  - BiRefNet Full via `@huggingface/transformers` (~490MB, highest quality, Chromium only)
-  - Non-Chromium browsers (Firefox, Zen) automatically fall back to ISNet; UI greys out unsupported models with "Chromium only" label
+- **Background removal**: 6 model options:
+  - ISNet (fast) via `@imgly/background-removal` (~10MB, quantized, fastest, works everywhere)
+  - ISNet via `@imgly/background-removal` (~40MB, standard quality, works everywhere)
+  - ISNet (fp16) via `@imgly/background-removal` (~20MB, best quality without WebGPU, works everywhere)
+  - BiRefNet Lite via `@huggingface/transformers` (~115MB, much better quality, MIT, WebGPU only)
+  - BEN2 via `@huggingface/transformers` (~219MB, best edges, MIT, WebGPU only)
+  - BiRefNet Full via `@huggingface/transformers` (~490MB, highest quality, WebGPU only)
+  - Models requiring WebGPU are greyed out when WebGPU is unavailable; fallback chain: webgpu → wasm → ISNet
+  - Linux Chrome WebGPU has WGSL shader nesting depth limit that breaks ONNX-generated shaders for BiRefNet/BEN2
 - **Depth estimation**: 6 model options via `@huggingface/transformers`:
   - DA V2 Small q8 (27MB, fast, default), Small fp16 (50MB), Base q8 (102MB), Base fp16 (195MB, best detail), MiDaS DPT-Hybrid (500MB), DA V1 Small (99MB)
-  - DA V2 Base fp16 produces noticeably better depth detail (cloth wrinkles, facial features) but is slower
+  - All depth models work on WASM (simpler ONNX operators than BG removal)
+  - Depth input is forced opaque (black fill behind transparent BG-removed images) to prevent ONNX errors
 - **Normal displacement**: computes surface normals from depth gradients, displaces points laterally for volumetric form
 - **Caching**: models cached in browser via Cache API; `env.useBrowserCache = true` set explicitly after dynamic import to fix SSR contamination; persistent storage requested on mount
-- **Pipeline caching**: pipeline instances cached by model+dtype key — switching between loaded models is instant; BG removal and depth results cached per source image + model index via WeakMap
+- **Pipeline caching**: pipeline instances cached by model+dtype+device key — switching between loaded models is instant; BG removal and depth results cached per source image + model index via WeakMap
+- **Device fallback**: webgpu-probe.ts determines best ONNX device; 30s timeout on WebGPU, 120s on WASM; automatic retry on fallback device
 
 ### Browser Compatibility
 
-- Chromium browsers (Chrome, Edge, Brave, Opera): full feature support, all ML models work
-- Firefox/Zen: ISNet BG removal only (BiRefNet/BEN2 greyed out in UI); depth estimation works via WASM fallback
-- UI shows amber compatibility notice on non-Chromium browsers
+- Chromium + working WebGPU (macOS/Windows Chrome): full feature support, all ML models work
+- Chromium without WebGPU (Linux Chrome): ISNet BG removal (3 variants), all depth models via WASM
+- Firefox/Zen: ISNet BG removal only; depth estimation works via WASM
+- COOP/COEP headers set via SvelteKit hooks.server.ts for SharedArrayBuffer (WASM multi-threading)
+- UI shows compatibility notice when WebGPU unavailable; model dropdowns visible before enabling features
 
 ### App Layer
 
 - SvelteKit + Threlte 8 scaffold
 - `UnrealBloomPass` post-processing (custom render loop via `useTask`)
-- Full controls UI (scrollable, all parameters, ML preprocessing buttons with loading state, model dropdowns, browser compat notices)
+- Collapsible controls UI organized into sections: Source, Background (inner/outer), Image, ML Preprocessing, Sampling, Frame, Rendering, Bloom, Settings
 - Mesh mode (procedural torus knot) + image mode (upload + process)
 - Image preprocessing orchestration runs through one authoritative `rebuildImagePipeline()` path with per-source/model caches and stale-request guards
+- Settings persistence via localStorage (save/load/reset)
+- Inner/outer background colors: outer via scene.background, inner via PlaneGeometry behind points
+- Point-based frame system with 4 styles (rectangle, double, ornate, scattered)
+- Tunable point size variation (luminance-based, 0-1 range)
+- Cursor-based zoom (zoomToCursor on OrbitControls) with zoom-out cap
 
 ### Tests & Quality
 
-- 26 tests passing (SampleSet, algorithms, pipeline, mesh adapter, image adapter, background-removal helpers)
+- 48 tests passing (SampleSet, merge, algorithms, pipeline, mesh/image adapters, BG removal helpers, frame generator styles)
 - 0 type errors, 0 warnings
-- TypeScript strict mode, no `any` escape hatches
+- TypeScript strict mode
+
+### Review Hardening (March 26, 2026)
+
+- `mergeSampleSets()` now preserves optional metadata across mixed inputs instead of dropping `ids`, `uv`, or normals when frame samples are appended to image samples
+- merged IDs stay stable where possible and only synthesize new IDs for samples that did not already have one or would collide
+- COOP/COEP policy is aligned between Vite dev server and SvelteKit responses (`credentialless`) to keep ML/runtime behavior consistent across environments
+- bloom pass rebuilds now dispose replaced passes instead of leaving post-processing resources hanging across reconfiguration
 
 ## Key Decisions Made
 

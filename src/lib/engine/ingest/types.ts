@@ -42,4 +42,10 @@ export interface ImageAdapterOptions {
 	 * Creates volumetric bulging — an arm looks cylindrical, not just pushed forward.
 	 */
 	normalDisplacement?: number;
+	/**
+	 * Range of luminance-based radius variation (0–1, default 0.4).
+	 * 0 = uniform radius, 0.4 = current default (0.6x–1.4x), 1.0 = maximum (0x–2.0x).
+	 * Only applies when radiusFromLuminance is true.
+	 */
+	sizeVariation?: number;
 }

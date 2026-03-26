@@ -59,6 +59,43 @@
 - add background-removal helper tests for alpha-mask compositing
 - 26 tests passing, 0 type errors, 0 warnings
 
+### Visual Customization (Sprint 1 — March 26)
+- add background color picker (scene.background)
+- add point-based frame generator with rectangular border
+- add tunable sizeVariation parameter (0-1) for luminance-based radius scaling
+- add mergeSampleSets() utility for combining SampleSets
+- cursor-based zoom (zoomToCursor) + zoom-out cap (maxDistance)
+- shorten browser compat warning + add dismiss button
+- add SampleSet merge tests, FrameGenerator tests, ImageAdapter sizeVariation tests
+- 42 tests passing
+
+### Visual Customization (Sprint 2 — March 26)
+- split background into inner/outer colors (inner = PlaneGeometry behind points, outer = scene.background)
+- reorganize Controls.svelte into collapsible sections with headers
+- add settings persistence (localStorage save/load/reset)
+- add 4 frame styles: rectangle, double, ornate (corner accents + inner accent), scattered (Gaussian falloff)
+- model dropdowns visible before enabling features (pick model first, then run)
+- 46 tests passing
+
+### ML Cross-Browser Compatibility (March 26)
+- fix depth estimation WebGPU probe (was naive navigator.gpu check, now probes adapter)
+- add WASM fallback chain for BG removal and depth estimation (webgpu → wasm → ISNet)
+- add 30s WebGPU timeout / 120s WASM timeout with automatic retry
+- add ISNet fp16 and ISNet quint8 variants for better WASM BG removal
+- fix BackgroundRemoval missing await on ISNet fallback (catch block was dead code)
+- fix depth estimation failing on BG-removed images (transparent pixels → opaque JPEG conversion)
+- add SvelteKit hooks.server.ts for COOP/COEP headers (SharedArrayBuffer for WASM multi-threading)
+- add WebGPU capability detection (webgpu-probe.ts) shared across all ML modules
+- fix BG removal cache storing ISNet results under wrong model key on fallback
+- 48 tests passing, 0 type errors
+
+### Staff Review Hardening (March 26)
+- fix `mergeSampleSets()` so merged sample sets preserve optional metadata instead of dropping `ids`, `uv`, or normals when frame samples are appended
+- preserve stable IDs during merges and synthesize fresh IDs only for samples that need them
+- align COOP/COEP to `credentialless` in both dev and app responses
+- dispose replaced bloom passes during composer rebuilds
+- fix settings reset drift so BG removal resets to the same default model as initial load
+
 ## Next
 
 - [ ] source proper test assets (Blender glTF model with real geometry + high-res classical paintings)
@@ -68,6 +105,7 @@
 - [ ] add direct tests for GLPointRenderer
 - [ ] reduce initial route chunk size (lazy-load Threlte demo)
 - [ ] evaluate THREE.Points sufficiency vs splat rendering for Phase 2
+- [ ] server-side BG removal inference (Python endpoint for BiRefNet/BRIA quality on Linux)
 
 ## Later (Phase 2+)
 

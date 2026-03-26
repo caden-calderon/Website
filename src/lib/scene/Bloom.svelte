@@ -19,7 +19,16 @@
 	const composer = new EffectComposer(renderer);
 	let bloomPass: UnrealBloomPass;
 
+	function disposePasses() {
+		for (const pass of composer.passes) {
+			if ('dispose' in pass && typeof pass.dispose === 'function') {
+				pass.dispose();
+			}
+		}
+	}
+
 	function setupPasses(cam: Camera) {
+		disposePasses();
 		while (composer.passes.length > 0) composer.removePass(composer.passes[0]);
 		composer.addPass(new RenderPass(scene, cam));
 		bloomPass = new UnrealBloomPass(

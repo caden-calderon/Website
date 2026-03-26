@@ -12,35 +12,53 @@ export interface BgRemovalModelInfo {
 	description: string;
 	size: string;
 	backend: 'imgly' | 'transformers';
+	/** ONNX quantization dtype for transformers models (default 'auto') */
+	dtype?: string;
+	/** Whether this is a gated model requiring auth proxy */
+	gated?: boolean;
 }
 
 /** Available background removal models, ordered by quality. */
 export const BG_REMOVAL_MODELS: BgRemovalModelInfo[] = [
 	{
-		id: 'isnet',
+		id: 'isnet_quint8',
 		label: 'ISNet (fast)',
-		description: 'Fastest, decent quality. Good for quick previews.',
+		description: 'Fastest, smallest download. Good for quick previews.',
+		size: '~10MB',
+		backend: 'imgly',
+	},
+	{
+		id: 'isnet',
+		label: 'ISNet',
+		description: 'Standard quality. Good balance of speed and quality.',
 		size: '~40MB',
+		backend: 'imgly',
+	},
+	{
+		id: 'isnet_fp16',
+		label: 'ISNet (fp16)',
+		description: 'Higher precision ISNet. Best quality without WebGPU.',
+		size: '~20MB',
 		backend: 'imgly',
 	},
 	{
 		id: 'onnx-community/BiRefNet_lite-ONNX',
 		label: 'BiRefNet Lite',
-		description: 'Much better quality, fine details. MIT license.',
+		description: 'Much better quality, fine details. Requires WebGPU.',
 		size: '~115MB',
 		backend: 'transformers',
 	},
 	{
 		id: 'onnx-community/BEN2-ONNX',
 		label: 'BEN2',
-		description: 'Best edge quality. Hair, transparency. MIT license.',
+		description: 'Best edge quality. Hair, transparency. Requires WebGPU.',
 		size: '~219MB',
 		backend: 'transformers',
 	},
 	{
 		id: 'onnx-community/BiRefNet-ONNX',
 		label: 'BiRefNet Full',
-		description: 'Highest quality BiRefNet. Very large download.',
+		description: 'Highest quality BiRefNet. Requires WebGPU.',
 		size: '~490MB',
 		backend: 'transformers',
 	},
@@ -92,22 +110,119 @@ export interface BackgroundRemovalResult {
 	image: HTMLImageElement;
 	blob: Blob;
 	modelId: string;
+	/** True if the requested model failed and a fallback was used */
+	usedFallback?: boolean;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const pipelineCache = new Map<string, any>();
 
+interface RawImageLike {
+	width: number;
+	height: number;
+	channels?: number;
+	data: Uint8Array | Uint8ClampedArray;
+	toBlob?: () => Promise<Blob>;
+	toCanvas?: () => HTMLCanvasElement | OffscreenCanvas;
+}
+
+export function applyAlphaMaskToImageData(
+	imageData: Uint8ClampedArray,
+	maskData: Uint8Array | Uint8ClampedArray,
+): Uint8ClampedArray {
+	const composited = new Uint8ClampedArray(imageData);
+	const pixelCount = Math.min(maskData.length, Math.floor(composited.length / 4));
+
+	for (let i = 0; i < pixelCount; i++) {
+		composited[i * 4 + 3] = maskData[i];
+	}
+
+	return composited;
+}
+
+async function createTransparentForegroundBlob(
+	source: HTMLImageElement,
+	mask: RawImageLike,
+): Promise<Blob> {
+	const width = mask.width;
+	const height = mask.height;
+	const canvas = document.createElement('canvas');
+	canvas.width = width;
+	canvas.height = height;
+	const ctx = canvas.getContext('2d');
+	if (!ctx) throw new Error('Failed to get canvas context');
+
+	ctx.drawImage(source, 0, 0, width, height);
+	const sourceImageData = ctx.getImageData(0, 0, width, height);
+	sourceImageData.data.set(applyAlphaMaskToImageData(sourceImageData.data, mask.data));
+	ctx.putImageData(sourceImageData, 0, 0);
+
+	return new Promise<Blob>((resolve, reject) => {
+		canvas.toBlob(
+			(blob) => (blob ? resolve(blob) : reject(new Error('Canvas toBlob failed'))),
+			'image/png',
+		);
+	});
+}
+
+import { getPreferredDevice, withTimeout, type OnnxDevice } from './webgpu-probe.js';
+
+async function getBackgroundRemovalPipeline(
+	modelId: string,
+	device: OnnxDevice,
+	dtype: string = 'auto',
+	gated: boolean = false,
+) {
+	const key = `bg::${modelId}::${device}`;
+	if (pipelineCache.has(key)) {
+		return pipelineCache.get(key);
+	}
+
+	const { pipeline, env } = await import('@huggingface/transformers');
+
+	// Fix SSR contamination
+	env.useBrowserCache = true;
+	env.useFSCache = false;
+
+	if (device === 'wasm') {
+		env.backends.onnx.wasm!.numThreads = self.crossOriginIsolated ? navigator.hardwareConcurrency : 1;
+	}
+
+	// Route gated models through our server-side auth proxy
+	const savedRemoteHost = env.remoteHost;
+	if (gated) {
+		env.remoteHost = `${window.location.origin}/api/hf-proxy/`;
+	}
+
+	let instance;
+	try {
+		instance = await pipeline('background-removal', modelId, {
+			dtype: dtype as 'auto' | 'fp32' | 'fp16' | 'q8' | 'q4' | 'q4f16',
+			device,
+		});
+	} finally {
+		// Restore original host so non-gated models still load directly
+		if (gated) {
+			env.remoteHost = savedRemoteHost;
+		}
+	}
+	pipelineCache.set(key, instance);
+	return instance;
+}
+
 /**
- * Remove background using the @imgly/background-removal library (ISNet).
+ * Remove background using the @imgly/background-removal library (ISNet variants).
  */
 async function removeWithImgly(
 	source: HTMLImageElement,
+	modelId: string = 'isnet',
 	onProgress?: (progress: number) => void,
 ): Promise<BackgroundRemovalResult> {
 	const { removeBackground } = await import('@imgly/background-removal');
 	const inputBlob = await imageToBlob(source);
 
 	const resultBlob = await removeBackground(inputBlob, {
+		model: modelId as 'isnet' | 'isnet_fp16' | 'isnet_quint8',
 		progress: onProgress
 			? (key: string, current: number, total: number) => {
 					onProgress(total > 0 ? current / total : 0);
@@ -116,7 +231,7 @@ async function removeWithImgly(
 	});
 
 	const img = await blobToImage(resultBlob);
-	return { image: img, blob: resultBlob, modelId: 'isnet' };
+	return { image: img, blob: resultBlob, modelId };
 }
 
 /**
@@ -179,33 +294,42 @@ async function rawImageToBlob(rawImage: any): Promise<Blob> {
 async function removeWithTransformers(
 	source: HTMLImageElement,
 	modelId: string,
+	dtype: string = 'auto',
+	gated: boolean = false,
 ): Promise<BackgroundRemovalResult> {
-	const key = `bg::${modelId}`;
+	const dataUrl = imageToDataUrl(source);
+	const run = async (device: OnnxDevice): Promise<BackgroundRemovalResult> => {
+		const segmenter = await getBackgroundRemovalPipeline(modelId, device, dtype, gated);
+		const timeoutMs = device === 'webgpu' ? 30_000 : 120_000;
+		const output = await withTimeout(segmenter(dataUrl), timeoutMs, `BG removal (${device})`);
+		const rawImage = (Array.isArray(output) ? output[0] : output) as RawImageLike;
+		const blob =
+			rawImage.channels === 1
+				? await createTransparentForegroundBlob(source, rawImage)
+				: await rawImageToBlob(rawImage);
 
-	if (!pipelineCache.has(key)) {
-		const { pipeline, env } = await import('@huggingface/transformers');
+		const img = await blobToImage(blob);
+		return { image: img, blob, modelId };
+	};
 
-		// Fix SSR contamination
-		env.useBrowserCache = true;
-		env.useFSCache = false;
+	// Device fallback chain: preferred → wasm
+	const preferred = await getPreferredDevice();
+	const fallbackChain: OnnxDevice[] = [preferred];
+	if (preferred !== 'wasm') fallbackChain.push('wasm');
 
-		const instance = await pipeline('background-removal', modelId, {
-			dtype: 'fp16',
-			device: typeof navigator !== 'undefined' && 'gpu' in navigator ? 'webgpu' : 'wasm',
-		});
-		pipelineCache.set(key, instance);
+	for (let i = 0; i < fallbackChain.length; i++) {
+		const device = fallbackChain[i];
+		try {
+			return await run(device);
+		} catch (error) {
+			pipelineCache.delete(`bg::${modelId}::${device}`);
+			const isLast = i === fallbackChain.length - 1;
+			if (isLast) throw error;
+			console.warn(`BG removal failed on ${device} for ${modelId}, trying next backend.`, error);
+		}
 	}
 
-	const segmenter = pipelineCache.get(key);
-	const dataUrl = imageToDataUrl(source);
-
-	const output = await segmenter(dataUrl);
-	// Pipeline returns an array of RawImage objects
-	const rawImage = Array.isArray(output) ? output[0] : output;
-	const blob = await rawImageToBlob(rawImage);
-
-	const img = await blobToImage(blob);
-	return { image: img, blob, modelId };
+	throw new Error('All backends exhausted');
 }
 
 export interface RemoveBackgroundOptions {
@@ -227,8 +351,29 @@ export async function removeImageBackground(
 	if (!model) throw new Error(`Invalid BG removal model index: ${modelIdx}`);
 
 	if (model.backend === 'imgly') {
-		return removeWithImgly(source, options.onProgress);
+		return removeWithImgly(source, model.id, options.onProgress);
 	} else {
-		return removeWithTransformers(source, model.id);
+		if (isFirefox()) {
+			console.warn(
+				`Transformers background removal is unstable in Firefox for ${model.label}; falling back to ISNet.`,
+			);
+			const result = await removeWithImgly(source, 'isnet', options.onProgress);
+			return { ...result, usedFallback: true };
+		}
+
+		try {
+			return await removeWithTransformers(source, model.id, model.dtype, model.gated);
+		} catch (error) {
+			console.warn(
+				`Transformers background removal failed for ${model.label}; falling back to ISNet.`,
+				error,
+			);
+			const result = await removeWithImgly(source, 'isnet', options.onProgress);
+			return { ...result, usedFallback: true };
+		}
 	}
+}
+
+function isFirefox(): boolean {
+	return typeof navigator !== 'undefined' && /firefox/i.test(navigator.userAgent);
 }

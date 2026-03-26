@@ -26,6 +26,7 @@ export class ImageAdapter implements IngestAdapter<ImageSource, ImageAdapterOpti
 		const depthScale = options.depthScale ?? 0;
 		const densityGamma = options.densityGamma ?? 1.0;
 		const radiusFromLuminance = options.radiusFromLuminance ?? false;
+		const sizeVariation = options.sizeVariation ?? 0.4;
 		const outlierRadius = options.outlierRadius ?? 0;
 		const normalDisplacement = options.normalDisplacement ?? 0;
 		const depthMap = options.depthMap;
@@ -139,9 +140,13 @@ export class ImageAdapter implements IngestAdapter<ImageSource, ImageAdapterOpti
 			samples.colors[o3 + 1] = result.colors[i3 + 1];
 			samples.colors[o3 + 2] = result.colors[i3 + 2];
 
-			samples.radii[outIdx] = radiusFromLuminance
-				? result.radii[i] * (0.6 + lum * 0.8)
-				: result.radii[i];
+			if (radiusFromLuminance) {
+				const minScale = 1.0 - sizeVariation;
+				const maxScale = 1.0 + sizeVariation;
+				samples.radii[outIdx] = result.radii[i] * (minScale + lum * (maxScale - minScale));
+			} else {
+				samples.radii[outIdx] = result.radii[i];
+			}
 
 			samples.opacities[outIdx] = 1.0;
 			samples.ids![outIdx] = outIdx;
