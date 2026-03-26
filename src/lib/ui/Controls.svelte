@@ -169,7 +169,7 @@
 </script>
 
 <div
-	class="fixed top-4 right-4 z-50 max-h-[95vh] max-w-[calc(100vw-2rem)] overflow-y-auto overflow-x-hidden font-mono text-xs select-none"
+	class="controls-panel fixed top-4 right-4 z-50 max-h-[95vh] max-w-[calc(100vw-2rem)] overflow-y-auto overflow-x-hidden font-mono text-xs select-none"
 	class:w-[22rem]={!collapsed}
 	class:w-auto={collapsed}
 >
@@ -700,3 +700,19 @@
 		</div>
 	{/if}
 </div>
+
+<style>
+	:global(.controls-panel select) {
+		color-scheme: dark;
+	}
+
+	:global(.controls-panel option) {
+		background: rgb(10 10 10);
+		color: rgb(229 231 235);
+	}
+	
+	:global(.controls-panel optgroup) {
+		background: rgb(10 10 10);
+		color: rgb(229 231 235);
+	}
+</style>
