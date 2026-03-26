@@ -14,10 +14,10 @@ The Phase 1 feasibility scaffold is built and producing compelling results. Both
 
 - **Core**: `SampleSet` canonical data structure with typed arrays (positions, colors, radii, opacities, + optional ids, normals, orientations, velocities, anchors, barycentrics, uv)
 - **Ingest**: `MeshAdapter` (glTF → world-space surface samples) + `ImageAdapter` (image → stipple with ML depth, outlier suppression, luminance radius)
-- **Algorithms**: rejection sampling (fast) + CDF importance sampling (better density), both with seeded PRNG and density gamma control
+- **Algorithms**: rejection sampling (fast) + CDF importance sampling (better density) + weighted Voronoi/CVT sampler for more even high-detail still-image stippling
 - **Processing**: composable `Pipeline` with `ColorProcessor` (HSL grading, contrast)
 - **Rendering**: `GLPointRenderer` implementing `RendererAdapter`, custom GLSL shaders with 15+ live-tunable uniforms
-- **Preprocessing**: lazy-loaded ML modules for background removal (4 models) and depth estimation (6 models)
+- **Preprocessing**: lazy-loaded ML modules for background removal (6 browser models + optional server-side BRIA/BiRefNet path) and depth estimation (6 models)
 
 ### Shader Controls (all live-tunable via uniforms)
 
@@ -63,9 +63,12 @@ The Phase 1 feasibility scaffold is built and producing compelling results. Both
 ### App Layer
 
 - SvelteKit + Threlte 8 scaffold
+- `pnpm dev:full` now manages the local Python BG service and Vite together from one terminal by loading `.env`, reusing a healthy local service when present, and shutting down managed children cleanly
+- route shell now lazy-loads the heavy runtime/demo component so the top-level page entry stays light
 - `UnrealBloomPass` post-processing (custom render loop via `useTask`)
-- Collapsible controls UI organized into sections: Source, Background (inner/outer), Image, ML Preprocessing, Sampling, Frame, Rendering, Bloom, Settings
-- Mesh mode (procedural torus knot) + image mode (upload + process)
+- Collapsible controls UI organized into sections: Source, Background (inner/outer), Image, ML Preprocessing, Sampling, Frame, Rendering, Bloom, Settings; widened to avoid horizontal overflow
+- Mesh mode supports a real glTF preset plus the procedural fallback; image mode supports curated preset artworks plus upload
+- background removal can run via browser inference or an app-layer server proxy backed by a local Python service for BRIA/BiRefNet quality on Linux
 - Image preprocessing orchestration runs through one authoritative `rebuildImagePipeline()` path with per-source/model caches and stale-request guards
 - Settings persistence via localStorage (save/load/reset)
 - Inner/outer background colors: outer via scene.background, inner via PlaneGeometry behind points
@@ -75,7 +78,7 @@ The Phase 1 feasibility scaffold is built and producing compelling results. Both
 
 ### Tests & Quality
 
-- 48 tests passing (SampleSet, merge, algorithms, pipeline, mesh/image adapters, BG removal helpers, frame generator styles)
+- 60 tests passing (SampleSet, merge, algorithms including weighted Voronoi, pipeline, mesh/image adapters, BG removal helpers, app-layer BG service helpers, frame generator styles, GLPointRenderer)
 - 0 type errors, 0 warnings
 - TypeScript strict mode
 
@@ -85,6 +88,19 @@ The Phase 1 feasibility scaffold is built and producing compelling results. Both
 - merged IDs stay stable where possible and only synthesize new IDs for samples that did not already have one or would collide
 - COOP/COEP policy is aligned between Vite dev server and SvelteKit responses (`credentialless`) to keep ML/runtime behavior consistent across environments
 - bloom pass rebuilds now dispose replaced passes instead of leaving post-processing resources hanging across reconfiguration
+
+### Phase 1 Extension (March 26, 2026)
+
+- added an app-layer background-removal provider boundary with a SvelteKit proxy route and local Python service scaffold for server-side BRIA/BiRefNet inference
+- pinned the Python service requirements to the current shared `ai-env` torch 2.11.x line and verified the service boots locally at `127.0.0.1:9000/healthz`
+- fixed the server BG removal UX path: the client now downsizes/compresses uploads before posting, upstream FastAPI `detail` errors are surfaced cleanly, and the response body is no longer read twice on failures
+- added the missing BiRefNet runtime deps (`einops`, `timm`) to the Python service requirements and verified a direct local BiRefNet request succeeds after the initial model download
+- added real preset demo assets in `static/demo-assets/` and wired preset selection for both mesh and image modes
+- added a weighted Voronoi / CVT-style stippling path that can now run across the full image slider range for manual quality/performance testing
+- widened the controls panel and removed horizontal scrolling so long labels, selects, and file inputs fit the sidebar cleanly
+- added direct `GLPointRenderer` tests for attribute upload/update, uniform updates, and disposal
+- verified that the route shell now code-splits cleanly; the remaining large chunks are in the deferred runtime/ML payload, not the route entry
+- shared `ai-env` still has some unrelated package drift risk because it is not service-isolated, but the Python service import path, `/healthz`, and a direct BiRefNet request now work after explicitly repairing `httpx` / `anyio`, pinning `transformers` below 4.56, and adding the model-code extras
 
 ## Key Decisions Made
 

@@ -21,11 +21,11 @@
 | Renderer | `THREE.Points` + custom `ShaderMaterial` | Working, behind `RendererAdapter` |
 | Background removal | `@imgly/background-removal` | Working (lazy-loaded, ~40MB) |
 | Depth estimation | `@huggingface/transformers` + Depth Anything V2 | Working (6 models, lazy-loaded) |
-| Assets | Blender → glTF/GLB | Planned (using procedural geometry for now) |
+| Assets | Curated glTF + public-domain image presets | Working |
 | Content system | Typed manifests/content graph | Types defined |
 | LLM backend | SvelteKit server routes | Planned |
 | Styling | Tailwind CSS v4 | Working |
-| Testing | Vitest | 48 tests passing |
+| Testing | Vitest | 60 tests passing |
 
 ## Project Structure (Actual)
 
@@ -44,6 +44,7 @@ WebsiteV2/
 │   │   │   ├── algorithms/
 │   │   │   │   ├── rejection-sampling.ts       # Fast weighted rejection
 │   │   │   │   ├── importance-sampling.ts      # CDF-based importance sampling
+│   │   │   │   ├── weighted-voronoi.ts         # CVT-style stippling sampler
 │   │   │   │   └── types.ts
 │   │   │   ├── preprocessing/
 │   │   │   │   ├── BackgroundRemoval.ts        # @imgly/background-removal wrapper
@@ -71,7 +72,9 @@ WebsiteV2/
 │   │   ├── +layout.svelte
 │   │   └── +page.svelte                        # Demo page (mesh + image modes)
 │   └── app.html, app.css, app.d.ts
-├── tests/engine/                              # 48 tests
+├── tests/engine/                              # engine-focused coverage
+├── tests/services/                            # service/app-layer coverage
+├── scripts/                                   # local dev tooling (e.g. dev:full)
 ├── handoff/                                   # Architecture docs, planning, legacy
 └── package.json, vite.config.ts, tsconfig.json
 ```
@@ -141,11 +144,12 @@ interface SampleSet {
 - Preserve stable point correspondence for temporal coherence
 - Clean disposal patterns everywhere
 - TypeScript strict mode, no `any`
-- ML preprocessing is lazy-loaded and browser-side (no server dependency)
+- Engine-side ML preprocessing is lazy-loaded and browser-side; optional server inference stays in the app layer behind a route boundary
 
 ## Main Risks
 
 1. **Temporal coherence for video/animation** — hardest technical problem for Phase 2+
 2. **Renderer migration cost** — later surfel/splat quality or WebGPU may require a second renderer
 3. **Product cohesion** — making website + world + character feel like one product requires careful design
-4. **Route chunk size** — the demo page currently ships the full Three.js stack; needs lazy-loading before the site shell hardens
+4. **Deferred demo/runtime size** — the route shell is lazy-loaded now, but the runtime chunk is still heavy once ML/runtime features are requested
+5. **Optional Python service ops** — server-side BG removal solves Linux/WebGPU quality issues, but adds deployment and model-management overhead

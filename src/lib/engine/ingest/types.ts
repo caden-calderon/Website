@@ -19,7 +19,7 @@ export interface ImageAdapterOptions {
 	/** Target number of samples to generate */
 	count: number;
 	/** Sampling algorithm to use */
-	algorithm: 'rejection' | 'importance';
+	algorithm: 'rejection' | 'importance' | 'weighted-voronoi';
 	/** Base radius for generated samples (default 1.0) */
 	baseRadius?: number;
 	/** Random seed for reproducibility */

@@ -96,16 +96,29 @@
 - dispose replaced bloom passes during composer rebuilds
 - fix settings reset drift so BG removal resets to the same default model as initial load
 
+### Phase 1 Extension (March 26)
+- add app-layer BG removal provider abstraction (`browser` vs `server`)
+- add SvelteKit `/api/bg-remove` proxy route for local Python inference service
+- add local Python background-removal service scaffold for BiRefNet / BRIA RMBG 2.0
+- pin Python service deps to the current `ai-env` torch line and verify local boot/health
+- add the missing BiRefNet runtime extras (`einops`, `timm`) and fix server-upload/error-handling regressions in the app path
+- add `pnpm dev:full` to run the local BG service and Vite together from one terminal
+- remove the old low cap on weighted Voronoi so it can be exercised across the full image slider range for manual testing
+- widen the controls sidebar and remove horizontal scrolling
+- add lazy-loaded route shell for the heavy Threlte / Three runtime
+- add real preset demo assets (Khronos glTF mesh + curated public-domain paintings)
+- add preset asset selection UI for mesh and image modes
+- add weighted Voronoi stippling benchmark algorithm
+- add direct GLPointRenderer tests
+- 60 tests passing, 0 type errors
+
 ## Next
 
-- [ ] source proper test assets (Blender glTF model with real geometry + high-res classical paintings)
 - [ ] continue visual quality iteration toward Andreion reference (color richness, density)
 - [ ] explore color palette presets / LUT-style color grading
-- [ ] add weighted Voronoi stippling as quality benchmark algorithm
-- [ ] add direct tests for GLPointRenderer
-- [ ] reduce initial route chunk size (lazy-load Threlte demo)
 - [ ] evaluate THREE.Points sufficiency vs splat rendering for Phase 2
-- [ ] server-side BG removal inference (Python endpoint for BiRefNet/BRIA quality on Linux)
+- [ ] harden the Python BG removal service for actual deployment (dedicated venv/container, model warmup, licensing notes, app-route end-to-end smoke test against a real upload)
+- [ ] further split deferred ML/runtime chunks inside the demo bundle if first-interaction load time is still too heavy
 
 ## Later (Phase 2+)
 

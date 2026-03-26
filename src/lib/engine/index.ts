@@ -16,6 +16,7 @@ export type {
 } from './algorithms/types.js';
 export { rejectionSampling } from './algorithms/rejection-sampling.js';
 export { importanceSampling } from './algorithms/importance-sampling.js';
+export { weightedVoronoiSampling, MAX_WEIGHTED_VORONOI_SAMPLES } from './algorithms/weighted-voronoi.js';
 
 // Processing
 export type { SampleProcessor, ProcessorParams } from './processing/types.js';

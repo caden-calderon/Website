@@ -15,8 +15,8 @@ Phase 1 feasibility is largely proven. The engine renders 2D images and 3D meshe
 
 ```bash
 pnpm install
-pnpm dev        # http://localhost:5173
-pnpm test       # 48 tests
+pnpm dev:full   # starts local BG service + Vite when configured
+pnpm test       # 60 tests
 pnpm check      # 0 errors
 ```
 

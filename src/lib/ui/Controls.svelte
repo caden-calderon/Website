@@ -5,12 +5,20 @@
 	import type { FrameParams } from '$lib/engine/processing/FrameGenerator.js';
 	import { FRAME_STYLES } from '$lib/engine/processing/FrameGenerator.js';
 	import type { FrameStyle } from '$lib/engine/processing/FrameGenerator.js';
+	import type { DemoImageAsset, DemoMeshAsset } from '$lib/demo/assets.js';
+	import type {
+		BgRemovalProvider,
+		ServerBgRemovalModelInfo,
+	} from '$lib/services/backgroundRemoval.js';
+	import { MAX_WEIGHTED_VORONOI_SAMPLES } from '$lib/engine/algorithms/weighted-voronoi.js';
 
 	interface Props {
 		renderParams: RenderParams;
 		bloomParams: BloomParams;
 		mode: 'mesh' | 'image';
-		algorithm: 'rejection' | 'importance';
+		selectedMeshAssetId: string;
+		selectedImageAssetId: string;
+		algorithm: 'rejection' | 'importance' | 'weighted-voronoi';
 		sampleCount: number;
 		depthScale: number;
 		densityGamma: number;
@@ -19,24 +27,33 @@
 		outlierRadius: number;
 		normalDisplacement: number;
 		removeBg: boolean;
+		bgProvider: BgRemovalProvider;
 		bgModelIndex: number;
+		serverBgModelId: string;
 		useDepthMap: boolean;
 		depthModelIndex: number;
 		outerBackgroundColor: string | null;
 		innerBackgroundColor: string | null;
 		frameParams: FrameParams;
+		meshAssets: DemoMeshAsset[];
+		imageAssets: DemoImageAsset[];
 		bgModels: BgRemovalModelInfo[];
+		serverBgModels: ServerBgRemovalModelInfo[];
 		depthModels: DepthModelInfo[];
 		processingStatus: string;
 		hasImage: boolean;
 		onRenderParamsChange: (params: RenderParams) => void;
 		onModeChange: (mode: 'mesh' | 'image') => void;
-		onAlgorithmChange: (algorithm: 'rejection' | 'importance') => void;
+		onMeshAssetChange: (assetId: string) => void;
+		onImageAssetChange: (assetId: string) => void;
+		onAlgorithmChange: (algorithm: 'rejection' | 'importance' | 'weighted-voronoi') => void;
 		onSampleCountChange: (count: number) => void;
 		onImageUpload: (file: File) => void;
 		onResample: () => void;
 		onRemoveBg: (enabled: boolean) => void;
+		onBgProviderChange: (provider: BgRemovalProvider) => void;
 		onBgModelChange: (index: number) => void;
+		onServerBgModelChange: (modelId: string) => void;
 		onEstimateDepth: (enabled: boolean) => void;
 		onDepthModelChange: (index: number) => void;
 		onOuterBackgroundColorChange: (color: string | null) => void;
@@ -50,6 +67,8 @@
 		renderParams = $bindable(),
 		bloomParams = $bindable(),
 		mode = $bindable(),
+		selectedMeshAssetId,
+		selectedImageAssetId,
 		algorithm = $bindable(),
 		sampleCount = $bindable(),
 		depthScale = $bindable(),
@@ -59,24 +78,33 @@
 		outlierRadius = $bindable(),
 		normalDisplacement = $bindable(),
 		removeBg = $bindable(),
+		bgProvider = $bindable(),
 		bgModelIndex = $bindable(),
+		serverBgModelId = $bindable(),
 		useDepthMap = $bindable(),
 		depthModelIndex = $bindable(),
 		outerBackgroundColor = $bindable(),
 		innerBackgroundColor = $bindable(),
 		frameParams = $bindable(),
+		meshAssets,
+		imageAssets,
 		bgModels,
+		serverBgModels,
 		depthModels,
 		processingStatus,
 		hasImage,
 		onRenderParamsChange,
 		onModeChange,
+		onMeshAssetChange,
+		onImageAssetChange,
 		onAlgorithmChange,
 		onSampleCountChange,
 		onImageUpload,
 		onResample,
 		onRemoveBg,
+		onBgProviderChange,
 		onBgModelChange,
+		onServerBgModelChange,
 		onEstimateDepth,
 		onDepthModelChange,
 		onOuterBackgroundColorChange,
@@ -92,6 +120,14 @@
 	let collapsed = $state(false);
 	let compatDismissed = $state(false);
 	let hasWebGpuForBg = $state(false);
+	const effectiveImageSampleCount = $derived(
+		algorithm === 'weighted-voronoi'
+			? Math.min(sampleCount, MAX_WEIGHTED_VORONOI_SAMPLES)
+			: sampleCount,
+	);
+	const weightedVoronoiIsCapped = $derived(
+		algorithm === 'weighted-voronoi' && sampleCount > MAX_WEIGHTED_VORONOI_SAMPLES,
+	);
 
 	onMount(async () => {
 		hasWebGpuForBg = await canRunTransformersBgModels();
@@ -133,8 +169,8 @@
 </script>
 
 <div
-	class="fixed top-4 right-4 z-50 max-h-[95vh] overflow-y-auto font-mono text-xs select-none"
-	class:w-64={!collapsed}
+	class="fixed top-4 right-4 z-50 max-h-[95vh] max-w-[calc(100vw-2rem)] overflow-y-auto overflow-x-hidden font-mono text-xs select-none"
+	class:w-[22rem]={!collapsed}
 	class:w-auto={collapsed}
 >
 	<button
@@ -145,9 +181,9 @@
 	</button>
 
 	{#if !collapsed}
-		<div class="flex flex-col gap-0 rounded-lg bg-black/80 p-3 text-white/80 backdrop-blur">
+		<div class="flex min-w-0 flex-col gap-0 rounded-lg bg-black/80 p-3 text-white/80 backdrop-blur">
 
-			{#if !hasWebGpuForBg && !compatDismissed}
+			{#if bgProvider === 'browser' && !hasWebGpuForBg && !compatDismissed}
 				<div class="relative mb-2 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 pr-6 text-amber-300/80">
 					Some ML models require a Chromium browser (Chrome, Brave, Edge).
 					<button
@@ -222,6 +258,25 @@
 					</button>
 					{#if showImage}
 						<div class="flex flex-col gap-2 pl-1">
+						<div class="flex min-w-0 items-center gap-2">
+							<span class="text-white/50">preset</span>
+							<select
+								class="min-w-0 flex-1 rounded bg-white/10 px-2 py-1 text-white/80"
+								value={selectedImageAssetId}
+								onchange={(e) => onImageAssetChange((e.target as HTMLSelectElement).value)}
+							>
+									<option value="">custom upload</option>
+									{#each imageAssets as asset}
+										<option value={asset.id}>{asset.label}</option>
+									{/each}
+								</select>
+							</div>
+							{#if selectedImageAssetId}
+								<span class="break-words text-white/30">
+									{imageAssets.find((asset) => asset.id === selectedImageAssetId)?.description}
+								</span>
+							{/if}
+
 							<fieldset class="flex gap-2">
 								<legend class="mb-1 text-white/50">Algorithm</legend>
 								<label class="flex items-center gap-1">
@@ -232,11 +287,25 @@
 									<input type="radio" name="algo" value="importance" checked={algorithm === 'importance'} onchange={() => onAlgorithmChange('importance')} />
 									importance
 								</label>
+								<label class="flex items-center gap-1">
+									<input type="radio" name="algo" value="weighted-voronoi" checked={algorithm === 'weighted-voronoi'} onchange={() => onAlgorithmChange('weighted-voronoi')} />
+									voronoi
+								</label>
 							</fieldset>
+							{#if algorithm === 'weighted-voronoi'}
+								<p class="text-white/30">
+									Weighted Voronoi is an experimental CVT-style mode. It aims for more even site placement than plain importance sampling, but high counts can get slow.
+								</p>
+							{/if}
 
-							<label class="text-white/50">
+							<label class="min-w-0 text-white/50">
 								upload image
-								<input type="file" accept="image/*" class="mt-1 block w-full" onchange={handleFileInput} />
+								<input
+									type="file"
+									accept="image/*"
+									class="mt-1 block w-full min-w-0 overflow-hidden"
+									onchange={handleFileInput}
+								/>
 							</label>
 						</div>
 					{/if}
@@ -251,26 +320,61 @@
 						{#if showMl}
 							<div class="flex flex-col gap-2 pl-1">
 								<span class="text-white/40">background removal</span>
-								<select
-									class="rounded bg-white/10 px-2 py-1 text-white/80"
-									value={bgModelIndex}
-									onchange={(e) => {
-										const idx = Number((e.target as HTMLSelectElement).value);
-										if (!isBgModelSupported(bgModels[idx])) return;
-										bgModelIndex = idx;
-										if (removeBg) onBgModelChange(idx);
-									}}
-									disabled={!!processingStatus}
-								>
-									{#each bgModels as model, i}
-										{@const supported = isBgModelSupported(model)}
-										<option value={i} disabled={!supported}
-											title={supported ? model.description : 'Requires WebGPU'}>
-											{model.label} ({model.size}){supported ? '' : ' — WebGPU only'}
-										</option>
-									{/each}
-								</select>
-								<span class="text-white/30">{bgModels[bgModelIndex]?.description}</span>
+								<div class="flex min-w-0 items-center gap-2">
+									<span class="text-white/50">provider</span>
+									<select
+										class="min-w-0 flex-1 rounded bg-white/10 px-2 py-1 text-white/80"
+										value={bgProvider}
+										onchange={(e) => {
+											bgProvider = (e.target as HTMLSelectElement).value as BgRemovalProvider;
+											onBgProviderChange(bgProvider);
+										}}
+										disabled={!!processingStatus}
+									>
+										<option value="browser">Browser</option>
+										<option value="server">Server</option>
+									</select>
+								</div>
+
+								{#if bgProvider === 'browser'}
+									<select
+										class="min-w-0 rounded bg-white/10 px-2 py-1 text-white/80"
+										value={bgModelIndex}
+										onchange={(e) => {
+											const idx = Number((e.target as HTMLSelectElement).value);
+											if (!isBgModelSupported(bgModels[idx])) return;
+											bgModelIndex = idx;
+											if (removeBg) onBgModelChange(idx);
+										}}
+										disabled={!!processingStatus}
+									>
+										{#each bgModels as model, i}
+											{@const supported = isBgModelSupported(model)}
+											<option value={i} disabled={!supported}
+												title={supported ? model.description : 'Requires WebGPU'}>
+												{model.label} ({model.size}){supported ? '' : ' — WebGPU only'}
+											</option>
+										{/each}
+									</select>
+									<span class="break-words text-white/30">{bgModels[bgModelIndex]?.description}</span>
+								{:else}
+									<select
+										class="min-w-0 rounded bg-white/10 px-2 py-1 text-white/80"
+										value={serverBgModelId}
+										onchange={(e) => {
+											serverBgModelId = (e.target as HTMLSelectElement).value;
+											if (removeBg) onServerBgModelChange(serverBgModelId);
+										}}
+										disabled={!!processingStatus}
+									>
+										{#each serverBgModels as model}
+											<option value={model.id}>{model.label} ({model.size})</option>
+										{/each}
+									</select>
+									<span class="break-words text-white/30">
+										{serverBgModels.find((model) => model.id === serverBgModelId)?.description}
+									</span>
+								{/if}
 
 								<button
 									class="rounded px-2 py-1 text-left {removeBg ? 'bg-blue-600/30' : 'bg-white/10'} hover:bg-white/20"
@@ -282,7 +386,7 @@
 
 								<span class="mt-1 text-white/40">depth estimation</span>
 								<select
-									class="rounded bg-white/10 px-2 py-1 text-white/80"
+									class="min-w-0 rounded bg-white/10 px-2 py-1 text-white/80"
 									value={depthModelIndex}
 									onchange={(e) => { depthModelIndex = Number((e.target as HTMLSelectElement).value); if (useDepthMap) onDepthModelChange(depthModelIndex); }}
 									disabled={!!processingStatus}
@@ -291,7 +395,7 @@
 										<option value={i}>{model.label} ({model.size})</option>
 									{/each}
 								</select>
-								<span class="text-white/30">{depthModels[depthModelIndex]?.description}</span>
+								<span class="break-words text-white/30">{depthModels[depthModelIndex]?.description}</span>
 
 								<button
 									class="rounded px-2 py-1 text-left {useDepthMap ? 'bg-blue-600/30' : 'bg-white/10'} hover:bg-white/20"
@@ -313,10 +417,19 @@
 					{#if showSampling}
 						<div class="flex flex-col gap-2 pl-1">
 							<label class="flex flex-col gap-1">
-								<span class="text-white/50">samples: {sampleCount.toLocaleString()}</span>
+								<span class="text-white/50">
+									{algorithm === 'weighted-voronoi'
+										? `voronoi sites: ${effectiveImageSampleCount.toLocaleString()}`
+										: `samples: ${sampleCount.toLocaleString()}`}
+								</span>
 								<input type="range" min="1000" max="300000" step="1000" value={sampleCount}
 									oninput={(e) => onSampleCountChange(Number((e.target as HTMLInputElement).value))} />
 							</label>
+							{#if weightedVoronoiIsCapped}
+								<p class="text-amber-300/70">
+									Requested {sampleCount.toLocaleString()} samples, but weighted Voronoi is currently capped at {MAX_WEIGHTED_VORONOI_SAMPLES.toLocaleString()} sites for manual testing.
+								</p>
+							{/if}
 
 							<label class="flex flex-col gap-1">
 								<span class="text-white/50">depth scale: {depthScale.toFixed(2)}</span>
@@ -375,10 +488,10 @@
 								</button>
 
 								{#if frameParams.enabled}
-									<div class="flex items-center gap-2">
+									<div class="flex min-w-0 items-center gap-2">
 										<span class="text-white/50">style</span>
 										<select
-											class="flex-1 rounded bg-white/10 px-2 py-1 text-white/80"
+											class="min-w-0 flex-1 rounded bg-white/10 px-2 py-1 text-white/80"
 											value={frameParams.style}
 											onchange={(e) => updateFrame('style', (e.target as HTMLSelectElement).value as FrameStyle)}
 										>
@@ -428,6 +541,25 @@
 				<!-- Mesh mode: just sample count + resample -->
 				<div class="border-b border-white/10 pb-2 mb-2">
 					<div class="flex flex-col gap-2">
+						<div class="flex min-w-0 items-center gap-2">
+							<span class="text-white/50">preset</span>
+							<select
+								class="min-w-0 flex-1 rounded bg-white/10 px-2 py-1 text-white/80"
+								value={selectedMeshAssetId}
+								onchange={(e) => onMeshAssetChange((e.target as HTMLSelectElement).value)}
+							>
+								<option value="procedural">Procedural Torus Knot</option>
+								{#each meshAssets as asset}
+									<option value={asset.id}>{asset.label}</option>
+								{/each}
+							</select>
+						</div>
+						{#if selectedMeshAssetId !== 'procedural'}
+							<span class="break-words text-white/30">
+								{meshAssets.find((asset) => asset.id === selectedMeshAssetId)?.description}
+							</span>
+						{/if}
+
 						<label class="flex flex-col gap-1">
 							<span class="text-white/50">samples: {sampleCount.toLocaleString()}</span>
 							<input type="range" min="1000" max="300000" step="1000" value={sampleCount}

@@ -8,3 +8,5 @@ dist
 .DS_Store
 *.local
 vite.config.ts.timestamp-*
+__pycache__/
+*.py[cod]

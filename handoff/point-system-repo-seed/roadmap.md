@@ -17,15 +17,13 @@ Phase 1 feasibility is largely proven. Both tracks (3D mesh + 2D image) produce 
 - Surface normal displacement for volumetric form
 - Outlier suppression, luminance radius scaling
 - Bloom post-processing
-- 26 tests, 0 type errors
+- 60 tests, 0 type errors
 
 ### Remaining Phase 1 Work
 
-- source proper test assets (actual Blender glTF model + classical paintings)
-- add weighted Voronoi stippling as quality benchmark algorithm
+- harden the optional Python BG removal service for actual deployment
 - continue color quality iteration
-- reduce route chunk size (lazy-load 3D demo from site shell)
-- add GLPointRenderer tests
+- further split the deferred runtime/ML bundle if first-interaction cost is still too high
 
 ### Exit Criteria
 

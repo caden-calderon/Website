@@ -4,6 +4,7 @@ import type { IngestAdapter, ImageAdapterOptions } from './types.js';
 import type { AlgorithmInput } from '../algorithms/types.js';
 import { rejectionSampling } from '../algorithms/rejection-sampling.js';
 import { importanceSampling } from '../algorithms/importance-sampling.js';
+import { weightedVoronoiSampling } from '../algorithms/weighted-voronoi.js';
 import { depthToNormals, type DepthMap } from '../preprocessing/DepthEstimation.js';
 
 type ImageSource = HTMLImageElement | HTMLCanvasElement | ImageBitmap;
@@ -39,7 +40,12 @@ export class ImageAdapter implements IngestAdapter<ImageSource, ImageAdapterOpti
 			densityGamma,
 		};
 
-		const algorithm = options.algorithm === 'importance' ? importanceSampling : rejectionSampling;
+		const algorithm =
+			options.algorithm === 'importance'
+				? importanceSampling
+				: options.algorithm === 'weighted-voronoi'
+					? weightedVoronoiSampling
+					: rejectionSampling;
 		const result = algorithm.generate(input, algOpts);
 
 		// Pre-compute luminance map for neighbourhood checks

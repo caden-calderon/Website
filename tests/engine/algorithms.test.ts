@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { rejectionSampling } from '../../src/lib/engine/algorithms/rejection-sampling.js';
 import { importanceSampling } from '../../src/lib/engine/algorithms/importance-sampling.js';
+import {
+	MAX_WEIGHTED_VORONOI_SAMPLES,
+	weightedVoronoiSampling,
+} from '../../src/lib/engine/algorithms/weighted-voronoi.js';
 import type { AlgorithmInput } from '../../src/lib/engine/algorithms/types.js';
 
 /** Create a simple 4×4 RGBA test image with a brightness gradient. */
@@ -116,5 +120,50 @@ describe('importanceSampling', () => {
 			if (result.positions[i * 2] > 0.5) rightCount++;
 		}
 		expect(rightCount / result.count).toBeGreaterThan(0.9);
+	});
+});
+
+describe('weightedVoronoiSampling', () => {
+	it('returns exactly the requested site count while under the cap', () => {
+		const input = makeGradientImage(16, 16);
+		const result = weightedVoronoiSampling.generate(input, { count: 1200, seed: 17 });
+
+		expect(result.count).toBe(1200);
+	});
+
+	it('returns deterministic results with the same seed', () => {
+		const input = makeGradientImage(12, 12);
+		const a = weightedVoronoiSampling.generate(input, { count: 24, seed: 42 });
+		const b = weightedVoronoiSampling.generate(input, { count: 24, seed: 42 });
+
+		expect(Array.from(a.positions)).toEqual(Array.from(b.positions));
+	});
+
+	it('exposes a high manual-testing cap', () => {
+		expect(MAX_WEIGHTED_VORONOI_SAMPLES).toBe(300000);
+	});
+
+	it('still concentrates sites in brighter regions', () => {
+		const w = 8;
+		const h = 8;
+		const pixels = new Uint8ClampedArray(w * h * 4);
+		for (let y = 0; y < h; y++) {
+			for (let x = 0; x < w; x++) {
+				const idx = (y * w + x) * 4;
+				const bright = x >= w / 2 ? 255 : 0;
+				pixels[idx] = bright;
+				pixels[idx + 1] = bright;
+				pixels[idx + 2] = bright;
+				pixels[idx + 3] = 255;
+			}
+		}
+
+		const result = weightedVoronoiSampling.generate({ pixels, width: w, height: h }, { count: 48, seed: 11 });
+		let rightCount = 0;
+		for (let i = 0; i < result.count; i++) {
+			if (result.positions[i * 2] > 0.5) rightCount++;
+		}
+
+		expect(rightCount / result.count).toBeGreaterThan(0.7);
 	});
 });
