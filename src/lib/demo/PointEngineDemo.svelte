@@ -67,6 +67,7 @@
 	let originalImage = $state<HTMLImageElement | null>(null);
 	let pendingObjectUrl = $state<string | null>(null);
 	let imagePipelineVersion = 0;
+	let imageLoadVersion = 0;
 	let meshLoadVersion = 0;
 
 	const bgRemovalCache = new WeakMap<HTMLImageElement, Map<string, HTMLImageElement>>();
@@ -309,11 +310,14 @@
 	}
 
 	async function loadImageAsset(assetId: string) {
+		const version = ++imageLoadVersion;
+		cancelImagePipeline();
 		selectedImageAssetId = assetId;
 		if (!assetId) return;
 
 		const asset = DEMO_IMAGE_ASSETS.find((entry) => entry.id === assetId);
 		if (!asset) {
+			if (version !== imageLoadVersion) return;
 			console.error(`Unknown image asset: ${assetId}`);
 			selectedImageAssetId = '';
 			return;
@@ -322,16 +326,19 @@
 		try {
 			const cached = imageAssetCache.get(asset.id);
 			if (cached) {
+				if (version !== imageLoadVersion) return;
 				originalImage = cached;
 				if (mode === 'image') void rebuildImagePipeline();
 				return;
 			}
 
 			const image = await loadImageFromUrl(asset.src);
+			if (version !== imageLoadVersion) return;
 			imageAssetCache.set(asset.id, image);
 			originalImage = image;
 			if (mode === 'image') void rebuildImagePipeline();
 		} catch (error) {
+			if (version !== imageLoadVersion) return;
 			console.error('Failed to load image asset.', error);
 			selectedImageAssetId = '';
 		}
@@ -491,6 +498,8 @@
 	}
 
 	function handleImageUpload(file: File) {
+		imageLoadVersion += 1;
+		cancelImagePipeline();
 		if (pendingObjectUrl) {
 			URL.revokeObjectURL(pendingObjectUrl);
 			pendingObjectUrl = null;

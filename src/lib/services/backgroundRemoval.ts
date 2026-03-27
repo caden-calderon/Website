@@ -124,19 +124,26 @@ async function serializeImageForServer(source: HTMLImageElement): Promise<Blob> 
 }
 
 async function blobToImage(blob: Blob): Promise<HTMLImageElement> {
-	const objectUrl = URL.createObjectURL(blob);
+	const reader = new FileReader();
 	const image = new Image();
 
 	return new Promise<HTMLImageElement>((resolve, reject) => {
+		reader.onload = () => {
+			const result = reader.result;
+			if (typeof result !== 'string') {
+				reject(new Error('Failed to convert background removal result to a data URL'));
+				return;
+			}
+			image.src = result;
+		};
+		reader.onerror = () => reject(new Error('Failed to read background removal result'));
 		image.onload = () => {
-			URL.revokeObjectURL(objectUrl);
 			resolve(image);
 		};
 		image.onerror = () => {
-			URL.revokeObjectURL(objectUrl);
 			reject(new Error('Failed to decode background removal result'));
 		};
-		image.src = objectUrl;
+		reader.readAsDataURL(blob);
 	});
 }
 

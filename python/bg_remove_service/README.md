@@ -43,7 +43,7 @@ pnpm dev:full
 ## Notes
 
 - `bria-rmbg-2.0` is gated and license-constrained. Make sure your Hugging Face token has access.
-- GPU is preferred, but the service falls back to CPU.
+- GPU is preferred, but the service keeps CUDA residency conservative: it evicts other cached CUDA models before loading a new one, retries a CUDA request once after clearing VRAM on OOM, and only then falls back to CPU.
 - The app route returns `503` when `BG_REMOVAL_SERVICE_URL` is not configured, so local browser-side removal still works without this service.
 - `ai-env` is a shared environment. If unrelated packages in that env start fighting over `httpx` / `anyio`, move this service into a dedicated venv before treating it as deployment-ready.
 - Boot and `/healthz` have been verified locally. The first real `/remove-background` request will still need to download the selected model weights if they are not already cached.

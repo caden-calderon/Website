@@ -91,18 +91,25 @@ function imageToDataUrl(img: HTMLImageElement): string {
 }
 
 function blobToImage(blob: Blob): Promise<HTMLImageElement> {
-	const url = URL.createObjectURL(blob);
+	const reader = new FileReader();
 	const img = new Image();
 	return new Promise<HTMLImageElement>((resolve, reject) => {
+		reader.onload = () => {
+			const result = reader.result;
+			if (typeof result !== 'string') {
+				reject(new Error('Failed to convert blob to data URL'));
+				return;
+			}
+			img.src = result;
+		};
+		reader.onerror = () => reject(new Error('Failed to read image blob'));
 		img.onload = () => {
-			URL.revokeObjectURL(url);
 			resolve(img);
 		};
 		img.onerror = () => {
-			URL.revokeObjectURL(url);
 			reject(new Error('Failed to load image from blob'));
 		};
-		img.src = url;
+		reader.readAsDataURL(blob);
 	});
 }
 
