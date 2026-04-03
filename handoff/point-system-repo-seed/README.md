@@ -1,6 +1,6 @@
 # Chromatic
 
-Chromatic is a portfolio and interactive experience built around a point-sampled visual runtime.
+Chromatic is the umbrella portfolio product built around a point-sampled visual runtime.
 
 The product has two layers:
 
@@ -9,9 +9,16 @@ The product has two layers:
 
 Both share a dense point/surfel visual language — colored stipple on dark grounds, stable motion, restrained glow.
 
+The current repository also contains a third practical track: the Phase 1 image+mesh point-engine demo. That work turned into a legitimate standalone showcase project in its own right and should be featured inside the website alongside other projects, while still serving as the rendering and pipeline foundation for the larger Chromatic experience.
+
 ## Current State
 
 Phase 1 feasibility is largely proven. The engine renders 2D images and 3D meshes as dense stipple point clouds with extensive live-tunable controls. ML preprocessing provides browser-side background removal and monocular depth estimation for true 3D displacement from 2D images.
+
+That Phase 1 runtime is now best understood as both:
+
+- the technical seed for the future character/world experience
+- a standalone interactive portfolio project that can ship inside the website, similar to other featured projects such as Axial
 
 ```bash
 pnpm install
@@ -31,6 +38,7 @@ pnpm check      # 0 errors
 ## Product Principles
 
 - The runtime is the platform.
+- The Phase 1 runtime can stand alone as a featured project without becoming architecture throwaway work.
 - The site consumes the runtime; it does not define it.
 - The content system matters alongside the runtime.
 - The AI character is central to the experience.

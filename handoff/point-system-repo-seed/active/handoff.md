@@ -4,6 +4,8 @@
 
 Phase 1 feasibility scaffold is built and producing compelling results. Both tracks (3D mesh and 2D image) work. ML preprocessing (background removal with 6 browser models + optional server-side BRIA/BiRefNet path, plus 6 depth models) is integrated. Visual quality is approaching the Andreion reference with extensive tuning controls. Browser compatibility handling is in place.
 
+That Phase 1 demo is no longer just scaffolding. It should be treated as a standalone featured project inside the future portfolio website, while continuing to serve as the runtime foundation for the broader Chromatic world and character work.
+
 Multiple Codex review passes have been completed. All tests pass. No type errors.
 
 ## Read Order
@@ -14,7 +16,9 @@ Multiple Codex review passes have been completed. All tests pass. No type errors
 4. `roadmap.md` — phased delivery plan
 5. `active/context.md` — **START HERE** for current state, what's built, what's next
 6. `active/tasks.md` — completed and upcoming work
-7. `active/plan.md` — Phase 1 build target and success criteria
+7. `active/plan.md` — repo-level goals and architecture shape
+8. `dev/active/phase-2-kinect-prep/plan.md` — current Phase 2 execution plan and architectural decisions
+9. `dev/active/character-director/contracts.md` — AI/behavior/interaction contracts before LLM integration
 
 ## Quick Start
 
@@ -47,10 +51,20 @@ Pick a mesh or image preset (or upload your own) → toggle "remove background" 
 - **Kinect V2 hardware capture** — replaces earlier webcam→ML depth estimation approach
 - Capture: Kinect V2 → libfreenect2 → Python/Open3D → numbered PLY files (XYZRGB point clouds)
 - Hands: MediaPipe on RGB frames → 3D landmarks per frame → JSON. Mesh hands in Threlte for interaction.
-- Playback: Engine's `animation/` module loads PLY sequences, swaps point buffers per frame via pre-allocated SampleSet
+- Playback: Engine's `animation/` module loads PLY sequences into a shared playback buffer; renderers must treat active `count` separately from typed-array capacity
 - Animation clips: named frame ranges (idle, wave, gesture) with loop/once/ping-pong modes
 - LLM action tags trigger clip playback for object manipulation
 - Hardware arrives ~2026-04-09. Python scaffold and engine playback system being built in advance.
+
+### Implementation Readiness Decisions
+- `PlyAdapter` remains a pure ingest adapter; app-layer code owns fetch/path policy
+- `FrameSequenceLoader` should accept caller-provided frame loaders or raw frame buffers, not bake URL patterns into the engine
+- `FrameSequence.tick()` should only memcpy when the frame index changes and should expose that fact to callers
+- sequence assets should include a sidecar manifest with timing and coordinate metadata
+- Kinect registration must be the alignment source of truth; do not improvise depth/color transforms
+- insert a `CharacterDirector` layer between LLM output and concrete animation/interaction execution
+- treat prop manipulation as authored interaction recipes, not open-ended grabbing
+- keep body playback and hand interaction overlays as separate systems
 
 ### Browser Compatibility
 - BiRefNet/BEN2 BG removal requires Chromium (WebGPU ONNX runtime)

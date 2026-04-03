@@ -2,7 +2,7 @@
 
 ## Current Position (April 2026)
 
-Phase 1 feasibility is complete. Visual engine is parked as a portfolio showcase piece — visual polish (color richness, LUT grading, bundle optimization) will resume when integrated into the main website. Focus has shifted to Phase 2: Kinect V2 character animation pipeline. Hardware arrives ~April 9. Engine playback system and Python capture scaffold being built in advance.
+Phase 1 feasibility is complete. The current image+mesh point-engine demo is now both a parked visual-engine branch and a legitimate standalone portfolio project that should be featured inside the website. Visual polish for that demo can continue in parallel with broader integration work. Focus has shifted to Phase 2: Kinect V2 character animation pipeline. Hardware arrives around April 9, 2026. Engine playback infrastructure and Python capture scaffolding are being built in advance.
 
 ## Phase 1: Feasibility Proofs — LARGELY COMPLETE
 
@@ -45,21 +45,25 @@ Phase 1 feasibility is complete. Visual engine is parked as a portfolio showcase
 
 ### Engine Playback System (TypeScript)
 - PLY adapter: parse binary/ASCII PLY → SampleSet
-- FrameSequence: pre-allocated buffer-reuse playback controller
+- GLPointRenderer hardening: treat SampleSet array capacity separately from active `count`
+- FrameSequence: shared playback buffer, frame-change-only memcpy, clip playback controller
 - Animation clips: named frame ranges with loop/once/ping-pong modes
-- FrameSequenceLoader: async PLY sequence fetcher with concurrency limiting
-- Memory budget: ~137MB for 300 frames × 20k points
+- FrameSequenceLoader: build sequences from caller-provided frame loaders, not hard-coded URL patterns
+- Sequence manifest: fps, timestamps, clip defs, coordinate system, units, processing metadata
+- Memory budget: ~137MB for 300 frames × 20k points for positions+colors alone; enforce explicit caps and treat normals as optional
 
 ### Character Assembly
 - Point cloud body from Kinect PLY sequences
 - Mesh hands driven by MediaPipe landmarks for object interaction
-- Animation state machine driven by LLM action tags
+- CharacterDirector layer between LLM intent and concrete animation/interaction execution
+- Interaction recipes for authored prop choreography (tea, chess, laptop, cards)
 - Pre-recorded clip library (idle, gestures, tea, chess)
 
 ### Deferred Phase 2 Work
 - Evaluate THREE.Points vs instanced splats/surfels
 - Temporal coherence (less critical with hardware depth vs ML estimation)
 - Train compartment environment (Blender → point sampled)
+- Package the Phase 1 demo cleanly as a first-class project inside the portfolio site
 
 ## Phase 3: Website + Content Integration
 
@@ -71,8 +75,12 @@ Phase 1 feasibility is complete. Visual engine is parked as a portfolio showcase
 ## Phase 4: AI Character Integration
 
 - provider abstraction for LLM backend
-- conversation system with mood/action tags driving animation state machine
+- structured LLM output contract: speech, mood, attention target, behavior tags, prop action intent
+- CharacterDirector for arbitration, anti-repetition, cooldowns, and interruption rules
+- AnimationDirector for clip-family selection and variation
+- InteractionDirector for recipe-driven prop interactions
 - portfolio-aware prompt assembly from the content graph
+- memory tiers: session, content, character, optional returning-user memory
 - session controls, rate limiting, UX polish
 
 ## Phase 5: Ship Readiness

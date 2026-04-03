@@ -117,22 +117,37 @@
 Visual engine is parked as a portfolio showcase. Focus shifts to character animation pipeline. Kinect V2 hardware arrives ~2026-04-09.
 
 ### Engine: PLY Playback System
+- [ ] Harden `GLPointRenderer` for reusable over-allocated buffers (`count` = active draw count, typed-array length = capacity)
 - [ ] PLY adapter (`src/lib/engine/ingest/PlyAdapter.ts`) — parse binary/ASCII PLY → SampleSet
-- [ ] Animation types (`src/lib/engine/animation/types.ts`) — FrameData, AnimationClip, PlaybackMode
-- [ ] FrameSequence controller (`src/lib/engine/animation/FrameSequence.ts`) — buffer-reuse playback, clips, tick/seek/play/pause
-- [ ] FrameSequenceLoader (`src/lib/engine/animation/FrameSequenceLoader.ts`) — async PLY sequence fetcher
+- [ ] Animation types (`src/lib/engine/animation/types.ts`) — FrameData, AnimationClip, PlaybackMode, tick result semantics
+- [ ] FrameSequence controller (`src/lib/engine/animation/FrameSequence.ts`) — shared playback buffer, clips, tick/seek/play/pause, frame-change-only memcpy
+- [ ] FrameSequenceLoader (`src/lib/engine/animation/FrameSequenceLoader.ts`) — sequence builder using caller-provided frame loading callbacks
+- [ ] Sequence manifest format — fps, frame count, timestamps, clip defs, coordinate system, units, processing metadata
 - [ ] Synthetic test data generator (`scripts/generate-test-ply.ts`) — pulsating sphere PLY sequence for testing
 - [ ] Tests for all of the above
 
 ### Python: Kinect Capture Scaffold
 - [ ] Capture script (`python/kinect_capture/capture.py`) — libfreenect2 wrapper + mock capture for testing
-- [ ] Processing script (`python/kinect_capture/process.py`) — depth backprojection, BG filter, PLY export via Open3D
+- [ ] Registration spike — verify one-frame RGB/depth capture, registration output, and exported point cloud before building higher-level tooling
+- [ ] Processing script (`python/kinect_capture/process.py`) — registration-backed XYZRGB export, BG filter, manifest output
 - [ ] Hand tracking (`python/kinect_capture/hands.py`) — MediaPipe landmark extraction, JSON export
 - [ ] Requirements + README with Arch Linux setup instructions
 
 ### Integration
+- [ ] Hand-coordinate alignment strategy between MediaPipe output and registered Kinect point cloud
 - [ ] Wire FrameSequence into PointCloudScene for animated playback
 - [ ] Test full pipeline with synthetic data: generate PLY → load in browser → animate
+
+### Website/Product Integration
+- [ ] Package the current image+mesh point-engine demo as a first-class featured project inside the portfolio site
+- [ ] Keep project-page integration boundaries clean so the standalone demo and future character runtime share engine code without UI coupling
+
+### Character Architecture Prep
+- [ ] Define `CharacterDirector` contracts before LLM/scene integration
+- [ ] Define structured LLM output schema: speech, mood, attention target, behavior tags, prop intent
+- [ ] Define behavior families, anti-repetition rules, and interruption policy
+- [ ] Define interaction recipes for tea, chess, laptop, and other scene props
+- [ ] Expand content graph requirements for AI-facing project knowledge and memory
 
 ## Parked — Visual Engine Polish
 

@@ -11,7 +11,17 @@ It has two layers:
 
 Both layers share the same dense point/surfel visual language. The website and the 3D experience are one product — seamlessly integrated, same look and feel, same content in two formats.
 
-Public launch requires both layers. The website-only layer can act as an accessibility and mobile fallback, but it is not the intended standalone product.
+Public launch still targets both layers together. At the same time, the current Phase 1 image+mesh point-engine demo has earned standalone-project status: it should be treated as a featured interactive project within the portfolio, not as disposable prototype code.
+
+## Standalone Project Track
+
+The point-engine demo is now a product slice of its own:
+
+- users should be able to launch it directly from the website as one of Caden's featured projects
+- it should feel polished and self-contained, like Axial or any other standalone interactive experiment
+- improvements made for that demo should continue to strengthen the shared runtime instead of forking into dead-end code
+
+This matters architecturally. The repo is not just building toward the future train experience; it is also already producing shippable portfolio artifacts along the way.
 
 ## Art Direction
 
@@ -96,18 +106,30 @@ The character:
 - has personality, knowledge of Caden's portfolio and background
 - performs pre-recorded animations (sipping tea, moving chess pieces, gesturing)
 
+The character should not feel like a generic assistant or a deterministic state machine. Naturalness should come from:
+
+- strong project-aware grounding
+- memory where appropriate
+- multiple recorded variants for the same behavior family
+- scene-aware prop interaction
+- a behavior director layer that prevents obvious repetition
+
 Animation approach:
 
 - Caden records himself performing actions from the visitor's POV
-- MediaPipe or Blender body-matching extracts motion data
+- Kinect V2 captures synchronized color + hardware depth
+- libfreenect2 registration and calibrated backprojection produce numbered XYZRGB PLY frames
+- MediaPipe hand landmarks run in parallel on RGB for interaction-specific hand meshes
 - pre-recorded clips for specific actions (sipping tea, chess moves, idle variants)
-- animation state machine driven by conversation state
+- a CharacterDirector translates conversation state into behavior families, prop intents, and variation
+- authored interaction recipes coordinate hand overlays and props like chess pieces or tea cups
 - the point/surfel rendering style applied on top of the animated figure
 
 LLM/backend stance:
 
 - the product needs a provider abstraction, not a hard-coded vendor dependency in the core architecture
 - final provider/model choice should remain flexible until character integration work begins
+- the model should output structured intent and tone signals, not low-level animation commands
 - rate limiting, prompt assembly, and session management live behind backend routes
 
 ## Source Types
@@ -116,7 +138,8 @@ The point engine should support multiple input sources:
 
 - Blender/glTF 3D models (Phase 1)
 - 2D still images (Phase 1)
-- animated/skinned 3D characters (Phase 2)
+- numbered PLY frame sequences from Kinect capture (Phase 2)
+- animated/skinned 3D overlays where needed (hands first)
 - pre-recorded video (later research)
 - live webcam (later stretch)
 - LiDAR / spatial scan data (later)

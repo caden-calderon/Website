@@ -6,6 +6,8 @@ Art direction is locked: dense pointillism/stipple rendering inspired by Andreio
 
 Evolved from ASCII → dithering → points/surfels. This is the final visual direction.
 
+The Phase 1 image+mesh runtime also turned into a standalone showcase project in its own right. It should be presented in the website as one featured interactive project, while continuing to act as the rendering and pipeline seed for the larger Chromatic experience.
+
 ## What Exists Now (March 25, 2026)
 
 The Phase 1 feasibility scaffold is built and producing compelling results. Both tracks (3D mesh and 2D image) work through the same engine and renderer.
@@ -76,6 +78,12 @@ The Phase 1 feasibility scaffold is built and producing compelling results. Both
 - Tunable point size variation (luminance-based, 0-1 range)
 - Cursor-based zoom (zoomToCursor on OrbitControls) with zoom-out cap
 
+### Product Positioning
+
+- **Shared runtime**: `src/lib/engine/` remains the long-lived rendering/runtime foundation for the broader Chromatic product
+- **Standalone showcase**: the current image+mesh demo is polished enough to treat as its own featured project inside the portfolio site
+- **Future integration**: later website/project pages should be able to embed or launch this demo without special-case architecture
+
 ### Tests & Quality
 
 - 60 tests passing (SampleSet, merge, algorithms including weighted Voronoi, pipeline, mesh/image adapters, BG removal helpers, app-layer BG service helpers, frame generator styles, GLPointRenderer)
@@ -110,7 +118,8 @@ The Phase 1 feasibility scaffold is built and producing compelling results. Both
 - **Renderer**: `THREE.Points` + custom `ShaderMaterial`, behind `RendererAdapter` interface
 - **Character animation** (updated April 2026): Kinect V2 → libfreenect2 → Python/Open3D → PLY sequences. Hardware depth (ToF sensor), not webcam ML estimation. MediaPipe hands as parallel track for interaction skeleton. Replaces earlier webcam→depth estimation approach.
 - **AI character LLM**: provider abstraction first; candidates MiniMax M2 or DeepSeek V3 for cost + personality, plans to fine-tune
-- **Content architecture**: typed content graph/manifests defined (interfaces only)
+- **Character behavior architecture**: add a `CharacterDirector` layer between LLM output and animation/interaction systems; do not let the model directly pick concrete clips
+- **Content architecture**: typed content graph/manifests defined (interfaces only), but they will need richer AI-facing fields for project-aware conversation
 - **Project structure**: single repo, engine in `src/lib/engine/` with zero framework deps
 - **Visual engine status**: Phase 1 complete. Parked as portfolio showcase piece. Will resume visual polish when integrated into main website.
 - **Quality bar**: FAANG-level from the start
@@ -127,14 +136,36 @@ Registered RGB+depth → backproject to XYZRGB point cloud (pinhole camera math,
 MediaPipe on RGB frames → 3D hand landmarks per frame → JSON export. Simple mesh hands in Threlte aligned to point cloud.
 
 ### Playback (Engine)
-New `animation/` module: PLY adapter parses files → FrameSequence manages playback → buffer-reuse SampleSet swap per frame (zero allocation via TypedArray.set()) → GLPointRenderer fast path. Animation clips with loop/once/ping-pong modes.
+Phase 2 playback direction is now tightened:
+
+- `PlyAdapter` stays pure: `ArrayBuffer -> SampleSet`
+- `FrameSequence` owns one shared playback buffer and only recopies data when the frame index changes
+- `SampleSet.count` is the authoritative active range; playback buffers may over-allocate typed arrays for reuse
+- `GLPointRenderer` needs a capacity-aware fast path so variable frame counts can reuse GPU buffers cleanly
+- sequence assets should include a manifest carrying fps, frame count, timestamps, clip defs, coordinate system, units, and processing metadata
+- playback still supports loop / once / ping-pong clips, but endpoint behavior and direction resets need explicit tests
 
 ### Key Architecture
 - `PlyAdapter` in `src/lib/engine/ingest/` — new IngestAdapter for ArrayBuffer → SampleSet
-- `FrameSequence` in `src/lib/engine/animation/` — pre-allocated buffer playback controller
-- `FrameSequenceLoader` — async PLY sequence fetcher with concurrency limiting
-- Memory: ~137MB for 300 frames × 20k points. Variable point counts handled via setDrawRange.
-- GLPointRenderer.setOrUpdateAttribute already supports in-place buffer updates when count matches.
+- `FrameSequence` in `src/lib/engine/animation/` — shared playback buffer controller with explicit frame-change semantics
+- `FrameSequenceLoader` — sequence builder that accepts caller-provided frame loading, rather than hard-coded fetch/path logic inside the engine
+- Memory: ~137MB for 300 frames × 20k points covers positions+colors only; caps and optional-field discipline still matter
+- `GLPointRenderer` must be updated so attribute reuse keys off buffer capacity, not active sample count
+
+### Capture Pipeline Hardening
+
+- `libfreenect2` registration should be treated as the alignment source of truth
+- avoid hand-rolled color/depth transforms unless they match the calibrated registration outputs
+- capture output should persist calibration and processing metadata next to the PLY sequence
+- MediaPipe hand landmarks will need an explicit coordinate-space alignment path against the registered point cloud
+
+### Character Behavior Direction
+
+- LLM output should stay structured and high-level: speech, mood, attention target, behavior tags, prop intent
+- `CharacterDirector` should arbitrate between speaking, idling, gesturing, and prop interaction
+- variation should come from behavior families with multiple clip variants, cooldowns, and recency penalties
+- prop interaction should be recipe-driven, not treated as general-purpose grasping
+- body playback and hand interaction overlays should remain separate systems
 
 ## Visual Quality Status
 

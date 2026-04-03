@@ -5,6 +5,7 @@
 - Sample-runtime first, app-second. The sample core is the platform; everything else consumes it.
 - One canonical sample representation, source-specific ingest paths, app-specific consumers.
 - Framework-agnostic engine — zero Svelte imports in the engine directory.
+- The current image+mesh point-engine demo is a real product surface, not throwaway scaffolding.
 - Rendering is only one subsystem. Content mapping, character state, and the website shell are first-class concerns.
 - Modular and customizable — every visual parameter is a tunable knob.
 - Quality from day one — strict TypeScript, typed arrays, clean interfaces, proper disposal.
@@ -60,14 +61,19 @@ WebsiteV2/
 │   │   │   │   │   ├── point.vert.glsl         # Position hash, attenuation, depth fade
 │   │   │   │   │   └── point.frag.glsl         # Color noise, HSL, exposure, dark cutoff
 │   │   │   │   └── types.ts                    # RenderParams, BloomParams, RendererAdapter
-│   │   │   ├── animation/                       # PLANNED: Frame sequence playback
+│   │   │   ├── animation/                       # PLANNED: Frame-sequence playback
 │   │   │   │   ├── types.ts                     # FrameData, AnimationClip, PlaybackMode
 │   │   │   │   ├── FrameSequence.ts             # Buffer-reuse playback controller
-│   │   │   │   ├── FrameSequenceLoader.ts       # Async PLY sequence fetcher
+│   │   │   │   ├── FrameSequenceLoader.ts       # Sequence builder from caller-provided frame data
 │   │   │   │   └── index.ts
 │   │   │   └── index.ts                        # Public API
 │   │   ├── content/
 │   │   │   └── types.ts                        # ProjectManifest, ContentMapping, ContentGraph
+│   │   ├── character/                          # PLANNED: Character behavior + conversation orchestration
+│   │   │   ├── director/                       # CharacterDirector, AnimationDirector, InteractionDirector
+│   │   │   ├── memory/                         # Session/content/character memory helpers
+│   │   │   ├── llm/                            # Provider abstraction + structured output parsing
+│   │   │   └── types.ts                        # Character behavior contracts
 │   │   ├── scene/
 │   │   │   ├── Bloom.svelte                    # UnrealBloomPass + custom render loop
 │   │   │   └── PointCloudScene.svelte          # Camera, controls, mounts renderer
@@ -86,6 +92,10 @@ WebsiteV2/
 │       ├── process.py                         # Depth backprojection, PLY export via Open3D
 │       ├── hands.py                           # MediaPipe hand landmark extraction
 │       └── requirements.txt
+├── dev/
+│   └── active/
+│       ├── phase-2-kinect-prep/               # Multi-session planning + execution docs
+│       └── character-director/                # Behavior, interaction, and LLM contract docs
 ├── scripts/                                   # local dev tooling (e.g. dev:full)
 ├── handoff/                                   # Architecture docs, planning, legacy
 └── package.json, vite.config.ts, tsconfig.json
@@ -97,8 +107,25 @@ WebsiteV2/
 Source Image → [BG Removal] → [Depth Estimation] → ImageAdapter → SampleSet → Pipeline → GLPointRenderer
 Source Mesh  →                                      MeshAdapter  → SampleSet → Pipeline → GLPointRenderer
 PLY File     →                                      PlyAdapter   → SampleSet ─┐
-PLY Sequence → FrameSequenceLoader → FrameSequence (buffer reuse) → SampleSet → GLPointRenderer
+PLY Sequence Manifest + frame resolver → FrameSequenceLoader → FrameSequence (shared playback buffer) → SampleSet → GLPointRenderer
 ```
+
+### Product Surfaces
+
+- **Standalone project surface**: the existing image+mesh point-engine demo can ship inside the portfolio as its own featured project
+- **Shared runtime surface**: the same engine continues forward into Kinect playback, character animation, and the future train-compartment experience
+
+This repo therefore has to optimize for both immediate standalone quality and long-term engine cleanliness.
+
+### Character Behavior Architecture
+
+- `LLMAdapter` produces structured conversational output, not low-level clip commands
+- `CharacterDirector` arbitrates behavior state, attention, variation, and interruption policy
+- `AnimationDirector` chooses concrete clip variants from behavior families
+- `InteractionDirector` runs authored interaction recipes for props like cups, chess pieces, and laptop gestures
+- body playback and hand interaction overlays stay separate systems
+
+This separation is required to keep the AI layer natural without coupling language generation directly to scene mechanics.
 
 ### Preprocessing (optional, lazy-loaded)
 
@@ -121,6 +148,32 @@ interface SampleSet {
   // + orientations, velocities, anchors, barycentrics for future use
 }
 ```
+
+`count` is authoritative. Consumers must treat only the prefix `[0, count)` as active, and must not assume typed-array length is exactly equal to `count`. This matters for reusable playback buffers and future streaming paths.
+
+### Animation Runtime Contract
+
+- `PlyAdapter` stays pure: `ArrayBuffer -> SampleSet`
+- `FrameSequenceLoader` should not own browser fetch patterns; callers provide frame data or frame-loading callbacks
+- `FrameSequence` owns one mutable playback `SampleSet` sized to the maximum frame capacity
+- `tick(deltaMs)` advances time but only recopies frame data when the frame index changes
+- renderers must distinguish typed-array capacity from active sample count
+- sequence assets should carry a sidecar manifest: fps, frame count, timestamps, clip definitions, coordinate system, units, and processing metadata
+
+### Kinect Capture Contract
+
+- use `libfreenect2` registration as the source of truth for depth/color alignment
+- do not treat Kinect V2 color-camera parameters as a generic extrinsic matrix
+- either use registration helpers that directly yield XYZRGB points, or use undistorted depth plus IR intrinsics for XYZ and registration output only for color sampling
+- persist calibration and processing metadata alongside captured sequences so later website/runtime layers can trust the assets
+
+### Character Interaction Contract
+
+- the point-cloud body is primarily prerecorded playback
+- hands are separate controllable overlays for interaction-critical actions
+- props use explicit ownership and socketing rather than ad hoc transforms
+- interactions are recipe-driven, not general-purpose freeform manipulation
+- the LLM suggests intent; the director layer decides whether and how the interaction actually happens
 
 ### Renderer Controls (Shader Uniforms)
 
@@ -156,14 +209,18 @@ interface SampleSet {
 - Source adapters separated from render runtime
 - `THREE.Points` is the first renderer, not the architectural end state
 - Preserve stable point correspondence for temporal coherence
+- Treat `SampleSet.count` as active draw count; typed arrays may be over-allocated for buffer reuse
+- Asset loading concerns live above the pure engine where possible
+- Keep LLM/provider logic out of the renderer and ingest/runtime core
 - Clean disposal patterns everywhere
 - TypeScript strict mode, no `any`
 - Engine-side ML preprocessing is lazy-loaded and browser-side; optional server inference stays in the app layer behind a route boundary
 
 ## Main Risks
 
-1. **Temporal coherence for video/animation** — hardest technical problem for Phase 2+
-2. **Renderer migration cost** — later surfel/splat quality or WebGPU may require a second renderer
-3. **Product cohesion** — making website + world + character feel like one product requires careful design
-4. **Deferred demo/runtime size** — the route shell is lazy-loaded now, but the runtime chunk is still heavy once ML/runtime features are requested
-5. **Optional Python service ops** — server-side BG removal solves Linux/WebGPU quality issues, but adds deployment and model-management overhead
+1. **Kinect capture integration** — bindings, registration correctness, and calibration artifacts are the main near-term risk
+2. **Renderer buffer semantics** — variable-count animation only stays efficient if capacity and active count are handled cleanly
+3. **Temporal coherence for animation assets** — not as hard as ML depth video, but still a future quality frontier
+4. **Behavior orchestration** — natural conversation, animation variation, and prop interactions need a clean director layer or the system will become brittle
+5. **Product cohesion** — making the standalone demo, the functional site, and the train experience feel like one family requires deliberate packaging
+6. **Renderer migration cost** — later surfel/splat quality or WebGPU may require a second renderer
