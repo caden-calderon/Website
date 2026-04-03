@@ -112,22 +112,42 @@
 - add direct GLPointRenderer tests
 - 60 tests passing, 0 type errors
 
-## Next
+## Next — Phase 2: Kinect V2 Animation Prep
 
-- [ ] continue visual quality iteration toward Andreion reference (color richness, density)
-- [ ] explore color palette presets / LUT-style color grading
-- [ ] evaluate THREE.Points sufficiency vs splat rendering for Phase 2
-- [ ] harden the Python BG removal service for actual deployment (dedicated venv/container, model warmup, licensing notes, app-route end-to-end smoke test against a real upload)
-- [ ] further split deferred ML/runtime chunks inside the demo bundle if first-interaction load time is still too heavy
+Visual engine is parked as a portfolio showcase. Focus shifts to character animation pipeline. Kinect V2 hardware arrives ~2026-04-09.
+
+### Engine: PLY Playback System
+- [ ] PLY adapter (`src/lib/engine/ingest/PlyAdapter.ts`) — parse binary/ASCII PLY → SampleSet
+- [ ] Animation types (`src/lib/engine/animation/types.ts`) — FrameData, AnimationClip, PlaybackMode
+- [ ] FrameSequence controller (`src/lib/engine/animation/FrameSequence.ts`) — buffer-reuse playback, clips, tick/seek/play/pause
+- [ ] FrameSequenceLoader (`src/lib/engine/animation/FrameSequenceLoader.ts`) — async PLY sequence fetcher
+- [ ] Synthetic test data generator (`scripts/generate-test-ply.ts`) — pulsating sphere PLY sequence for testing
+- [ ] Tests for all of the above
+
+### Python: Kinect Capture Scaffold
+- [ ] Capture script (`python/kinect_capture/capture.py`) — libfreenect2 wrapper + mock capture for testing
+- [ ] Processing script (`python/kinect_capture/process.py`) — depth backprojection, BG filter, PLY export via Open3D
+- [ ] Hand tracking (`python/kinect_capture/hands.py`) — MediaPipe landmark extraction, JSON export
+- [ ] Requirements + README with Arch Linux setup instructions
+
+### Integration
+- [ ] Wire FrameSequence into PointCloudScene for animated playback
+- [ ] Test full pipeline with synthetic data: generate PLY → load in browser → animate
+
+## Parked — Visual Engine Polish
+
+These are deferred, not cancelled. Will resume when the visual engine is integrated into the main website.
+
+- [ ] Visual quality iteration toward Andreion reference (color richness, density)
+- [ ] Color palette presets / LUT-style color grading
+- [ ] Evaluate THREE.Points sufficiency vs splat rendering
+- [ ] Harden Python BG removal service for deployment
+- [ ] Bundle size optimization (deferred ML/runtime chunks)
 
 ## Later (Phase 2+)
 
-- character animation: video→point cloud body prototype + mesh hands for interactions
-- temporal coherence research for video→point cloud
-- animated surface binding (barycentric coordinates) as fallback character approach
-- MediaPipe → driven mesh pipeline as alternative character approach
-- pre-recorded animation clip library (idle, tea, chess, gestures)
-- train compartment scene (Caden models in Blender)
+- Train compartment scene (Caden models in Blender → point sampled)
 - AI character integration (provider abstraction, conversation system, action tags)
-- website layer with point-based visual language
-- mobile optimization
+- Pre-recorded animation clip library (idle, tea, chess, gestures)
+- Website layer with point-based visual language
+- Mobile optimization

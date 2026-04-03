@@ -1,8 +1,8 @@
 # Roadmap
 
-## Current Position
+## Current Position (April 2026)
 
-Phase 1 feasibility is largely proven. Both tracks (3D mesh + 2D image) produce compelling results. ML preprocessing (background removal, depth estimation) is integrated. Visual quality is approaching the Andreion reference. The next job is to finish Phase 1 polish, source proper assets, and begin Phase 2.
+Phase 1 feasibility is complete. Visual engine is parked as a portfolio showcase piece — visual polish (color richness, LUT grading, bundle optimization) will resume when integrated into the main website. Focus has shifted to Phase 2: Kinect V2 character animation pipeline. Hardware arrives ~April 9. Engine playback system and Python capture scaffold being built in advance.
 
 ## Phase 1: Feasibility Proofs — LARGELY COMPLETE
 
@@ -33,14 +33,33 @@ Phase 1 feasibility is largely proven. Both tracks (3D mesh + 2D image) produce 
 - architecture supports both source types cleanly
 - enough promise to justify Phase 2
 
-## Phase 2: Engine Hardening + Animation Foundation
+## Phase 2: Kinect V2 Character Animation — IN PROGRESS
 
-- animated/skinned glTF asset path
-- stable point motion bound to deforming surfaces (barycentric binding)
-- MediaPipe or Blender body-matching pipeline for Caden's recorded performances
-- pre-recorded animation clip library (idle, sipping tea, chess moves, gestures)
-- character rendered through the point engine
-- evaluate whether `THREE.Points` is still sufficient or whether instanced splats/surfels are required
+### Capture Pipeline (Python, Linux)
+- Kinect V2 → libfreenect2 → synchronized RGB (1920x1080) + depth (512x424)
+- Registration API aligns color to depth per pixel
+- Backproject to XYZRGB point cloud via pinhole camera math
+- Background filter by depth threshold
+- Export as numbered PLY files via Open3D
+- MediaPipe hand landmarks from RGB frames → JSON per frame
+
+### Engine Playback System (TypeScript)
+- PLY adapter: parse binary/ASCII PLY → SampleSet
+- FrameSequence: pre-allocated buffer-reuse playback controller
+- Animation clips: named frame ranges with loop/once/ping-pong modes
+- FrameSequenceLoader: async PLY sequence fetcher with concurrency limiting
+- Memory budget: ~137MB for 300 frames × 20k points
+
+### Character Assembly
+- Point cloud body from Kinect PLY sequences
+- Mesh hands driven by MediaPipe landmarks for object interaction
+- Animation state machine driven by LLM action tags
+- Pre-recorded clip library (idle, gestures, tea, chess)
+
+### Deferred Phase 2 Work
+- Evaluate THREE.Points vs instanced splats/surfels
+- Temporal coherence (less critical with hardware depth vs ML estimation)
+- Train compartment environment (Blender → point sampled)
 
 ## Phase 3: Website + Content Integration
 
@@ -66,9 +85,8 @@ Phase 1 feasibility is largely proven. Both tracks (3D mesh + 2D image) produce 
 
 ## Later Research
 
-- recorded video → temporal sample advection with persistence
-- live webcam → real-time variant
-- scan/LiDAR ingest
-- export/capture tooling (stills, video)
+- Live Kinect → real-time point cloud streaming (vs pre-recorded sequences)
+- Scan/LiDAR ingest for environment capture
+- Export/capture tooling (stills, video)
 - XR adapters if strategically valuable
 - TTS/voice mode for character

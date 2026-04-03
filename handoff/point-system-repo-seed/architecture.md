@@ -60,6 +60,11 @@ WebsiteV2/
 │   │   │   │   │   ├── point.vert.glsl         # Position hash, attenuation, depth fade
 │   │   │   │   │   └── point.frag.glsl         # Color noise, HSL, exposure, dark cutoff
 │   │   │   │   └── types.ts                    # RenderParams, BloomParams, RendererAdapter
+│   │   │   ├── animation/                       # PLANNED: Frame sequence playback
+│   │   │   │   ├── types.ts                     # FrameData, AnimationClip, PlaybackMode
+│   │   │   │   ├── FrameSequence.ts             # Buffer-reuse playback controller
+│   │   │   │   ├── FrameSequenceLoader.ts       # Async PLY sequence fetcher
+│   │   │   │   └── index.ts
 │   │   │   └── index.ts                        # Public API
 │   │   ├── content/
 │   │   │   └── types.ts                        # ProjectManifest, ContentMapping, ContentGraph
@@ -74,6 +79,13 @@ WebsiteV2/
 │   └── app.html, app.css, app.d.ts
 ├── tests/engine/                              # engine-focused coverage
 ├── tests/services/                            # service/app-layer coverage
+├── python/
+│   ├── bg_remove_service/                     # Local FastAPI BG removal (BiRefNet/BRIA)
+│   └── kinect_capture/                        # PLANNED: Kinect V2 capture + processing
+│       ├── capture.py                         # libfreenect2 wrapper + mock capture
+│       ├── process.py                         # Depth backprojection, PLY export via Open3D
+│       ├── hands.py                           # MediaPipe hand landmark extraction
+│       └── requirements.txt
 ├── scripts/                                   # local dev tooling (e.g. dev:full)
 ├── handoff/                                   # Architecture docs, planning, legacy
 └── package.json, vite.config.ts, tsconfig.json
@@ -84,6 +96,8 @@ WebsiteV2/
 ```
 Source Image → [BG Removal] → [Depth Estimation] → ImageAdapter → SampleSet → Pipeline → GLPointRenderer
 Source Mesh  →                                      MeshAdapter  → SampleSet → Pipeline → GLPointRenderer
+PLY File     →                                      PlyAdapter   → SampleSet ─┐
+PLY Sequence → FrameSequenceLoader → FrameSequence (buffer reuse) → SampleSet → GLPointRenderer
 ```
 
 ### Preprocessing (optional, lazy-loaded)

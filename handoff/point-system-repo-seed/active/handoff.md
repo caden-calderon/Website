@@ -43,10 +43,14 @@ Pick a mesh or image preset (or upload your own) → toggle "remove background" 
 - AI character is launch-critical but not Phase 1
 - Weighted Voronoi/CVT sampling is now open across the full image slider range for manual quality/performance testing; it improves spatial regularity but is slower than importance sampling
 
-### Character Animation Decision
-- Hybrid approach: video→point cloud for body (natural, imperfect look), mesh hands for object interaction
-- Fallback if temporal coherence unsolvable: MediaPipe→driven 3D mesh
-- LLM action tags will trigger hand animation clips for object manipulation
+### Character Animation Pipeline (Updated April 2026)
+- **Kinect V2 hardware capture** — replaces earlier webcam→ML depth estimation approach
+- Capture: Kinect V2 → libfreenect2 → Python/Open3D → numbered PLY files (XYZRGB point clouds)
+- Hands: MediaPipe on RGB frames → 3D landmarks per frame → JSON. Mesh hands in Threlte for interaction.
+- Playback: Engine's `animation/` module loads PLY sequences, swaps point buffers per frame via pre-allocated SampleSet
+- Animation clips: named frame ranges (idle, wave, gesture) with loop/once/ping-pong modes
+- LLM action tags trigger clip playback for object manipulation
+- Hardware arrives ~2026-04-09. Python scaffold and engine playback system being built in advance.
 
 ### Browser Compatibility
 - BiRefNet/BEN2 BG removal requires Chromium (WebGPU ONNX runtime)

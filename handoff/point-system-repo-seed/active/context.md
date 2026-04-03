@@ -108,11 +108,33 @@ The Phase 1 feasibility scaffold is built and producing compelling results. Both
 - **Visual reference**: [Andreion — Amazon Conflux](https://andreion.com/amazon-conflux)
 - **Stack**: SvelteKit + Threlte 8 + raw Three.js engine core (confirmed, working)
 - **Renderer**: `THREE.Points` + custom `ShaderMaterial`, behind `RendererAdapter` interface
-- **Character animation**: hybrid approach — video→point cloud for body (beauty in imperfection), mesh hands with IK for object interactions. Fallback: MediaPipe→driven mesh if temporal coherence is unsolvable.
+- **Character animation** (updated April 2026): Kinect V2 → libfreenect2 → Python/Open3D → PLY sequences. Hardware depth (ToF sensor), not webcam ML estimation. MediaPipe hands as parallel track for interaction skeleton. Replaces earlier webcam→depth estimation approach.
 - **AI character LLM**: provider abstraction first; candidates MiniMax M2 or DeepSeek V3 for cost + personality, plans to fine-tune
 - **Content architecture**: typed content graph/manifests defined (interfaces only)
 - **Project structure**: single repo, engine in `src/lib/engine/` with zero framework deps
+- **Visual engine status**: Phase 1 complete. Parked as portfolio showcase piece. Will resume visual polish when integrated into main website.
 - **Quality bar**: FAANG-level from the start
+
+## Phase 2: Kinect V2 Animation Pipeline (April 2026)
+
+### Capture Pipeline (Python, runs on Linux)
+Kinect V2 → libfreenect2 (AUR) → Python wrapper (freenect2). Synchronized RGB (1920x1080) + depth (512x424). Registration API aligns color to depth per pixel.
+
+### Processing
+Registered RGB+depth → backproject to XYZRGB point cloud (pinhole camera math, Kinect intrinsics) → background filter via depth threshold → numbered PLY files via Open3D.
+
+### Hands
+MediaPipe on RGB frames → 3D hand landmarks per frame → JSON export. Simple mesh hands in Threlte aligned to point cloud.
+
+### Playback (Engine)
+New `animation/` module: PLY adapter parses files → FrameSequence manages playback → buffer-reuse SampleSet swap per frame (zero allocation via TypedArray.set()) → GLPointRenderer fast path. Animation clips with loop/once/ping-pong modes.
+
+### Key Architecture
+- `PlyAdapter` in `src/lib/engine/ingest/` — new IngestAdapter for ArrayBuffer → SampleSet
+- `FrameSequence` in `src/lib/engine/animation/` — pre-allocated buffer playback controller
+- `FrameSequenceLoader` — async PLY sequence fetcher with concurrency limiting
+- Memory: ~137MB for 300 frames × 20k points. Variable point counts handled via setDrawRange.
+- GLPointRenderer.setOrUpdateAttribute already supports in-place buffer updates when count matches.
 
 ## Visual Quality Status
 
