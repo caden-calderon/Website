@@ -220,6 +220,22 @@ export const DEMO_RGBD_SEQUENCE_ASSETS: DemoRgbdSequenceAsset[] = [
 			'Generated RGBD portrait-sequence mock that exercises image-style point sampling with real per-frame depth input.',
 		initialClipId: 'portrait_turn',
 	},
+	{
+		kind: 'rgbd-sequence',
+		source: 'manifest',
+		id: 'kinect-rgbd-registration-smoke',
+		label: 'Kinect RGBD Registration Smoke',
+		manifestUrl: '/api/rgbd-sequences/kinect-rgbd-registration-smoke/manifest.json',
+		motion: {
+			parallaxPixels: 7,
+			verticalPixels: 0.8,
+			depthDrift: 0.03,
+			alphaCutoff: 0.08,
+		},
+		description:
+			'Mock Kinect-style registered RGBD export using the same manifest/frame layout planned for real captured clips. Generate it with pnpm generate:test-kinect-rgbd first.',
+		initialClipId: 'registration_smoke',
+	},
 ];
 
 export const DEMO_SEQUENCE_ASSETS: DemoSequenceAsset[] = [

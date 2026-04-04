@@ -19,6 +19,18 @@ describe('server rgbd-sequence sources', () => {
 		);
 	});
 
+	it('resolves the mock Kinect RGBD source under tmp/rgbd-sequences', () => {
+		const source = getRgbdSequenceDirectorySource('kinect-rgbd-registration-smoke');
+
+		expect(source).toEqual({
+			id: 'kinect-rgbd-registration-smoke',
+			rootDir: path.resolve(process.cwd(), 'tmp', 'rgbd-sequences', 'kinect-rgbd-registration-smoke'),
+		});
+		expect(resolveRgbdSequenceAssetPath('kinect-rgbd-registration-smoke', 'manifest.json')).toBe(
+			path.resolve(process.cwd(), 'tmp', 'rgbd-sequences', 'kinect-rgbd-registration-smoke', 'manifest.json'),
+		);
+	});
+
 	it('rejects unknown sources and path traversal', () => {
 		expect(() => resolveRgbdSequenceAssetPath('missing-source', 'manifest.json')).toThrow(/unknown rgbd-sequence source/i);
 		expect(() => resolveRgbdSequenceAssetPath('procedural-rgbd-portrait', '../secret.txt')).toThrow(/invalid rgbd-sequence asset path/i);

@@ -10,6 +10,10 @@ const RGBD_SEQUENCE_DIRECTORY_SOURCES: RgbdSequenceDirectorySource[] = [
 		id: 'procedural-rgbd-portrait',
 		rootDir: path.resolve(process.cwd(), 'tmp', 'rgbd-sequences', 'procedural-rgbd-portrait'),
 	},
+	{
+		id: 'kinect-rgbd-registration-smoke',
+		rootDir: path.resolve(process.cwd(), 'tmp', 'rgbd-sequences', 'kinect-rgbd-registration-smoke'),
+	},
 ];
 
 export function getRgbdSequenceDirectorySource(sequenceId: string): RgbdSequenceDirectorySource | null {

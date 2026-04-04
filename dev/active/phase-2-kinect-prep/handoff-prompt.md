@@ -12,9 +12,9 @@ Start by reading these in order:
 
 Current status:
 
-- raw point playback, ITOP conversion, RGBD sequence playback, derived-image RGBD rehearsal, workerized RGBD prep, image-mode workerized sample prep, derived-image workerized clip baking, workerized browser image serialization, workerized browser BG/depth inference, and recorded ITOP browser measurements are already implemented in the current repo state
+- raw point playback, ITOP conversion, RGBD sequence playback, derived-image RGBD rehearsal, workerized RGBD prep, image-mode workerized sample prep, derived-image workerized clip baking, workerized browser image serialization, workerized browser BG/depth inference, recorded ITOP browser measurements, and a mock Kinect RGBD export scaffold are already implemented in the current repo state
 - commit `91e075b` on `main` is the earlier pushed baseline for the major raw/RGBD playback work
-- the current worktree also includes the later phase-doc updates plus the image/derived/serialization/inference workerization follow-up
+- the current worktree also includes the later phase-doc updates plus the image/derived/serialization/inference workerization follow-up and the first Python Kinect scaffold
 - local artifacts that should stay out of git:
   - `.codex`
   - `ITOP_side_test_point_cloud.h5.gz`
@@ -24,11 +24,11 @@ Current status:
 First tasks:
 
 1. Confirm the handoff docs are current and commit/push them if needed.
-2. Treat the pre-hardware browser-side work as complete and keep the docs aligned with that state.
+2. Treat the pre-hardware browser-side work and mock export-contract scaffolding as complete and keep the docs aligned with that state.
 3. Continue with the real Kinect RGBD export path:
-   - define the first recorded Kinect RGBD clip format at the app layer
+   - replace the mock export inputs in `python/kinect_capture/process.py` with real registered capture outputs
    - use registered color + depth as the source of truth
-   - route that clip through the existing RGBD prep/playback path
+   - route that real clip through the existing RGBD prep/playback path
 
 Constraints still in force:
 

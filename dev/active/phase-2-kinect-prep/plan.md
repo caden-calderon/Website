@@ -84,6 +84,7 @@ Every captured or generated sequence should have a manifest carrying:
 4. Add the first real registered Kinect RGBD export format once hardware arrives and feed it through the new app-layer RGBD manifest/source path.
 5. The pre-hardware browser-side heavy transforms are now workerized through BG removal and depth-estimation inference where the browser supports it, keeping the main thread focused on UI and rendering.
 6. If the long raw clip or future RGBD clips start to look marginal, make chunked/streaming playback the next architecture step instead of extending the eager preload path.
+7. The Kinect export contract is now scaffolded under `python/kinect_capture/` with a mock registered RGBD writer that emits the existing app-layer RGBD manifest, so the remaining hardware-dependent work is the real registration/export spike.
 
 ## Measured Browser Baseline
 
@@ -93,7 +94,8 @@ Measured on 2026-04-04 with `pnpm run preview` plus `pnpm run measure:itop-brows
 - The expensive part is eager fetch + parse + prepared-frame storage, not playback-buffer residency.
 - Chunked/streaming playback is not required yet for the current bounded ITOP rehearsal clips.
 - Image-mode sample preparation, derived-image clip baking, browser image serialization, browser BG inference, and browser depth inference are now workerized where supported.
-- The pre-hardware browser-side Phase 2 work is effectively complete; the next major step is the real registered Kinect RGBD export path once hardware or export data is available.
+- The pre-hardware browser-side Phase 2 work is effectively complete; the RGBD export contract is now also scaffolded with a mock registered clip writer.
+- The next major step is the real registered Kinect RGBD export path once hardware or export data is available.
 - Revisit chunking when either:
   - clips exceed the current 96-frame / ~17.4 MiB payload / ~15.7 MiB prepared CPU envelope
   - future RGBD/Kinect rehearsal clips materially exceed the current long-clip memory profile

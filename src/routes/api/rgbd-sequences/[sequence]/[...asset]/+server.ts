@@ -33,9 +33,7 @@ export const GET: RequestHandler = async ({ params }) => {
 		file = await fs.readFile(resolvedPath);
 	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-			const command = source.id === 'procedural-rgbd-portrait'
-				? ' Run `node scripts/generate-test-rgbd-sequence.mjs --output tmp/rgbd-sequences/procedural-rgbd-portrait` first.'
-				: '';
+			const command = resolveMissingSourceCommand(source.id);
 			return new Response(
 				`RGBD-sequence asset "${assetPath}" was not found for "${sequenceId}" at ${source.rootDir}.${command}`,
 				{ status: 404 },
@@ -54,3 +52,14 @@ export const GET: RequestHandler = async ({ params }) => {
 		},
 	});
 };
+
+function resolveMissingSourceCommand(sequenceId: string): string {
+	switch (sequenceId) {
+		case 'procedural-rgbd-portrait':
+			return ' Run `node scripts/generate-test-rgbd-sequence.mjs --output tmp/rgbd-sequences/procedural-rgbd-portrait` first.';
+		case 'kinect-rgbd-registration-smoke':
+			return ' Run `pnpm generate:test-kinect-rgbd` first.';
+		default:
+			return '';
+	}
+}

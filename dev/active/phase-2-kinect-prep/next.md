@@ -14,6 +14,8 @@ The repo is in a good rehearsal state:
 - browser image serialization/encoding is workerized where the browser supports it
 - browser BG model inference is workerized where the browser supports it
 - browser depth-estimation model inference is workerized where the browser supports it
+- the Kinect export contract is scaffolded under `python/kinect_capture/`
+- a mock registered Kinect-style RGBD clip can be generated with `pnpm generate:test-kinect-rgbd`
 
 The next session should not spend time rediscovering architecture. Read `architecture.md` first and continue with the items below.
 
@@ -23,13 +25,14 @@ The next session should not spend time rediscovering architecture. Read `archite
 
 This is the next major architecture step once hardware/export data is available:
 
-- define the recorded Kinect RGBD clip format at the app layer
+- replace the mock RGBD writer in `python/kinect_capture/process.py` with live libfreenect2 registration output
 - use registered color + depth as source of truth
 - feed those frames through the existing RGBD prep/playback path
 - keep raw point-cloud playback as the calibration/benchmark path
+- run a one-frame registration/export spike before building any higher-level batch tooling
 
 Goal:
-- the pre-hardware browser-side work is already complete; the next meaningful phase work starts with a real registered Kinect RGBD clip routed through the existing manifest/source path
+- the pre-hardware browser-side work and export-contract scaffolding are already complete; the next meaningful phase work starts with one real registered Kinect RGBD clip routed through the existing manifest/source path
 
 ## Medium-Priority Next Steps
 
@@ -48,6 +51,7 @@ Conclusion:
 - derived-image clip baking is no longer the blocker; that workerization is already done
 - browser image serialization/encoding is no longer the blocker; that workerization is already done
 - browser BG/depth inference is no longer the blocker; that workerization is also done
+- the mock Kinect export path is in place, so the remaining unknown is real hardware registration correctness rather than browser/runtime plumbing
 
 ### Offline baking
 
@@ -79,7 +83,7 @@ If eager preload looks marginal, next architecture step is:
 Do this first:
 
 1. produce one short registered RGBD clip
-2. define its app-layer manifest/frame layout
+2. replace the mock `python/kinect_capture/process.py` export inputs with the real captured registration outputs
 3. route it through the existing RGBD sequence path
 4. compare:
 - raw truth path
@@ -92,4 +96,5 @@ Do this first:
 - inspect `rgbdSequencePlayback.ts`
 - inspect `rgbdSequencePrep.worker.ts`
 - inspect `assets.ts`
+- inspect `python/kinect_capture/process.py`
 - note that ITOP measurements are already recorded before making major new architecture changes

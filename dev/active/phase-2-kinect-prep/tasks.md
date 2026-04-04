@@ -59,16 +59,18 @@
 
 ## Kinect Scaffold
 
-- [ ] Create `capture.py`
+- [x] Create `capture.py`
 - [ ] Run a one-frame registration/export spike as soon as hardware arrives
-- [ ] Create `process.py` with registration-backed XYZRGB export
-- [ ] Create `hands.py`
-- [ ] Write README/setup notes for Arch Linux and libfreenect2
+- [x] Create `process.py` scaffold with mock RGBD manifest export
+- [x] Create `hands.py`
+- [x] Write README/setup notes for Arch Linux and libfreenect2
+- [ ] Extend `process.py` from mock RGBD export to live registration-backed XYZRGB export once captured frames exist
 
 ## Integration
 
 - [x] Wire the sequence runtime into the scene/app layer
 - [x] Support both raw point-sequence assets and RGBD-sequence assets in the demo without changing engine playback contracts
+- [x] Add a mock Kinect-style RGBD export asset that exercises the planned manifest/source path before hardware arrives
 - [ ] Define hand-landmark alignment into point-cloud space
 - [ ] Coordinate playback/runtime work with CharacterDirector behavior and interaction contracts
 - [ ] Package the Phase 1 demo cleanly as a first-class project inside the website

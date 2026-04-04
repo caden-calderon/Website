@@ -9,6 +9,7 @@
     "measure:itop-browser": "node scripts/measure-itop-browser.mjs",
     "generate:test-ply": "node scripts/generate-test-ply.mjs",
     "generate:test-rgbd": "node scripts/generate-test-rgbd-sequence.mjs",
+    "generate:test-kinect-rgbd": "python3 -m python.kinect_capture.process mock-rgbd --output tmp/rgbd-sequences/kinect-rgbd-registration-smoke",
     "convert:itop": "python3 scripts/convert-itop-to-point-sequences.py",
     "build": "vite build",
     "preview": "vite preview",
