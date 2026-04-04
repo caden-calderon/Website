@@ -38,6 +38,12 @@ export interface SampleSet {
 	/** Optional image/video source coordinates [u,v, ...] stride 2 */
 	readonly uv?: Float32Array;
 
-	/** Number of active samples */
+	/**
+	 * Number of active samples.
+	 *
+	 * Consumers must treat only the prefix `[0, count)` as active. Typed arrays
+	 * may be over-allocated beyond `count` so playback/runtime code can reuse
+	 * fixed-capacity buffers across variable-size frames.
+	 */
 	readonly count: number;
 }

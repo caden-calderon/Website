@@ -1,5 +1,6 @@
 import type { SampleSet } from '../core/types.js';
 import type { DepthMap } from '../preprocessing/DepthEstimation.js';
+import type { AlgorithmProgressEvent } from '../algorithms/types.js';
 
 /** Common interface for all source-to-sample converters. */
 export interface IngestAdapter<TSource, TOptions> {
@@ -13,6 +14,26 @@ export interface MeshAdapterOptions {
 	count: number;
 	/** Optional attribute name used to weight sampling density */
 	weightAttribute?: string | null;
+}
+
+export interface PlyAdapterOptions {
+	/** Fallback radius for vertices when the file does not provide one. */
+	defaultRadius?: number;
+	/** Fallback opacity for vertices when the file does not provide alpha. */
+	defaultOpacity?: number;
+}
+
+/**
+ * Dense RGBA raster input for image- or RGBD-driven point sampling.
+ *
+ * This stays DOM-free so browser images, videos, canvases, decoded frame
+ * buffers, and future registered Kinect RGB frames can all reuse the same
+ * sampling path once their pixels are available.
+ */
+export interface RasterSampleSource {
+	width: number;
+	height: number;
+	pixels: Uint8ClampedArray;
 }
 
 export interface ImageAdapterOptions {
@@ -48,4 +69,11 @@ export interface ImageAdapterOptions {
 	 * Only applies when radiusFromLuminance is true.
 	 */
 	sizeVariation?: number;
+	/**
+	 * Reject sampled pixels whose alpha falls below this threshold (0–1).
+	 * Useful for RGBD/image sources that already carry a matte.
+	 */
+	alphaCutoff?: number;
+	/** Optional progress callback for long-running sampling algorithms. */
+	onProgress?: (event: AlgorithmProgressEvent) => void;
 }

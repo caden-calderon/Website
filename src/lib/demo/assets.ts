@@ -12,6 +12,47 @@ export interface DemoImageAsset {
 	description: string;
 }
 
+interface DemoSequenceAssetBase {
+	id: string;
+	label: string;
+	description: string;
+	initialClipId?: string;
+}
+
+export interface DemoPointSequenceAsset extends DemoSequenceAssetBase {
+	kind: 'point-sequence';
+	manifestUrl: string;
+}
+
+export interface DemoRgbdSequenceMotion {
+	parallaxPixels: number;
+	verticalPixels: number;
+	depthDrift: number;
+	alphaCutoff?: number;
+}
+
+export interface DemoManifestRgbdSequenceAsset extends DemoSequenceAssetBase {
+	kind: 'rgbd-sequence';
+	source: 'manifest';
+	manifestUrl: string;
+	motion?: DemoRgbdSequenceMotion;
+}
+
+export interface DemoDerivedRgbdSequenceAsset extends DemoSequenceAssetBase {
+	kind: 'rgbd-sequence';
+	source: 'derived-image';
+	imageAssetId: string;
+	frameCount: number;
+	fps: number;
+	useBackgroundRemoval?: boolean;
+	useEstimatedDepth?: boolean;
+	depthModelIndex?: number;
+	motion: DemoRgbdSequenceMotion;
+}
+
+export type DemoRgbdSequenceAsset = DemoManifestRgbdSequenceAsset | DemoDerivedRgbdSequenceAsset;
+export type DemoSequenceAsset = DemoPointSequenceAsset | DemoRgbdSequenceAsset;
+
 export const DEMO_MESH_ASSETS: DemoMeshAsset[] = [
 	{
 		id: 'damaged-helmet',
@@ -100,4 +141,88 @@ export const DEMO_IMAGE_ASSETS: DemoImageAsset[] = [
 		src: '/demo-assets/images/mona-lisa.jpg',
 		description: 'Portrait reference for facial detail, tonal softness, and low-contrast structure.',
 	},
+];
+
+export const DEMO_POINT_SEQUENCE_ASSETS: DemoPointSequenceAsset[] = [
+	{
+		kind: 'point-sequence',
+		id: 'synthetic-pulse',
+		label: 'Synthetic Figure Study',
+		manifestUrl: '/api/point-sequences/synthetic-pulse/manifest.json',
+		description:
+			'Generated multi-clip figure-study sequence with variable point counts, served from tmp/synthetic-point-sequence.',
+		initialClipId: 'breathing_idle',
+	},
+	{
+		kind: 'point-sequence',
+		id: 'itop-side-test-short',
+		label: 'ITOP Side Test Short',
+		manifestUrl: '/api/point-sequences/itop-side-test-short/manifest.json',
+		description:
+			'Converted 24-frame ITOP side-view body clip for real-data startup rehearsal. Generate it with pnpm convert:itop first.',
+		initialClipId: 'full_clip',
+	},
+	{
+		kind: 'point-sequence',
+		id: 'itop-side-test-medium',
+		label: 'ITOP Side Test Medium',
+		manifestUrl: '/api/point-sequences/itop-side-test-medium/manifest.json',
+		description:
+			'Converted 48-frame ITOP side-view body clip for eager preload stress testing. Generate it with pnpm convert:itop first.',
+		initialClipId: 'full_clip',
+	},
+	{
+		kind: 'point-sequence',
+		id: 'itop-side-test-long',
+		label: 'ITOP Side Test Long',
+		manifestUrl: '/api/point-sequences/itop-side-test-long/manifest.json',
+		description:
+			'Converted 96-frame ITOP side-view body clip to probe the current eager full-sequence loading ceiling. Generate it with pnpm convert:itop first.',
+		initialClipId: 'full_clip',
+	},
+];
+
+export const DEMO_RGBD_SEQUENCE_ASSETS: DemoRgbdSequenceAsset[] = [
+	{
+		kind: 'rgbd-sequence',
+		source: 'derived-image',
+		id: 'pearl-earring-rgbd-study',
+		label: 'Pearl Earring RGBD Study',
+		imageAssetId: 'girl-with-a-pearl-earring',
+		frameCount: 36,
+		fps: 12,
+		useBackgroundRemoval: true,
+		useEstimatedDepth: true,
+		depthModelIndex: 0,
+		motion: {
+			parallaxPixels: 12,
+			verticalPixels: 1.5,
+			depthDrift: 0.06,
+			alphaCutoff: 0.06,
+		},
+		description:
+			'Image-derived RGBD rehearsal clip built from the portrait reference plus estimated depth, closer to the still-image art direction than the procedural blob test.',
+		initialClipId: 'portrait_turn',
+	},
+	{
+		kind: 'rgbd-sequence',
+		source: 'manifest',
+		id: 'procedural-rgbd-portrait',
+		label: 'Procedural RGBD Portrait',
+		manifestUrl: '/api/rgbd-sequences/procedural-rgbd-portrait/manifest.json',
+		motion: {
+			parallaxPixels: 8,
+			verticalPixels: 1,
+			depthDrift: 0.04,
+			alphaCutoff: 0.12,
+		},
+		description:
+			'Generated RGBD portrait-sequence mock that exercises image-style point sampling with real per-frame depth input.',
+		initialClipId: 'portrait_turn',
+	},
+];
+
+export const DEMO_SEQUENCE_ASSETS: DemoSequenceAsset[] = [
+	...DEMO_POINT_SEQUENCE_ASSETS,
+	...DEMO_RGBD_SEQUENCE_ASSETS,
 ];

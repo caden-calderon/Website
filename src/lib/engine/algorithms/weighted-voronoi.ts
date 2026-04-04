@@ -23,22 +23,31 @@ class WeightedVoronoiSampling implements StippleAlgorithm {
 			Math.max(siteCount * CANDIDATE_MULTIPLIER, siteCount),
 			MAX_WEIGHTED_VORONOI_CANDIDATES,
 		);
+		options.onProgress?.({ stage: 'seed-candidates', progress: 0.05 });
 
 		const candidates = importanceSampling.generate(input, {
 			...options,
 			count: candidateCount,
 		});
+		options.onProgress?.({ stage: 'seed-candidates', progress: 0.2 });
 
 		if (candidates.count <= siteCount) {
+			options.onProgress?.({ stage: 'build-result', progress: 1 });
 			return candidates;
 		}
 
 		const sitePositions = initialiseSites(candidates, siteCount);
 		for (let iteration = 0; iteration < RELAXATION_ITERATIONS; iteration++) {
 			relaxSites(sitePositions, candidates);
+			options.onProgress?.({
+				stage: 'relax-sites',
+				progress: 0.2 + (((iteration + 1) / RELAXATION_ITERATIONS) * 0.7),
+			});
 		}
 
-		return buildResult(sitePositions, input, options.baseRadius ?? 1.0);
+		const result = buildResult(sitePositions, input, options.baseRadius ?? 1.0);
+		options.onProgress?.({ stage: 'build-result', progress: 1 });
+		return result;
 	}
 }
 

@@ -6,6 +6,11 @@ export interface AlgorithmInput {
 	height: number;
 }
 
+export interface AlgorithmProgressEvent {
+	stage: string;
+	progress: number;
+}
+
 export interface AlgorithmOptions {
 	/** Target number of samples */
 	count: number;
@@ -15,6 +20,8 @@ export interface AlgorithmOptions {
 	seed?: number;
 	/** Gamma power applied to luminance before density weighting (default 1.0) */
 	densityGamma?: number;
+	/** Optional progress callback for long-running algorithms. */
+	onProgress?: (event: AlgorithmProgressEvent) => void;
 }
 
 /** Output from a stippling / sampling algorithm. */

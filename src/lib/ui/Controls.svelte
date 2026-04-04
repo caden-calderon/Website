@@ -5,7 +5,13 @@
 	import type { FrameParams } from '$lib/engine/processing/FrameGenerator.js';
 	import { FRAME_STYLES } from '$lib/engine/processing/FrameGenerator.js';
 	import type { FrameStyle } from '$lib/engine/processing/FrameGenerator.js';
-	import type { DemoImageAsset, DemoMeshAsset } from '$lib/demo/assets.js';
+	import type { DemoImageAsset, DemoMeshAsset, DemoSequenceAsset } from '$lib/demo/assets.js';
+	import type { SequenceLookPreset } from '$lib/demo/sequenceLooks.js';
+	import type {
+		PreparedPointSequenceBounds,
+		PreparedPointSequenceReport,
+	} from '$lib/demo/pointSequencePlayback.js';
+	import type { PreparedRgbdSequenceReport } from '$lib/demo/rgbdSequencePlayback.js';
 	import type {
 		BgRemovalProvider,
 		ServerBgRemovalModelInfo,
@@ -15,9 +21,25 @@
 	interface Props {
 		renderParams: RenderParams;
 		bloomParams: BloomParams;
-		mode: 'mesh' | 'image';
+		mode: 'mesh' | 'image' | 'sequence';
 		selectedMeshAssetId: string;
 		selectedImageAssetId: string;
+		selectedSequenceAssetId: string;
+		selectedSequenceAssetKind: 'point-sequence' | 'rgbd-sequence';
+		selectedSequenceAssetSource: 'manifest' | 'derived-image' | null;
+		selectedSequenceClipId: string;
+		selectedSequenceLookPresetId: string;
+		availableSequenceClipIds: string[];
+		sequenceMaxPointsPerFrame: number;
+		sequenceAutoCenter: boolean;
+		sequenceFitHeightEnabled: boolean;
+		sequenceFitHeight: number;
+		sequenceScaleMultiplier: number;
+		sequenceReport: PreparedPointSequenceReport | PreparedRgbdSequenceReport | null;
+		sequenceBounds: PreparedPointSequenceBounds | null;
+		sequenceLookPresets: readonly SequenceLookPreset[];
+		sequenceStatus: string;
+		sequenceIsPlaying: boolean;
 		algorithm: 'rejection' | 'importance' | 'weighted-voronoi';
 		sampleCount: number;
 		depthScale: number;
@@ -37,15 +59,26 @@
 		frameParams: FrameParams;
 		meshAssets: DemoMeshAsset[];
 		imageAssets: DemoImageAsset[];
+		sequenceAssets: DemoSequenceAsset[];
 		bgModels: BgRemovalModelInfo[];
 		serverBgModels: ServerBgRemovalModelInfo[];
 		depthModels: DepthModelInfo[];
 		processingStatus: string;
 		hasImage: boolean;
 		onRenderParamsChange: (params: RenderParams) => void;
-		onModeChange: (mode: 'mesh' | 'image') => void;
+		onModeChange: (mode: 'mesh' | 'image' | 'sequence') => void;
 		onMeshAssetChange: (assetId: string) => void;
 		onImageAssetChange: (assetId: string) => void;
+		onSequenceAssetChange: (assetId: string) => void;
+		onSequenceLookPresetChange: (presetId: string) => void;
+		onSequenceMaxPointsPerFrameChange: (maxPointsPerFrame: number) => void;
+		onSequenceAutoCenterChange: (enabled: boolean) => void;
+		onSequenceFitHeightEnabledChange: (enabled: boolean) => void;
+		onSequenceFitHeightChange: (height: number) => void;
+		onSequenceScaleMultiplierChange: (scale: number) => void;
+		onSequenceClipChange: (clipId: string) => void;
+		onSequencePlaybackToggle: () => void;
+		onSequenceRestart: () => void;
 		onAlgorithmChange: (algorithm: 'rejection' | 'importance' | 'weighted-voronoi') => void;
 		onSampleCountChange: (count: number) => void;
 		onImageUpload: (file: File) => void;
@@ -69,6 +102,22 @@
 		mode = $bindable(),
 		selectedMeshAssetId,
 		selectedImageAssetId,
+		selectedSequenceAssetId,
+		selectedSequenceAssetKind,
+		selectedSequenceAssetSource,
+		selectedSequenceClipId,
+		selectedSequenceLookPresetId,
+		availableSequenceClipIds,
+		sequenceMaxPointsPerFrame = $bindable(),
+		sequenceAutoCenter = $bindable(),
+		sequenceFitHeightEnabled = $bindable(),
+		sequenceFitHeight = $bindable(),
+		sequenceScaleMultiplier = $bindable(),
+		sequenceReport,
+		sequenceBounds,
+		sequenceLookPresets,
+		sequenceStatus,
+		sequenceIsPlaying,
 		algorithm = $bindable(),
 		sampleCount = $bindable(),
 		depthScale = $bindable(),
@@ -88,6 +137,7 @@
 		frameParams = $bindable(),
 		meshAssets,
 		imageAssets,
+		sequenceAssets,
 		bgModels,
 		serverBgModels,
 		depthModels,
@@ -97,6 +147,16 @@
 		onModeChange,
 		onMeshAssetChange,
 		onImageAssetChange,
+		onSequenceAssetChange,
+		onSequenceLookPresetChange,
+		onSequenceMaxPointsPerFrameChange,
+		onSequenceAutoCenterChange,
+		onSequenceFitHeightEnabledChange,
+		onSequenceFitHeightChange,
+		onSequenceScaleMultiplierChange,
+		onSequenceClipChange,
+		onSequencePlaybackToggle,
+		onSequenceRestart,
 		onAlgorithmChange,
 		onSampleCountChange,
 		onImageUpload,
@@ -120,6 +180,7 @@
 	let collapsed = $state(false);
 	let compatDismissed = $state(false);
 	let hasWebGpuForBg = $state(false);
+	const sequenceDensityOptions = [0, 2048, 4096, 8192, 12000, 24000];
 	const effectiveImageSampleCount = $derived(
 		algorithm === 'weighted-voronoi'
 			? Math.min(sampleCount, MAX_WEIGHTED_VORONOI_SAMPLES)
@@ -136,6 +197,7 @@
 	// Section collapse state
 	let showBg = $state(true);
 	let showImage = $state(true);
+	let showSequence = $state(true);
 	let showMl = $state(true);
 	let showSampling = $state(true);
 	let showFrame = $state(true);
@@ -165,6 +227,14 @@
 	function isBgModelSupported(model: BgRemovalModelInfo): boolean {
 		if (model.backend === 'imgly') return true;
 		return hasWebGpuForBg;
+	}
+
+	function formatSequenceDensity(maxPointsPerFrame: number): string {
+		return maxPointsPerFrame <= 0 ? 'all body points' : `${maxPointsPerFrame.toLocaleString()} max/frame`;
+	}
+
+	function formatBytes(bytes: number): string {
+		return `${(bytes / (1024 * 1024)).toFixed(bytes >= 100 * 1024 * 1024 ? 0 : 1)} MiB`;
 	}
 </script>
 
@@ -206,6 +276,10 @@
 				<label class="flex items-center gap-1">
 					<input type="radio" name="mode" value="image" checked={mode === 'image'} onchange={() => onModeChange('image')} />
 					image
+				</label>
+				<label class="flex items-center gap-1">
+					<input type="radio" name="mode" value="sequence" checked={mode === 'sequence'} onchange={() => onModeChange('sequence')} />
+					sequence
 				</label>
 			</fieldset>
 
@@ -536,6 +610,327 @@
 						{/if}
 					</div>
 				{/if}
+
+			{:else if mode === 'sequence'}
+				<div class="border-b border-white/10 pb-2 mb-2">
+					<button class="mb-1 w-full text-left" onclick={() => (showSequence = !showSequence)}>
+						<span class="text-white/40">{showSequence ? '▾' : '▸'} Sequence</span>
+					</button>
+					{#if showSequence}
+						<div class="flex flex-col gap-2 pl-1">
+							<div class="flex min-w-0 items-center gap-2">
+								<span class="text-white/50">preset</span>
+								<select
+									class="min-w-0 flex-1 rounded bg-white/10 px-2 py-1 text-white/80"
+									value={selectedSequenceAssetId}
+									onchange={(e) => onSequenceAssetChange((e.target as HTMLSelectElement).value)}
+								>
+									{#each sequenceAssets as asset}
+										<option value={asset.id}>{asset.label}</option>
+									{/each}
+								</select>
+							</div>
+							<span class="break-words text-white/30">
+								{sequenceAssets.find((asset) => asset.id === selectedSequenceAssetId)?.description}
+							</span>
+
+							{#if availableSequenceClipIds.length > 0}
+								<div class="flex min-w-0 items-center gap-2">
+									<span class="text-white/50">clip</span>
+									<select
+										class="min-w-0 flex-1 rounded bg-white/10 px-2 py-1 text-white/80"
+										value={selectedSequenceClipId}
+										onchange={(e) => onSequenceClipChange((e.target as HTMLSelectElement).value)}
+									>
+										{#each availableSequenceClipIds as clipId}
+											<option value={clipId}>{clipId}</option>
+										{/each}
+									</select>
+								</div>
+							{/if}
+
+							{#if selectedSequenceAssetKind === 'point-sequence'}
+								<div class="flex min-w-0 items-center gap-2">
+									<span class="text-white/50">look</span>
+									<select
+										class="min-w-0 flex-1 rounded bg-white/10 px-2 py-1 text-white/80"
+										value={selectedSequenceLookPresetId}
+										onchange={(e) => onSequenceLookPresetChange((e.target as HTMLSelectElement).value)}
+									>
+										{#each sequenceLookPresets as preset}
+											<option value={preset.id}>{preset.label}</option>
+										{/each}
+									</select>
+								</div>
+								<span class="break-words text-white/30">
+									{sequenceLookPresets.find((preset) => preset.id === selectedSequenceLookPresetId)?.description}
+								</span>
+
+								<div class="flex min-w-0 items-center gap-2">
+									<span class="text-white/50">density</span>
+									<select
+										class="min-w-0 flex-1 rounded bg-white/10 px-2 py-1 text-white/80"
+										value={sequenceMaxPointsPerFrame}
+										onchange={(e) => onSequenceMaxPointsPerFrameChange(Number((e.target as HTMLSelectElement).value))}
+									>
+										{#each sequenceDensityOptions as density}
+											<option value={density}>{formatSequenceDensity(density)}</option>
+										{/each}
+									</select>
+								</div>
+							{:else}
+								{#if selectedSequenceAssetSource === 'derived-image'}
+									<div class="rounded border border-white/10 bg-white/[0.03] p-2 text-white/35">
+										This RGBD clip is derived live from a still image. Background removal and depth estimation are optional and use the same model stack as image mode.
+									</div>
+
+									<span class="text-white/40">ML preprocessing</span>
+									<div class="flex min-w-0 items-center gap-2">
+										<span class="text-white/50">provider</span>
+										<select
+											class="min-w-0 flex-1 rounded bg-white/10 px-2 py-1 text-white/80"
+											value={bgProvider}
+											onchange={(e) => {
+												bgProvider = (e.target as HTMLSelectElement).value as BgRemovalProvider;
+												onBgProviderChange(bgProvider);
+											}}
+											disabled={!!processingStatus}
+										>
+											<option value="browser">Browser</option>
+											<option value="server">Server</option>
+										</select>
+									</div>
+
+									{#if bgProvider === 'browser'}
+										<select
+											class="min-w-0 rounded bg-white/10 px-2 py-1 text-white/80"
+											value={bgModelIndex}
+											onchange={(e) => {
+												const idx = Number((e.target as HTMLSelectElement).value);
+												if (!isBgModelSupported(bgModels[idx])) return;
+												bgModelIndex = idx;
+												onBgModelChange(idx);
+											}}
+											disabled={!!processingStatus}
+										>
+											{#each bgModels as model, i}
+												{@const supported = isBgModelSupported(model)}
+												<option value={i} disabled={!supported}
+													title={supported ? model.description : 'Requires WebGPU'}>
+													{model.label} ({model.size}){supported ? '' : ' — WebGPU only'}
+												</option>
+											{/each}
+										</select>
+										<span class="break-words text-white/30">{bgModels[bgModelIndex]?.description}</span>
+									{:else}
+										<select
+											class="min-w-0 rounded bg-white/10 px-2 py-1 text-white/80"
+											value={serverBgModelId}
+											onchange={(e) => {
+												serverBgModelId = (e.target as HTMLSelectElement).value;
+												onServerBgModelChange(serverBgModelId);
+											}}
+											disabled={!!processingStatus}
+										>
+											{#each serverBgModels as model}
+												<option value={model.id}>{model.label} ({model.size})</option>
+											{/each}
+										</select>
+										<span class="break-words text-white/30">
+											{serverBgModels.find((model) => model.id === serverBgModelId)?.description}
+										</span>
+									{/if}
+
+									<button
+										class="rounded px-2 py-1 text-left {removeBg ? 'bg-blue-600/30' : 'bg-white/10'} hover:bg-white/20"
+										onclick={() => { removeBg = !removeBg; onRemoveBg(removeBg); }}
+										disabled={!!processingStatus}
+									>
+										{removeBg ? '✓ ' : ''}remove background
+									</button>
+
+									<select
+										class="min-w-0 rounded bg-white/10 px-2 py-1 text-white/80"
+										value={depthModelIndex}
+										onchange={(e) => {
+											depthModelIndex = Number((e.target as HTMLSelectElement).value);
+											onDepthModelChange(depthModelIndex);
+										}}
+										disabled={!!processingStatus}
+									>
+										{#each depthModels as model, i}
+											<option value={i}>{model.label} ({model.size})</option>
+										{/each}
+									</select>
+									<span class="break-words text-white/30">{depthModels[depthModelIndex]?.description}</span>
+
+									<button
+										class="rounded px-2 py-1 text-left {useDepthMap ? 'bg-blue-600/30' : 'bg-white/10'} hover:bg-white/20"
+										onclick={() => { useDepthMap = !useDepthMap; onEstimateDepth(useDepthMap); }}
+										disabled={!!processingStatus}
+									>
+										{useDepthMap ? '✓ ' : ''}estimate depth (3D)
+									</button>
+								{:else if selectedSequenceAssetSource === 'manifest'}
+									<div class="rounded border border-white/10 bg-white/[0.03] p-2 text-white/35">
+										This RGBD clip is precomputed. Background removal and depth estimation are already baked into the source data.
+									</div>
+								{/if}
+
+								<fieldset class="flex gap-2">
+									<legend class="mb-1 text-white/50">Algorithm</legend>
+									<label class="flex items-center gap-1">
+										<input type="radio" name="sequence-algo" value="rejection" checked={algorithm === 'rejection'} onchange={() => onAlgorithmChange('rejection')} />
+										rejection
+									</label>
+									<label class="flex items-center gap-1">
+										<input type="radio" name="sequence-algo" value="importance" checked={algorithm === 'importance'} onchange={() => onAlgorithmChange('importance')} />
+										importance
+									</label>
+									<label class="flex items-center gap-1">
+										<input type="radio" name="sequence-algo" value="weighted-voronoi" checked={algorithm === 'weighted-voronoi'} onchange={() => onAlgorithmChange('weighted-voronoi')} />
+										voronoi
+									</label>
+								</fieldset>
+
+								<label class="flex flex-col gap-1">
+									<span class="text-white/50">
+										{algorithm === 'weighted-voronoi'
+											? `voronoi sites/frame: ${effectiveImageSampleCount.toLocaleString()}`
+											: `samples/frame: ${sampleCount.toLocaleString()}`}
+									</span>
+									<input type="range" min="1000" max="300000" step="1000" value={sampleCount}
+										oninput={(e) => onSampleCountChange(Number((e.target as HTMLInputElement).value))} />
+								</label>
+
+								<label class="flex flex-col gap-1">
+									<span class="text-white/50">depth scale: {depthScale.toFixed(2)}</span>
+									<input type="range" min="0" max="0.5" step="0.01" bind:value={depthScale} />
+								</label>
+
+								<label class="flex flex-col gap-1">
+									<span class="text-white/50">normal displacement: {normalDisplacement.toFixed(1)}</span>
+									<input type="range" min="0" max="5" step="0.1" bind:value={normalDisplacement} />
+								</label>
+
+								<label class="flex flex-col gap-1">
+									<span class="text-white/50">density contrast: {densityGamma.toFixed(1)}</span>
+									<input type="range" min="0.5" max="3.0" step="0.1" bind:value={densityGamma} />
+								</label>
+
+								<label class="flex items-center gap-2">
+									<input type="checkbox" bind:checked={radiusFromLuminance} />
+									<span class="text-white/50">radius from luminance</span>
+								</label>
+
+								{#if radiusFromLuminance}
+									<label class="flex flex-col gap-1">
+										<span class="text-white/50">size variation: {sizeVariation.toFixed(2)}</span>
+										<input type="range" min="0" max="1" step="0.05" bind:value={sizeVariation} />
+									</label>
+								{/if}
+
+								<label class="flex flex-col gap-1">
+									<span class="text-white/50">outlier suppression: {outlierRadius}px</span>
+									<input type="range" min="0" max="8" step="1" bind:value={outlierRadius} />
+								</label>
+
+								<div class="rounded border border-white/10 bg-white/[0.03] px-2 py-1 text-white/35">
+									RGBD sequences reuse the image sampling path with real per-frame depth. Change controls, then reload.
+								</div>
+							{/if}
+
+							<label class="flex items-center gap-2">
+								<input
+									type="checkbox"
+									checked={sequenceAutoCenter}
+									onchange={(e) => onSequenceAutoCenterChange((e.target as HTMLInputElement).checked)}
+								/>
+								<span class="text-white/50">auto-center sequence bounds</span>
+							</label>
+
+							<label class="flex items-center gap-2">
+								<input
+									type="checkbox"
+									checked={sequenceFitHeightEnabled}
+									onchange={(e) => onSequenceFitHeightEnabledChange((e.target as HTMLInputElement).checked)}
+								/>
+								<span class="text-white/50">fit clip height</span>
+							</label>
+
+							<label class="flex flex-col gap-1">
+								<span class="text-white/50">fit height: {sequenceFitHeight.toFixed(1)}m</span>
+								<input
+									type="range"
+									min="0.5"
+									max="4"
+									step="0.1"
+									value={sequenceFitHeight}
+									disabled={!sequenceFitHeightEnabled}
+									oninput={(e) => onSequenceFitHeightChange(Number((e.target as HTMLInputElement).value))}
+								/>
+							</label>
+
+							<label class="flex flex-col gap-1">
+								<span class="text-white/50">manual scale: {sequenceScaleMultiplier.toFixed(2)}x</span>
+								<input
+									type="range"
+									min="0.25"
+									max="4"
+									step="0.05"
+									value={sequenceScaleMultiplier}
+									oninput={(e) => onSequenceScaleMultiplierChange(Number((e.target as HTMLInputElement).value))}
+								/>
+							</label>
+
+							<div class="flex gap-2">
+								<button
+									class="flex-1 rounded bg-white/10 px-2 py-1 hover:bg-white/20"
+									onclick={onSequencePlaybackToggle}
+								>
+									{sequenceIsPlaying ? 'pause' : 'play'}
+								</button>
+								<button
+									class="flex-1 rounded bg-white/10 px-2 py-1 hover:bg-white/20"
+									onclick={onSequenceRestart}
+								>
+									restart
+								</button>
+								<button
+									class="flex-1 rounded bg-white/10 px-2 py-1 hover:bg-white/20"
+									onclick={onResample}
+								>
+									reload
+								</button>
+							</div>
+
+							{#if sequenceStatus}
+								<span class="break-words text-white/40">{sequenceStatus}</span>
+							{/if}
+
+							{#if sequenceReport}
+								<div class="rounded border border-white/10 bg-white/[0.03] p-2 text-white/40">
+									<div>startup: {sequenceReport.totalLoadMs.toFixed(0)} ms total</div>
+									{#if sequenceReport.kind === 'rgbd'}
+										<div>fetch / prep / build: {sequenceReport.fetchMs.toFixed(0)} / {sequenceReport.prepareMs.toFixed(0)} / {sequenceReport.buildMs.toFixed(0)} ms</div>
+										<div>color payload / depth payload: {formatBytes(sequenceReport.totalColorBytes)} / {formatBytes(sequenceReport.totalDepthBytes)}</div>
+										<div>prepared cpu / playback buffer: {formatBytes(sequenceReport.totalPreparedBytes)} / {formatBytes(sequenceReport.estimatedPlaybackBytes)}</div>
+										<div>raster/frame: {sequenceReport.rasterSize[0]} x {sequenceReport.rasterSize[1]}, {sequenceReport.sampleCountPerFrame.toLocaleString()} samples/frame via {sequenceReport.algorithm}</div>
+										<div>points/frame: {sequenceReport.preparedPointCountRange[0].toLocaleString()}-{sequenceReport.preparedPointCountRange[1].toLocaleString()} prepared</div>
+									{:else}
+										<div>fetch / parse / prep / build: {sequenceReport.fetchMs.toFixed(0)} / {sequenceReport.parseMs.toFixed(0)} / {sequenceReport.prepareMs.toFixed(0)} / {sequenceReport.buildMs.toFixed(0)} ms</div>
+										<div>frame payload / prepared cpu / playback buffer: {formatBytes(sequenceReport.totalFrameBytes)} / {formatBytes(sequenceReport.totalPreparedBytes)} / {formatBytes(sequenceReport.estimatedPlaybackBytes)}</div>
+										<div>points/frame: {sequenceReport.originalPointCountRange[0].toLocaleString()}-{sequenceReport.originalPointCountRange[1].toLocaleString()} original, {sequenceReport.preparedPointCountRange[0].toLocaleString()}-{sequenceReport.preparedPointCountRange[1].toLocaleString()} prepared</div>
+									{/if}
+									<div>total points: {sequenceReport.totalPreparedPoints.toLocaleString()} prepared across {sequenceReport.frameCount.toLocaleString()} frames</div>
+									{#if sequenceBounds}
+										<div>bounds: {sequenceBounds.size[0].toFixed(2)} x {sequenceBounds.size[1].toFixed(2)} x {sequenceBounds.size[2].toFixed(2)} m</div>
+									{/if}
+								</div>
+							{/if}
+						</div>
+					{/if}
+				</div>
 
 			{:else}
 				<!-- Mesh mode: just sample count + resample -->

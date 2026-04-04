@@ -50,6 +50,14 @@ Every captured or generated sequence should have a manifest carrying:
 - processing settings
 - capture metadata such as sensor serial and calibration snapshot
 
+### 6. Keep raw RGBD truth separate from stylized RGBD sampling
+
+- raw point-cloud playback remains the truth/debug/stress-test surface
+- the eventual art-directed Kinect surface should not be limited to replaying sparse point-cloud files
+- instead, registered color + depth should feed the same sampling logic that already works well for still images
+- the engine should expose reusable raster/RGBD sampling primitives; the app layer should decide when to use raw point playback vs stylized RGBD sampling
+- body playback stays separate from hand interaction overlays and other semantic layers
+
 ## Implementation Shape
 
 1. Harden `GLPointRenderer` for reusable over-allocated buffers.
@@ -59,6 +67,19 @@ Every captured or generated sequence should have a manifest carrying:
 5. Build synthetic PLY generation plus manifest output.
 6. Build the Kinect Python scaffold and prove one-frame registration/export before higher-level batch tooling.
 7. Integrate the animation path into the scene/app layer.
+8. Refactor the image sampler into a reusable raster/RGBD sampling path so future Kinect RGBD frames can reuse image-style controls with true sensor depth.
+9. Add an app-layer RGBD sequence source format plus local API route so rehearsal data can be loaded without teaching the engine about raster/depth asset routing.
+10. Prove the RGBD path with a generated sequence that exercises registered-color-style sampling plus real per-frame depth before Kinect hardware arrives.
+11. Move expensive RGBD sequence preparation off the main thread so interactive tuning can keep high-cost algorithms like weighted Voronoi without freezing the UI.
+
+## Next Session Focus
+
+1. Keep the converted ITOP clips as the raw point-cloud benchmark path for playback truth and browser stress testing.
+2. Capture actual browser startup/memory numbers for `itop-side-test-short`, `itop-side-test-medium`, and `itop-side-test-long`, then record the ceiling for the eager full-sequence path.
+3. Use the new RGBD sequence path as the stylized playback architecture for future Kinect RGBD frames, not as a replacement for the raw point benchmark path.
+4. Add the first real registered Kinect RGBD export format once hardware arrives and feed it through the new app-layer RGBD manifest/source path.
+5. Extend the worker-first preprocessing model to other medium/heavy app-layer transforms where the browser stack allows it, keeping the main thread focused on UI and rendering.
+6. If the long raw clip or future RGBD clips start to look marginal, make chunked/streaming playback the next architecture step instead of extending the eager preload path.
 
 ## Guardrails
 

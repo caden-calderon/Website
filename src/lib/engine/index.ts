@@ -2,10 +2,27 @@
 export type { SampleSet } from './core/types.js';
 export { createSampleSet, cloneSampleSet, mergeSampleSets } from './core/SampleSet.js';
 
+// Animation
+export type {
+	AnimationClip,
+	FrameBufferLoader,
+	FrameSequenceLoaderOptions,
+	FrameSequenceOptions,
+	FrameSequenceTickResult,
+	FrameSequenceUpdateResult,
+	PlaybackDirection,
+	PlaybackMode,
+	PointSequenceManifest,
+} from './animation/types.js';
+export { FrameSequence } from './animation/FrameSequence.js';
+export { FrameSequenceLoader } from './animation/FrameSequenceLoader.js';
+
 // Ingest
-export type { IngestAdapter, MeshAdapterOptions, ImageAdapterOptions } from './ingest/types.js';
+export type { IngestAdapter, MeshAdapterOptions, PlyAdapterOptions, ImageAdapterOptions, RasterSampleSource } from './ingest/types.js';
 export { MeshAdapter } from './ingest/MeshAdapter.js';
+export { PlyAdapter } from './ingest/PlyAdapter.js';
 export { ImageAdapter } from './ingest/ImageAdapter.js';
+export { RasterAdapter } from './ingest/RasterAdapter.js';
 
 // Algorithms
 export type {

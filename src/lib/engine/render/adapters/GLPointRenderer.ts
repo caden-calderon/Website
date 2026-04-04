@@ -53,14 +53,15 @@ export class GLPointRenderer implements RendererAdapter {
 
 	setSamples(samples: SampleSet): void {
 		const { positions, colors, radii, opacities, count } = samples;
+		this.validateSamples(samples);
 
-		this.setOrUpdateAttribute('position', positions, 3, count);
-		this.setOrUpdateAttribute('color', colors, 3, count);
-		this.setOrUpdateAttribute('aRadius', radii, 1, count);
-		this.setOrUpdateAttribute('aOpacity', opacities, 1, count);
+		this.setOrUpdateAttribute('position', positions, 3);
+		this.setOrUpdateAttribute('color', colors, 3);
+		this.setOrUpdateAttribute('aRadius', radii, 1);
+		this.setOrUpdateAttribute('aOpacity', opacities, 1);
 
 		this.geometry.setDrawRange(0, count);
-		this.geometry.computeBoundingSphere();
+		this.updateBoundingSphere(positions, count);
 	}
 
 	updateUniforms(params: RenderParams): void {
@@ -100,11 +101,11 @@ export class GLPointRenderer implements RendererAdapter {
 		name: string,
 		data: Float32Array,
 		itemSize: number,
-		count: number,
 	): void {
 		const existing = this.geometry.getAttribute(name) as THREE.BufferAttribute | undefined;
+		const capacity = data.length / itemSize;
 
-		if (existing && existing.count === count) {
+		if (existing && existing.itemSize === itemSize && existing.count === capacity) {
 			(existing.array as Float32Array).set(data);
 			existing.needsUpdate = true;
 		} else {
@@ -114,5 +115,98 @@ export class GLPointRenderer implements RendererAdapter {
 			attr.setUsage(THREE.DynamicDrawUsage);
 			this.geometry.setAttribute(name, attr);
 		}
+	}
+
+	private validateSamples(samples: SampleSet): void {
+		const { count } = samples;
+
+		if (!Number.isInteger(count) || count < 0) {
+			throw new Error(`GLPointRenderer requires a non-negative integer sample count; received ${count}.`);
+		}
+
+		const positionCapacity = this.getCapacity('positions', samples.positions, 3);
+		const colorCapacity = this.getCapacity('colors', samples.colors, 3);
+		const radiusCapacity = this.getCapacity('radii', samples.radii, 1);
+		const opacityCapacity = this.getCapacity('opacities', samples.opacities, 1);
+
+		if (
+			positionCapacity !== colorCapacity ||
+			positionCapacity !== radiusCapacity ||
+			positionCapacity !== opacityCapacity
+		) {
+			throw new Error(
+				`GLPointRenderer requires matching attribute capacities; received positions=${positionCapacity}, colors=${colorCapacity}, radii=${radiusCapacity}, opacities=${opacityCapacity}.`,
+			);
+		}
+
+		if (count > positionCapacity) {
+			throw new Error(
+				`GLPointRenderer sample count ${count} exceeds attribute capacity ${positionCapacity}.`,
+			);
+		}
+	}
+
+	private getCapacity(name: string, data: Float32Array, itemSize: number): number {
+		if (data.length % itemSize !== 0) {
+			throw new Error(
+				`GLPointRenderer received ${name} length ${data.length}, which is not divisible by itemSize ${itemSize}.`,
+			);
+		}
+
+		return data.length / itemSize;
+	}
+
+	private updateBoundingSphere(positions: Float32Array, count: number): void {
+		const sphere = this.geometry.boundingSphere ?? new THREE.Sphere();
+
+		if (count === 0) {
+			sphere.center.set(0, 0, 0);
+			sphere.radius = 0;
+			this.geometry.boundingSphere = sphere;
+			return;
+		}
+
+		let minX = positions[0];
+		let minY = positions[1];
+		let minZ = positions[2];
+		let maxX = positions[0];
+		let maxY = positions[1];
+		let maxZ = positions[2];
+
+		for (let i = 1; i < count; i++) {
+			const i3 = i * 3;
+			const x = positions[i3];
+			const y = positions[i3 + 1];
+			const z = positions[i3 + 2];
+
+			if (x < minX) minX = x;
+			if (y < minY) minY = y;
+			if (z < minZ) minZ = z;
+			if (x > maxX) maxX = x;
+			if (y > maxY) maxY = y;
+			if (z > maxZ) maxZ = z;
+		}
+
+		sphere.center.set(
+			(minX + maxX) * 0.5,
+			(minY + maxY) * 0.5,
+			(minZ + maxZ) * 0.5,
+		);
+
+		let maxRadiusSq = 0;
+		for (let i = 0; i < count; i++) {
+			const i3 = i * 3;
+			const dx = positions[i3] - sphere.center.x;
+			const dy = positions[i3 + 1] - sphere.center.y;
+			const dz = positions[i3 + 2] - sphere.center.z;
+			const radiusSq = dx * dx + dy * dy + dz * dz;
+
+			if (radiusSq > maxRadiusSq) {
+				maxRadiusSq = radiusSq;
+			}
+		}
+
+		sphere.radius = Math.sqrt(maxRadiusSq);
+		this.geometry.boundingSphere = sphere;
 	}
 }
