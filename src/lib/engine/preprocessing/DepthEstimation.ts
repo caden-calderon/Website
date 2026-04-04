@@ -5,6 +5,10 @@
  * via Cache API. The module is lazy-loaded so the main bundle stays small.
  */
 
+import { blobToDataUrl, encodeCanvasImageToBlob } from '$lib/browser/imageEncoding.js';
+import { encodeHtmlImageInWorker } from '$lib/browser/imageEncodingClient.js';
+import { estimateDepthInWorker } from './depthEstimationClient.js';
+
 type QuantDtype = 'q8' | 'fp16' | 'fp32' | 'q4' | 'q4f16' | 'int8' | 'uint8' | 'auto';
 
 export interface DepthModelInfo {
@@ -96,18 +100,33 @@ async function getDepthPipeline(modelId: string, dtype: string, device: OnnxDevi
 	return instance;
 }
 
-/** Convert an image element to an opaque data URL (depth models can't handle alpha). */
-function imageToDataUrl(img: HTMLImageElement): string {
-	const canvas = document.createElement('canvas');
-	canvas.width = img.naturalWidth || img.width;
-	canvas.height = img.naturalHeight || img.height;
-	const ctx = canvas.getContext('2d');
-	if (!ctx) throw new Error('Failed to get canvas context');
-	// Fill with black so transparent regions from BG removal become solid
-	ctx.fillStyle = '#000000';
-	ctx.fillRect(0, 0, canvas.width, canvas.height);
-	ctx.drawImage(img, 0, 0);
-	return canvas.toDataURL('image/jpeg', 0.95);
+type DepthSource = HTMLImageElement | ImageBitmap;
+
+function isHtmlImageElement(source: DepthSource): source is HTMLImageElement {
+	return typeof HTMLImageElement !== 'undefined' && source instanceof HTMLImageElement;
+}
+
+/** Convert an image element or bitmap to an opaque data URL (depth models can't handle alpha). */
+async function sourceToDataUrl(source: DepthSource): Promise<string> {
+	if (isHtmlImageElement(source)) {
+		try {
+			const encoded = await encodeHtmlImageInWorker(source, {
+				mimeType: 'image/jpeg',
+				quality: 0.95,
+				backgroundColor: [0, 0, 0],
+			});
+			return blobToDataUrl(encoded.blob);
+		} catch {
+			// Fall through to local canvas encoding.
+		}
+	}
+
+	const encoded = await encodeCanvasImageToBlob(source, {
+		mimeType: 'image/jpeg',
+		quality: 0.95,
+		backgroundColor: [0, 0, 0],
+	});
+	return blobToDataUrl(encoded.blob);
 }
 
 export interface DepthMap {
@@ -126,12 +145,8 @@ export interface EstimateDepthOptions {
 	onProgress?: (status: string) => void;
 }
 
-/**
- * Estimate a depth map from a source image.
- * Returns normalised 0–1 depth values where 0 = farthest, 1 = closest.
- */
-export async function estimateDepth(
-	source: HTMLImageElement,
+async function estimateDepthOnCurrentThread(
+	source: DepthSource,
 	options: EstimateDepthOptions = {},
 ): Promise<DepthMap> {
 	const modelIdx = options.modelIndex ?? 0;
@@ -144,7 +159,7 @@ export async function estimateDepth(
 
 	async function run(device: OnnxDevice) {
 		const estimator = await getDepthPipeline(model.id, model.dtype, device);
-		const dataUrl = imageToDataUrl(source);
+		const dataUrl = await sourceToDataUrl(source);
 		options.onProgress?.(`Running ${model.label} (${device})...`);
 		const timeoutMs = device === 'webgpu' ? 30_000 : 120_000;
 		return withTimeout(estimator(dataUrl), timeoutMs, `Depth estimation (${device})`);
@@ -191,6 +206,38 @@ export async function estimateDepth(
 	}
 
 	return { data: normalised, width, height, modelId: model.id };
+}
+
+export function canUseDepthEstimationWorker(): boolean {
+	return typeof Worker !== 'undefined'
+		&& typeof createImageBitmap === 'function'
+		&& typeof OffscreenCanvas !== 'undefined';
+}
+
+export async function estimateDepthFromBitmap(
+	source: ImageBitmap,
+	options: EstimateDepthOptions = {},
+): Promise<DepthMap> {
+	return estimateDepthOnCurrentThread(source, options);
+}
+
+/**
+ * Estimate a depth map from a source image.
+ * Returns normalised 0–1 depth values where 0 = farthest, 1 = closest.
+ */
+export async function estimateDepth(
+	source: HTMLImageElement,
+	options: EstimateDepthOptions = {},
+): Promise<DepthMap> {
+	if (canUseDepthEstimationWorker()) {
+		try {
+			return await estimateDepthInWorker(source, options);
+		} catch (error) {
+			console.warn('Depth-estimation worker failed; retrying on the main thread.', error);
+		}
+	}
+
+	return estimateDepthOnCurrentThread(source, options);
 }
 
 /**

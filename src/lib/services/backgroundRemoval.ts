@@ -10,6 +10,7 @@ import {
 	SERVER_BG_UPLOAD_MIME_TYPE,
 	SERVER_BG_UPLOAD_QUALITY,
 } from '$lib/services/backgroundRemoval.shared.js';
+import { encodeHtmlImageInWorker } from '$lib/browser/imageEncodingClient.js';
 
 export type BgRemovalProvider = 'browser' | 'server';
 
@@ -101,6 +102,20 @@ async function removeImageBackgroundViaServer(
 }
 
 async function serializeImageForServer(source: HTMLImageElement): Promise<Blob> {
+	try {
+		const encoded = await encodeHtmlImageInWorker(source, {
+			mimeType: SERVER_BG_UPLOAD_MIME_TYPE,
+			quality: SERVER_BG_UPLOAD_QUALITY,
+			maxEdge: MAX_SERVER_BG_UPLOAD_EDGE,
+		});
+		if (encoded.blob.size > MAX_SERVER_BG_UPLOAD_BYTES) {
+			throw new Error(`Image exceeds ${MAX_SERVER_BG_UPLOAD_BYTES / (1024 * 1024)}MB upload limit after compression`);
+		}
+		return encoded.blob;
+	} catch {
+		// Fall through to the existing main-thread canvas path.
+	}
+
 	const { width, height } = getServerUploadDimensions(source);
 	const canvas = document.createElement('canvas');
 	canvas.width = width;

@@ -75,11 +75,28 @@ Every captured or generated sequence should have a manifest carrying:
 ## Next Session Focus
 
 1. Keep the converted ITOP clips as the raw point-cloud benchmark path for playback truth and browser stress testing.
-2. Capture actual browser startup/memory numbers for `itop-side-test-short`, `itop-side-test-medium`, and `itop-side-test-long`, then record the ceiling for the eager full-sequence path.
+2. The bounded eager path is now measured through `itop-side-test-long` and is still acceptable at the current ceiling:
+   - `short` (24 frames): 503 ms startup, 4.34 MiB payload, 3.91 MiB prepared CPU, 24.04 MiB UA memory
+   - `medium` (48 frames): 870 ms startup, 8.72 MiB payload, 7.86 MiB prepared CPU, 28.00 MiB UA memory
+   - `long` (96 frames): 1.38 s startup, 17.42 MiB payload, 15.71 MiB prepared CPU, 35.74 MiB UA memory
+   - playback buffer stays ~0.17 MiB because the runtime reuses one shared active-range buffer
 3. Use the new RGBD sequence path as the stylized playback architecture for future Kinect RGBD frames, not as a replacement for the raw point benchmark path.
 4. Add the first real registered Kinect RGBD export format once hardware arrives and feed it through the new app-layer RGBD manifest/source path.
-5. Extend the worker-first preprocessing model to other medium/heavy app-layer transforms where the browser stack allows it, keeping the main thread focused on UI and rendering.
+5. The pre-hardware browser-side heavy transforms are now workerized through BG removal and depth-estimation inference where the browser supports it, keeping the main thread focused on UI and rendering.
 6. If the long raw clip or future RGBD clips start to look marginal, make chunked/streaming playback the next architecture step instead of extending the eager preload path.
+
+## Measured Browser Baseline
+
+Measured on 2026-04-04 with `pnpm run preview` plus `pnpm run measure:itop-browser`, using Headless Chromium 146.0.7680.164 against the production preview build.
+
+- The raw ITOP benchmark path remains viable through the current 96-frame clip ceiling.
+- The expensive part is eager fetch + parse + prepared-frame storage, not playback-buffer residency.
+- Chunked/streaming playback is not required yet for the current bounded ITOP rehearsal clips.
+- Image-mode sample preparation, derived-image clip baking, browser image serialization, browser BG inference, and browser depth inference are now workerized where supported.
+- The pre-hardware browser-side Phase 2 work is effectively complete; the next major step is the real registered Kinect RGBD export path once hardware or export data is available.
+- Revisit chunking when either:
+  - clips exceed the current 96-frame / ~17.4 MiB payload / ~15.7 MiB prepared CPU envelope
+  - future RGBD/Kinect rehearsal clips materially exceed the current long-clip memory profile
 
 ## Guardrails
 

@@ -9,6 +9,21 @@ import type { DepthMap } from '$lib/engine/preprocessing/DepthEstimation.js';
 
 const TAU = Math.PI * 2;
 
+export interface DerivedRgbdSequenceBuildProgress {
+	frameIndex: number;
+	frameCount: number;
+	overallProgress: number;
+	message: string;
+	elapsedMs: number;
+	estimatedTotalMs: number;
+	estimatedRemainingMs: number;
+}
+
+export interface DerivedRgbdSequenceBuildData {
+	manifest: RgbdSequenceManifest;
+	rawFrames: readonly RgbdSequenceFrameData[];
+}
+
 export interface DerivedRgbdSequenceResult {
 	source: DemoRgbdSequencePlaybackSource;
 	rawFrames: readonly RgbdSequenceFrameData[];
@@ -18,26 +33,100 @@ export function buildDerivedRgbdSequence(options: {
 	asset: DemoDerivedRgbdSequenceAsset;
 	raster: RasterSampleSource;
 	depthMap?: DepthMap;
+	onProgress?: (progress: DerivedRgbdSequenceBuildProgress) => void;
 }): DerivedRgbdSequenceResult {
+	const buildData = buildDerivedRgbdSequenceData(options);
+	return buildDerivedRgbdSequenceResult({
+		asset: options.asset,
+		buildData,
+	});
+}
+
+export function buildDerivedRgbdSequenceData(options: {
+	asset: DemoDerivedRgbdSequenceAsset;
+	raster: RasterSampleSource;
+	depthMap?: DepthMap;
+	onProgress?: (progress: DerivedRgbdSequenceBuildProgress) => void;
+}): DerivedRgbdSequenceBuildData {
 	const { asset, raster } = options;
 	const effectiveDepthMap = options.depthMap ?? deriveDepthMapFromRaster(raster);
 	validateDepthMapDimensions(raster, effectiveDepthMap);
-
-	const rawFrames = Array.from({ length: asset.frameCount }, (_, frameIndex) =>
-		buildDerivedFrame({
+	const buildStart = nowMs();
+	const estimatedInitialMs = estimateDerivedRgbdBuildMs({
+		raster,
+		frameCount: asset.frameCount,
+	});
+	const rawFrames = Array.from({ length: asset.frameCount }, (_, frameIndex) => {
+		const frame = buildDerivedFrame({
 			raster,
 			depthMap: effectiveDepthMap,
 			frameIndex,
 			frameCount: asset.frameCount,
 			motion: asset.motion,
-		}),
-	);
+		});
+		reportBuildProgress({
+			onProgress: options.onProgress,
+			frameIndex,
+			frameCount: asset.frameCount,
+			message: `Baking derived RGBD frame ${frameIndex + 1}/${asset.frameCount}...`,
+			buildStart,
+			estimatedInitialMs,
+		});
+		return frame;
+	});
 	const manifest = buildDerivedManifest(asset, raster);
 
 	return {
-		source: buildPlaybackSource(asset, manifest, rawFrames),
 		rawFrames,
+		manifest,
 	};
+}
+
+export function buildDerivedRgbdSequenceResult(options: {
+	asset: DemoDerivedRgbdSequenceAsset;
+	buildData: DerivedRgbdSequenceBuildData;
+}): DerivedRgbdSequenceResult {
+	return {
+		source: buildPlaybackSource(options.asset, options.buildData.manifest, options.buildData.rawFrames),
+		rawFrames: options.buildData.rawFrames,
+	};
+}
+
+export function estimateDerivedRgbdBuildMs(options: {
+	raster: RasterSampleSource;
+	frameCount: number;
+}): number {
+	const pixelsPerFrame = options.raster.width * options.raster.height;
+	return Math.max(40, (pixelsPerFrame * options.frameCount * 0.0009) + (options.frameCount * 2));
+}
+
+function reportBuildProgress(options: {
+	onProgress?: (progress: DerivedRgbdSequenceBuildProgress) => void;
+	frameIndex: number;
+	frameCount: number;
+	message: string;
+	buildStart: number;
+	estimatedInitialMs: number;
+}) {
+	if (!options.onProgress) {
+		return;
+	}
+
+	const elapsedMs = nowMs() - options.buildStart;
+	const overallProgress = clamp01((options.frameIndex + 1) / Math.max(options.frameCount, 1));
+	const estimatedTotalMs = overallProgress >= 0.05
+		? Math.max(options.estimatedInitialMs, elapsedMs / overallProgress)
+		: options.estimatedInitialMs;
+
+	options.onProgress({
+		frameIndex: options.frameIndex,
+		frameCount: options.frameCount,
+		overallProgress,
+		message: options.message,
+		elapsedMs,
+		estimatedTotalMs,
+		estimatedRemainingMs: Math.max(0, estimatedTotalMs - elapsedMs),
+	});
 }
 
 export function extractRasterFromImage(source: HTMLImageElement): RasterSampleSource {
@@ -227,4 +316,10 @@ function clampInt(value: number, min: number, max: number): number {
 
 function clamp01(value: number): number {
 	return Math.min(1, Math.max(0, value));
+}
+
+function nowMs(): number {
+	return typeof performance !== 'undefined' && typeof performance.now === 'function'
+		? performance.now()
+		: Date.now();
 }

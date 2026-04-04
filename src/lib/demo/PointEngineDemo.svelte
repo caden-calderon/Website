@@ -28,7 +28,14 @@
 		type PreparedRgbdSequenceReport,
 	} from '$lib/demo/rgbdSequencePlayback.js';
 	import { prepareRgbdSequenceDataInWorker } from '$lib/demo/rgbdSequencePrepClient.js';
-	import { buildDerivedRgbdSequence, extractRasterFromImage } from '$lib/demo/rgbdDerivedSequence.js';
+	import {
+		buildDerivedRgbdSequenceData,
+		buildDerivedRgbdSequenceResult,
+		type DerivedRgbdSequenceResult,
+		estimateDerivedRgbdBuildMs,
+		extractRasterFromImage,
+	} from '$lib/demo/rgbdDerivedSequence.js';
+	import { buildDerivedRgbdSequenceDataInWorker } from '$lib/demo/rgbdDerivedSequenceClient.js';
 	import {
 		SEQUENCE_LOOK_PRESETS,
 		getSequenceLookPreset,
@@ -40,16 +47,18 @@
 	import type { AnimationClip } from '$lib/engine/animation/types.js';
 	import { GLPointRenderer } from '$lib/engine/render/adapters/GLPointRenderer.js';
 	import { MeshAdapter } from '$lib/engine/ingest/MeshAdapter.js';
-	import { ImageAdapter } from '$lib/engine/ingest/ImageAdapter.js';
 	import { DEFAULT_RENDER_PARAMS, DEFAULT_BLOOM_PARAMS } from '$lib/engine/render/types.js';
 	import type { RenderParams, BloomParams } from '$lib/engine/render/types.js';
-	import type { ImageAdapterOptions } from '$lib/engine/ingest/types.js';
 	import type { DepthMap } from '$lib/engine/preprocessing/DepthEstimation.js';
 	import { DEPTH_MODELS } from '$lib/engine/preprocessing/DepthEstimation.js';
 	import { BG_REMOVAL_MODELS } from '$lib/engine/preprocessing/BackgroundRemoval.js';
 	import { FrameGenerator, DEFAULT_FRAME_PARAMS } from '$lib/engine/processing/FrameGenerator.js';
 	import type { FrameParams } from '$lib/engine/processing/FrameGenerator.js';
-	import { mergeSampleSets } from '$lib/engine/core/SampleSet.js';
+	import {
+		estimateImagePreparationMs,
+		prepareImageSamples as prepareImageSamplesData,
+	} from '$lib/demo/imageSampling.js';
+	import { prepareImageSamplesInWorker } from '$lib/demo/imageSamplingClient.js';
 	import {
 		SERVER_BG_REMOVAL_MODELS,
 		getBackgroundRemovalCacheKey,
@@ -59,6 +68,23 @@
 		type BgRemovalProvider,
 	} from '$lib/services/backgroundRemoval.js';
 	import { MAX_WEIGHTED_VORONOI_SAMPLES } from '$lib/engine/algorithms/weighted-voronoi.js';
+
+	type DebugSequenceReport = PreparedPointSequenceReport | PreparedRgbdSequenceReport | null;
+
+	interface ChromaticDemoDebugState {
+		mode: 'mesh' | 'image' | 'sequence';
+		selectedSequenceAssetId: string;
+		selectedSequenceClipId: string;
+		sequenceStatus: string;
+		processingStatus: string;
+		sequenceReport: DebugSequenceReport;
+	}
+
+	interface ChromaticDemoDebugApi {
+		getState: () => ChromaticDemoDebugState;
+		setMode: (nextMode: 'mesh' | 'image' | 'sequence') => void;
+		selectSequenceAsset: (assetId: string) => void;
+	}
 
 	// ── Tunable state ────────────────────────────────────────────────────
 	let renderParams = $state<RenderParams>({ ...DEFAULT_RENDER_PARAMS });
@@ -100,7 +126,6 @@
 	let ready = $state(false);
 	let glRenderer = $state<GLPointRenderer>(undefined!);
 	let meshAdapter = $state<MeshAdapter>(undefined!);
-	let imageAdapter = $state<ImageAdapter>(undefined!);
 	let frameGenerator = $state<FrameGenerator>(undefined!);
 	let frameSequenceLoader = $state<FrameSequenceLoader>(undefined!);
 	let originalImage = $state<HTMLImageElement | null>(null);
@@ -114,6 +139,8 @@
 	let imageLoadVersion = 0;
 	let meshLoadVersion = 0;
 	let sequenceLoadVersion = 0;
+	let activeImagePreparationCancel: (() => void) | null = null;
+	let activeDerivedRgbdBuildCancel: (() => void) | null = null;
 	let activeRgbdPreparationCancel: (() => void) | null = null;
 
 	const bgRemovalCache = new WeakMap<HTMLImageElement, Map<string, HTMLImageElement>>();
@@ -121,7 +148,7 @@
 	const meshAssetCache = new Map<string, THREE.Mesh>();
 	const imageAssetCache = new Map<string, HTMLImageElement>();
 	const rgbdSequenceFrameCache = new Map<string, readonly RgbdSequenceFrameData[]>();
-	const derivedRgbdSequenceCache = new Map<string, ReturnType<typeof buildDerivedRgbdSequence>>();
+	const derivedRgbdSequenceCache = new Map<string, DerivedRgbdSequenceResult>();
 	const selectedSequenceAsset = $derived(DEMO_SEQUENCE_ASSETS.find((asset) => asset.id === selectedSequenceAssetId) ?? null);
 	const selectedSequenceAssetKind = $derived(selectedSequenceAsset?.kind ?? 'point-sequence');
 	const selectedSequenceAssetSource = $derived(
@@ -285,6 +312,28 @@
 		handleResample();
 	}
 
+	function installBrowserDebugApi() {
+		if (typeof window === 'undefined') return;
+		const debugWindow = window as Window & { __chromaticDemo?: ChromaticDemoDebugApi };
+
+		debugWindow.__chromaticDemo = {
+			getState: () => ({
+				mode,
+				selectedSequenceAssetId,
+				selectedSequenceClipId,
+				sequenceStatus,
+				processingStatus,
+				sequenceReport: sequenceReport ? { ...sequenceReport } : null,
+			}),
+			setMode: (nextMode: 'mesh' | 'image' | 'sequence') => {
+				handleModeChange(nextMode);
+			},
+			selectSequenceAsset: (assetId: string) => {
+				handleSequenceAssetChange(assetId);
+			},
+		};
+	}
+
 	function clearProcessingIndicators() {
 		processingStatus = '';
 		processingProgress = null;
@@ -293,6 +342,8 @@
 
 	// ── Lifecycle ────────────────────────────────────────────────────────
 	onMount(() => {
+		installBrowserDebugApi();
+
 		if (navigator.storage?.persist) {
 			navigator.storage.persist().then((granted) => {
 				if (!granted) console.warn('Persistent storage not granted — models may be evicted');
@@ -303,7 +354,6 @@
 
 		glRenderer = new GLPointRenderer({ params: renderParams });
 		meshAdapter = new MeshAdapter();
-		imageAdapter = new ImageAdapter();
 		frameGenerator = new FrameGenerator();
 		frameSequenceLoader = new FrameSequenceLoader();
 
@@ -318,8 +368,15 @@
 
 		return () => {
 			cancelImagePipeline();
+			activeImagePreparationCancel?.();
+			activeImagePreparationCancel = null;
+			activeDerivedRgbdBuildCancel?.();
+			activeDerivedRgbdBuildCancel = null;
 			activeRgbdPreparationCancel?.();
 			activeRgbdPreparationCancel = null;
+			if (typeof window !== 'undefined') {
+				delete (window as Window & { __chromaticDemo?: ChromaticDemoDebugApi }).__chromaticDemo;
+			}
 			if (pendingObjectUrl) {
 				URL.revokeObjectURL(pendingObjectUrl);
 				pendingObjectUrl = null;
@@ -355,40 +412,78 @@
 		}
 	}
 
-	function generateImageSamples(img: HTMLImageElement, depthMap: DepthMap | null = null) {
+	async function prepareImageSamplesForDisplay(options: {
+		raster: ReturnType<typeof extractRasterFromImage>;
+		depthMap: DepthMap | null;
+		version: number;
+	}) {
 		if (algorithm === 'weighted-voronoi' && sampleCount > MAX_WEIGHTED_VORONOI_SAMPLES) {
 			console.warn(
 				`Weighted Voronoi is capped at ${MAX_WEIGHTED_VORONOI_SAMPLES} samples; requested ${sampleCount}.`,
 			);
 		}
 
-		const opts: ImageAdapterOptions = {
-			count: sampleCount,
+		const sampling = {
+			sampleCount,
 			algorithm,
-			baseRadius: 1.0,
-			seed: 42,
 			depthScale,
 			densityGamma,
 			radiusFromLuminance,
 			sizeVariation,
 			outlierRadius,
-			depthMap: useDepthMap && depthMap ? depthMap : undefined,
 			normalDisplacement,
-		};
-		const imageSamples = imageAdapter.sample(img, opts);
+			frameParams,
+		} satisfies Parameters<typeof prepareImageSamplesData>[0]['sampling'];
+		const estimateMs = estimateImagePreparationMs({
+			raster: options.raster,
+			sampling,
+		});
+		processingProgress = 0;
+		processingEstimatedRemainingMs = estimateMs;
+		processingStatus = buildImagePreparationStartStatus(sampling.algorithm, estimateMs);
 
-		if (frameParams.enabled) {
-			const aspect = img.naturalWidth / img.naturalHeight;
-			const frameSamples = frameGenerator.generate(aspect, imageSamples.count, frameParams, 42);
-			glRenderer.setSamples(mergeSampleSets(imageSamples, frameSamples));
-		} else {
-			glRenderer.setSamples(imageSamples);
+		if (typeof Worker === 'undefined') {
+			return prepareImageSamplesData({
+				raster: options.raster,
+				depthMap: useDepthMap ? options.depthMap : null,
+				sampling,
+				frameGenerator,
+				onProgress: (progress) => {
+					if (!isLatestImagePipeline(options.version)) return;
+					processingProgress = progress.progress;
+					processingEstimatedRemainingMs = progress.estimatedRemainingMs;
+					processingStatus = buildPreparationProgressStatus(progress);
+				},
+			});
+		}
+
+		const task = prepareImageSamplesInWorker({
+			raster: options.raster,
+			depthMap: useDepthMap ? options.depthMap : null,
+			sampling,
+			onProgress: (progress) => {
+				if (!isLatestImagePipeline(options.version)) return;
+				processingProgress = progress.progress;
+				processingEstimatedRemainingMs = progress.estimatedRemainingMs;
+				processingStatus = buildPreparationProgressStatus(progress);
+			},
+		});
+		activeImagePreparationCancel = task.cancel;
+
+		try {
+			return await task.promise;
+		} finally {
+			if (activeImagePreparationCancel === task.cancel) {
+				activeImagePreparationCancel = null;
+			}
 		}
 	}
 
 	async function loadSequenceAsset(assetId: string) {
 		const version = ++sequenceLoadVersion;
 		const requestedClipId = selectedSequenceClipId;
+		activeDerivedRgbdBuildCancel?.();
+		activeDerivedRgbdBuildCancel = null;
 		activeRgbdPreparationCancel?.();
 		activeRgbdPreparationCancel = null;
 		clearProcessingIndicators();
@@ -527,7 +622,7 @@
 		asset: DemoDerivedRgbdSequenceAsset,
 		version: number,
 	): Promise<{
-		playbackSource: ReturnType<typeof buildDerivedRgbdSequence>['source'];
+		playbackSource: DerivedRgbdSequenceResult['source'];
 		rawFrames: readonly RgbdSequenceFrameData[];
 		fetchMs: number;
 	}> {
@@ -556,10 +651,12 @@
 			return Promise.reject(new Error('Sequence load superseded.'));
 		}
 
-		const derived = buildDerivedRgbdSequence({
+		const raster = extractRasterFromImage(sourceImage);
+		const derived = await prepareDerivedRgbdSequence({
 			asset,
-			raster: extractRasterFromImage(sourceImage),
-			depthMap: depthMap ?? undefined,
+			raster,
+			depthMap,
+			version,
 		});
 		derivedRgbdSequenceCache.set(cacheKey, derived);
 		return {
@@ -591,7 +688,7 @@
 		});
 		processingProgress = 0;
 		processingEstimatedRemainingMs = estimateMs;
-		processingStatus = buildPreparationStartStatus(options.sampling.algorithm, estimateMs);
+		processingStatus = buildRgbdPreparationStartStatus(options.sampling.algorithm, estimateMs);
 
 		if (typeof Worker === 'undefined') {
 			return prepareRgbdSequenceData({
@@ -630,6 +727,64 @@
 		}
 	}
 
+	async function prepareDerivedRgbdSequence(options: {
+		asset: DemoDerivedRgbdSequenceAsset;
+		raster: ReturnType<typeof extractRasterFromImage>;
+		depthMap: DepthMap | null;
+		version: number;
+	}) {
+		const estimateMs = estimateDerivedRgbdBuildMs({
+			raster: options.raster,
+			frameCount: options.asset.frameCount,
+		});
+		processingProgress = 0;
+		processingEstimatedRemainingMs = estimateMs;
+		processingStatus = buildDerivedRgbdPreparationStartStatus(options.asset.frameCount, estimateMs);
+
+		if (typeof Worker === 'undefined') {
+			const buildData = buildDerivedRgbdSequenceData({
+				asset: options.asset,
+				raster: options.raster,
+				depthMap: options.depthMap ?? undefined,
+				onProgress: (progress) => {
+					if (options.version !== sequenceLoadVersion) return;
+					processingProgress = progress.overallProgress;
+					processingEstimatedRemainingMs = progress.estimatedRemainingMs;
+					processingStatus = buildPreparationProgressStatus(progress);
+				},
+			});
+			return buildDerivedRgbdSequenceResult({
+				asset: options.asset,
+				buildData,
+			});
+		}
+
+		const task = buildDerivedRgbdSequenceDataInWorker({
+			asset: options.asset,
+			raster: options.raster,
+			depthMap: options.depthMap,
+			onProgress: (progress) => {
+				if (options.version !== sequenceLoadVersion) return;
+				processingProgress = progress.overallProgress;
+				processingEstimatedRemainingMs = progress.estimatedRemainingMs;
+				processingStatus = buildPreparationProgressStatus(progress);
+			},
+		});
+		activeDerivedRgbdBuildCancel = task.cancel;
+
+		try {
+			const buildData = await task.promise;
+			return buildDerivedRgbdSequenceResult({
+				asset: options.asset,
+				buildData,
+			});
+		} finally {
+			if (activeDerivedRgbdBuildCancel === task.cancel) {
+				activeDerivedRgbdBuildCancel = null;
+			}
+		}
+	}
+
 	function buildPointSequenceStatus(
 		manifest: { frameCount: number; fps: number },
 		report: PreparedPointSequenceReport,
@@ -648,7 +803,7 @@
 		return `Loaded ${manifest.frameCount} RGBD frames at ${manifest.fps} fps in ${report.totalLoadMs.toFixed(0)} ms. ${buildRgbdSequenceLookStatus(report, renderParams)}`;
 	}
 
-	function buildPreparationStartStatus(
+	function buildRgbdPreparationStartStatus(
 		sequenceAlgorithm: 'rejection' | 'importance' | 'weighted-voronoi',
 		estimateMs: number,
 	): string {
@@ -658,12 +813,31 @@
 		return `Preparing RGBD sequence with ${sequenceAlgorithm}... rough estimate ${formatDuration(estimateMs)}.`;
 	}
 
+	function buildImagePreparationStartStatus(
+		imageAlgorithm: 'rejection' | 'importance' | 'weighted-voronoi',
+		estimateMs: number,
+	): string {
+		if (estimateMs < 5_000) {
+			return 'Preparing image samples...';
+		}
+		return `Preparing image samples with ${imageAlgorithm}... rough estimate ${formatDuration(estimateMs)}.`;
+	}
+
+	function buildDerivedRgbdPreparationStartStatus(frameCount: number, estimateMs: number): string {
+		if (estimateMs < 5_000) {
+			return `Baking derived RGBD clip (${frameCount} frames)...`;
+		}
+		return `Baking derived RGBD clip (${frameCount} frames)... rough estimate ${formatDuration(estimateMs)}.`;
+	}
+
 	function buildPreparationProgressStatus(progress: {
 		message: string;
-		overallProgress: number;
+		overallProgress?: number;
+		progress?: number;
 		estimatedRemainingMs: number;
 	}): string {
-		const percent = Math.round(progress.overallProgress * 100);
+		const overallProgress = progress.overallProgress ?? progress.progress ?? 0;
+		const percent = Math.round(overallProgress * 100);
 		const remaining = progress.estimatedRemainingMs >= 5_000
 			? ` ${formatDuration(progress.estimatedRemainingMs)} remaining.`
 			: '';
@@ -683,6 +857,8 @@
 	// ── Pipeline ─────────────────────────────────────────────────────────
 	function cancelImagePipeline() {
 		imagePipelineVersion += 1;
+		activeImagePreparationCancel?.();
+		activeImagePreparationCancel = null;
 		clearProcessingIndicators();
 	}
 
@@ -869,9 +1045,22 @@
 
 		if (!isLatestImagePipeline(version)) return;
 
-		processingStatus = '';
 		if (mode === 'image') {
-			generateImageSamples(activeImage, depthMap);
+			try {
+				const preparedSamples = await prepareImageSamplesForDisplay({
+					raster: extractRasterFromImage(activeImage),
+					depthMap,
+					version,
+				});
+				if (!isLatestImagePipeline(version) || mode !== 'image') return;
+				clearProcessingIndicators();
+				glRenderer.setSamples(preparedSamples);
+			} catch (error) {
+				if (!isLatestImagePipeline(version)) return;
+				clearProcessingIndicators();
+				console.error('Image sample preparation failed:', error);
+				processingStatus = error instanceof Error ? error.message : 'Image sample preparation failed.';
+			}
 		}
 	}
 

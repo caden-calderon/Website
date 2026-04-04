@@ -6,6 +6,16 @@
  * Models are downloaded on first use, cached in browser.
  */
 
+import {
+	blobToDataUrl,
+	blobToHtmlImage,
+	canvasToBlob,
+	createCanvas2d,
+	encodeCanvasImageToBlob,
+} from '$lib/browser/imageEncoding.js';
+import { encodeHtmlImageInWorker } from '$lib/browser/imageEncodingClient.js';
+import { removeImageBackgroundInWorker } from './backgroundRemovalClient.js';
+
 export interface BgRemovalModelInfo {
 	id: string;
 	label: string;
@@ -64,53 +74,32 @@ export const BG_REMOVAL_MODELS: BgRemovalModelInfo[] = [
 	},
 ];
 
-/** Convert an image element to a Blob (survives revoked blob URLs). */
-function imageToBlob(img: HTMLImageElement): Promise<Blob> {
-	const canvas = document.createElement('canvas');
-	canvas.width = img.naturalWidth || img.width;
-	canvas.height = img.naturalHeight || img.height;
-	const ctx = canvas.getContext('2d');
-	if (!ctx) throw new Error('Failed to get canvas context');
-	ctx.drawImage(img, 0, 0);
-	return new Promise<Blob>((resolve, reject) => {
-		canvas.toBlob(
-			(blob) => (blob ? resolve(blob) : reject(new Error('Canvas toBlob failed'))),
-			'image/png',
-		);
-	});
+type BackgroundRemovalSource = HTMLImageElement | ImageBitmap;
+
+function isHtmlImageElement(source: BackgroundRemovalSource): source is HTMLImageElement {
+	return typeof HTMLImageElement !== 'undefined' && source instanceof HTMLImageElement;
 }
 
-function imageToDataUrl(img: HTMLImageElement): string {
-	const canvas = document.createElement('canvas');
-	canvas.width = img.naturalWidth || img.width;
-	canvas.height = img.naturalHeight || img.height;
-	const ctx = canvas.getContext('2d');
-	if (!ctx) throw new Error('Failed to get canvas context');
-	ctx.drawImage(img, 0, 0);
-	return canvas.toDataURL('image/png');
+/** Convert the input source to a PNG blob. */
+async function sourceToBlob(source: BackgroundRemovalSource): Promise<Blob> {
+	if (isHtmlImageElement(source)) {
+		try {
+			const encoded = await encodeHtmlImageInWorker(source, {
+				mimeType: 'image/png',
+			});
+			return encoded.blob;
+		} catch {
+			// Fall through to local canvas encoding.
+		}
+	}
+
+	return (await encodeCanvasImageToBlob(source, {
+		mimeType: 'image/png',
+	})).blob;
 }
 
-function blobToImage(blob: Blob): Promise<HTMLImageElement> {
-	const reader = new FileReader();
-	const img = new Image();
-	return new Promise<HTMLImageElement>((resolve, reject) => {
-		reader.onload = () => {
-			const result = reader.result;
-			if (typeof result !== 'string') {
-				reject(new Error('Failed to convert blob to data URL'));
-				return;
-			}
-			img.src = result;
-		};
-		reader.onerror = () => reject(new Error('Failed to read image blob'));
-		img.onload = () => {
-			resolve(img);
-		};
-		img.onerror = () => {
-			reject(new Error('Failed to load image from blob'));
-		};
-		reader.readAsDataURL(blob);
-	});
+async function sourceToDataUrl(source: BackgroundRemovalSource): Promise<string> {
+	return blobToDataUrl(await sourceToBlob(source));
 }
 
 export interface BackgroundRemovalResult {
@@ -148,28 +137,19 @@ export function applyAlphaMaskToImageData(
 }
 
 async function createTransparentForegroundBlob(
-	source: HTMLImageElement,
+	source: BackgroundRemovalSource,
 	mask: RawImageLike,
 ): Promise<Blob> {
 	const width = mask.width;
 	const height = mask.height;
-	const canvas = document.createElement('canvas');
-	canvas.width = width;
-	canvas.height = height;
-	const ctx = canvas.getContext('2d');
-	if (!ctx) throw new Error('Failed to get canvas context');
+	const { canvas, context } = createCanvas2d(width, height);
 
-	ctx.drawImage(source, 0, 0, width, height);
-	const sourceImageData = ctx.getImageData(0, 0, width, height);
+	context.drawImage(source, 0, 0, width, height);
+	const sourceImageData = context.getImageData(0, 0, width, height);
 	sourceImageData.data.set(applyAlphaMaskToImageData(sourceImageData.data, mask.data));
-	ctx.putImageData(sourceImageData, 0, 0);
+	context.putImageData(sourceImageData, 0, 0);
 
-	return new Promise<Blob>((resolve, reject) => {
-		canvas.toBlob(
-			(blob) => (blob ? resolve(blob) : reject(new Error('Canvas toBlob failed'))),
-			'image/png',
-		);
-	});
+	return canvasToBlob(canvas, 'image/png');
 }
 
 import { getPreferredDevice, withTimeout, type OnnxDevice } from './webgpu-probe.js';
@@ -198,7 +178,7 @@ async function getBackgroundRemovalPipeline(
 	// Route gated models through our server-side auth proxy
 	const savedRemoteHost = env.remoteHost;
 	if (gated) {
-		env.remoteHost = `${window.location.origin}/api/hf-proxy/`;
+		env.remoteHost = `${getRuntimeOrigin()}/api/hf-proxy/`;
 	}
 
 	let instance;
@@ -221,12 +201,12 @@ async function getBackgroundRemovalPipeline(
  * Remove background using the @imgly/background-removal library (ISNet variants).
  */
 async function removeWithImgly(
-	source: HTMLImageElement,
+	source: BackgroundRemovalSource,
 	modelId: string = 'isnet',
 	onProgress?: (progress: number) => void,
-): Promise<BackgroundRemovalResult> {
+): Promise<BackgroundRemovalBlobResult> {
 	const { removeBackground } = await import('@imgly/background-removal');
-	const inputBlob = await imageToBlob(source);
+	const inputBlob = await sourceToBlob(source);
 
 	const resultBlob = await removeBackground(inputBlob, {
 		model: modelId as 'isnet' | 'isnet_fp16' | 'isnet_quint8',
@@ -237,8 +217,7 @@ async function removeWithImgly(
 			: undefined,
 	});
 
-	const img = await blobToImage(resultBlob);
-	return { image: img, blob: resultBlob, modelId };
+	return { blob: resultBlob, modelId };
 }
 
 /**
@@ -258,24 +237,20 @@ async function rawImageToBlob(rawImage: any): Promise<Blob> {
 	}
 
 	// Fall back to canvas conversion
-	const canvas = document.createElement('canvas');
 	// RawImage has width, height, channels, data properties
 	const width = rawImage.width;
 	const height = rawImage.height;
-	canvas.width = width;
-	canvas.height = height;
-	const ctx = canvas.getContext('2d');
-	if (!ctx) throw new Error('Failed to get canvas context');
+	const { canvas, context } = createCanvas2d(width, height);
 
 	// If toCanvas exists, use it
 	if (typeof rawImage.toCanvas === 'function') {
 		const sourceCanvas = rawImage.toCanvas();
-		ctx.drawImage(sourceCanvas, 0, 0);
+		context.drawImage(sourceCanvas, 0, 0);
 	} else {
 		// Manual pixel copy from RawImage data
 		const channels = rawImage.channels ?? 4;
 		const data = rawImage.data;
-		const imageData = ctx.createImageData(width, height);
+		const imageData = context.createImageData(width, height);
 		for (let i = 0; i < width * height; i++) {
 			const srcIdx = i * channels;
 			const dstIdx = i * 4;
@@ -284,28 +259,23 @@ async function rawImageToBlob(rawImage: any): Promise<Blob> {
 			imageData.data[dstIdx + 2] = channels > 2 ? data[srcIdx + 2] : data[srcIdx]; // B
 			imageData.data[dstIdx + 3] = channels > 3 ? data[srcIdx + 3] : 255;          // A
 		}
-		ctx.putImageData(imageData, 0, 0);
+		context.putImageData(imageData, 0, 0);
 	}
 
-	return new Promise<Blob>((resolve, reject) => {
-		canvas.toBlob(
-			(blob) => (blob ? resolve(blob) : reject(new Error('Canvas toBlob failed'))),
-			'image/png',
-		);
-	});
+	return canvasToBlob(canvas, 'image/png');
 }
 
 /**
  * Remove background using Transformers.js background-removal pipeline.
  */
 async function removeWithTransformers(
-	source: HTMLImageElement,
+	source: BackgroundRemovalSource,
 	modelId: string,
 	dtype: string = 'auto',
 	gated: boolean = false,
-): Promise<BackgroundRemovalResult> {
-	const dataUrl = imageToDataUrl(source);
-	const run = async (device: OnnxDevice): Promise<BackgroundRemovalResult> => {
+): Promise<BackgroundRemovalBlobResult> {
+	const dataUrl = await sourceToDataUrl(source);
+	const run = async (device: OnnxDevice): Promise<BackgroundRemovalBlobResult> => {
 		const segmenter = await getBackgroundRemovalPipeline(modelId, device, dtype, gated);
 		const timeoutMs = device === 'webgpu' ? 30_000 : 120_000;
 		const output = await withTimeout(segmenter(dataUrl), timeoutMs, `BG removal (${device})`);
@@ -315,8 +285,7 @@ async function removeWithTransformers(
 				? await createTransparentForegroundBlob(source, rawImage)
 				: await rawImageToBlob(rawImage);
 
-		const img = await blobToImage(blob);
-		return { image: img, blob, modelId };
+		return { blob, modelId };
 	};
 
 	// Device fallback chain: preferred → wasm
@@ -346,6 +315,57 @@ export interface RemoveBackgroundOptions {
 	onProgress?: (progress: number) => void;
 }
 
+export interface BackgroundRemovalBlobResult {
+	blob: Blob;
+	modelId: string;
+	usedFallback?: boolean;
+}
+
+async function removeImageBackgroundOnCurrentThread(
+	source: BackgroundRemovalSource,
+	options: RemoveBackgroundOptions = {},
+): Promise<BackgroundRemovalBlobResult> {
+	const modelIdx = options.modelIndex ?? 0;
+	const model = BG_REMOVAL_MODELS[modelIdx];
+	if (!model) throw new Error(`Invalid BG removal model index: ${modelIdx}`);
+
+	if (model.backend === 'imgly') {
+		return removeWithImgly(source, model.id, options.onProgress);
+	}
+
+	if (isFirefox()) {
+		console.warn(
+			`Transformers background removal is unstable in Firefox for ${model.label}; falling back to ISNet.`,
+		);
+		const result = await removeWithImgly(source, 'isnet', options.onProgress);
+		return { ...result, usedFallback: true };
+	}
+
+	try {
+		return await removeWithTransformers(source, model.id, model.dtype, model.gated);
+	} catch (error) {
+		console.warn(
+			`Transformers background removal failed for ${model.label}; falling back to ISNet.`,
+			error,
+		);
+		const result = await removeWithImgly(source, 'isnet', options.onProgress);
+		return { ...result, usedFallback: true };
+	}
+}
+
+export function canUseBackgroundRemovalWorker(): boolean {
+	return typeof Worker !== 'undefined'
+		&& typeof createImageBitmap === 'function'
+		&& typeof OffscreenCanvas !== 'undefined';
+}
+
+export async function removeImageBackgroundFromBitmap(
+	source: ImageBitmap,
+	options: RemoveBackgroundOptions = {},
+): Promise<BackgroundRemovalBlobResult> {
+	return removeImageBackgroundOnCurrentThread(source, options);
+}
+
 /**
  * Remove the background from an image using the selected model.
  */
@@ -353,34 +373,29 @@ export async function removeImageBackground(
 	source: HTMLImageElement,
 	options: RemoveBackgroundOptions = {},
 ): Promise<BackgroundRemovalResult> {
-	const modelIdx = options.modelIndex ?? 0;
-	const model = BG_REMOVAL_MODELS[modelIdx];
-	if (!model) throw new Error(`Invalid BG removal model index: ${modelIdx}`);
-
-	if (model.backend === 'imgly') {
-		return removeWithImgly(source, model.id, options.onProgress);
-	} else {
-		if (isFirefox()) {
-			console.warn(
-				`Transformers background removal is unstable in Firefox for ${model.label}; falling back to ISNet.`,
-			);
-			const result = await removeWithImgly(source, 'isnet', options.onProgress);
-			return { ...result, usedFallback: true };
-		}
-
+	if (canUseBackgroundRemovalWorker()) {
 		try {
-			return await removeWithTransformers(source, model.id, model.dtype, model.gated);
+			return await removeImageBackgroundInWorker(source, options);
 		} catch (error) {
-			console.warn(
-				`Transformers background removal failed for ${model.label}; falling back to ISNet.`,
-				error,
-			);
-			const result = await removeWithImgly(source, 'isnet', options.onProgress);
-			return { ...result, usedFallback: true };
+			console.warn('Background removal worker failed; retrying on the main thread.', error);
 		}
 	}
+
+	const result = await removeImageBackgroundOnCurrentThread(source, options);
+	return {
+		...result,
+		image: await blobToHtmlImage(result.blob),
+	};
 }
 
 function isFirefox(): boolean {
 	return typeof navigator !== 'undefined' && /firefox/i.test(navigator.userAgent);
+}
+
+function getRuntimeOrigin(): string {
+	const origin = globalThis.location?.origin;
+	if (!origin) {
+		throw new Error('Runtime origin is unavailable for gated background-removal models.');
+	}
+	return origin;
 }

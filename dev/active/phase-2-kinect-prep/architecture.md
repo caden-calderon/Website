@@ -52,13 +52,30 @@ Do not collapse these into one abstraction. The raw path is the benchmark path. 
 - `src/lib/engine/ingest/RasterAdapter.ts`
 - `src/lib/engine/ingest/ImageAdapter.ts`
 
+### Browser ML preprocessing
+- `src/lib/engine/preprocessing/BackgroundRemoval.ts`
+- `src/lib/engine/preprocessing/backgroundRemovalClient.ts`
+- `src/lib/engine/preprocessing/backgroundRemoval.worker.ts`
+- `src/lib/engine/preprocessing/DepthEstimation.ts`
+- `src/lib/engine/preprocessing/depthEstimationClient.ts`
+- `src/lib/engine/preprocessing/depthEstimation.worker.ts`
+- `src/lib/engine/preprocessing/webgpu-probe.ts`
+
 ### App-layer sequence sources
+- `src/lib/browser/imageEncoding.ts`
+- `src/lib/browser/imageEncodingClient.ts`
+- `src/lib/browser/imageEncoding.worker.ts`
 - `src/lib/demo/pointSequenceSources.ts`
 - `src/lib/demo/pointSequencePlayback.ts`
+- `src/lib/demo/imageSampling.ts`
+- `src/lib/demo/imageSamplingClient.ts`
+- `src/lib/demo/imageSampling.worker.ts`
+- `src/lib/demo/rgbdDerivedSequence.ts`
+- `src/lib/demo/rgbdDerivedSequenceClient.ts`
+- `src/lib/demo/rgbdDerivedSequence.worker.ts`
 - `src/lib/demo/rgbdSequenceTypes.ts`
 - `src/lib/demo/rgbdSequenceSources.ts`
 - `src/lib/demo/rgbdSequencePlayback.ts`
-- `src/lib/demo/rgbdDerivedSequence.ts`
 - `src/lib/demo/rgbdSequencePrepClient.ts`
 - `src/lib/demo/rgbdSequencePrep.worker.ts`
 
@@ -153,7 +170,14 @@ Expensive RGBD prep now runs off the main thread.
 - `src/lib/demo/rgbdSequencePrep.worker.ts`
 
 ### Scope
-Only RGBD sequence preparation is workerized right now. Playback is still main-thread. Raw point-sequence loading is still main-thread.
+- RGBD sequence preparation is workerized.
+- Image-mode sample preparation is also workerized once raster/depth data is available.
+- Derived-image RGBD clip baking is also workerized once raster/depth inputs are ready.
+- Browser image serialization/encoding is also workerized where the browser supports `Worker` + `createImageBitmap` + `OffscreenCanvas`.
+- Browser BG model inference is also workerized where the browser supports `Worker` + `createImageBitmap` + `OffscreenCanvas`.
+- Browser depth-estimation model inference is also workerized where the browser supports `Worker` + `createImageBitmap` + `OffscreenCanvas`.
+- Playback is still main-thread.
+- Raw point-sequence loading is still main-thread.
 
 ## Sequence Controls
 
@@ -194,18 +218,40 @@ Manifest-backed RGBD clips do not expose live BG/depth preprocessing controls be
 - Do not let the engine grow URL-pattern or asset-routing policy
 - Do not let the “stylized RGBD” path erase the “raw truth/debug” path
 
+## Measured Raw ITOP Ceiling
+
+Measured on 2026-04-04 with Headless Chromium 146.0.7680.164 against the production preview build.
+
+- `itop-side-test-short`
+  - 24 frames
+  - 503 ms startup
+  - 4.34 MiB payload
+  - 3.91 MiB prepared CPU
+  - 0.17 MiB playback buffer
+  - 24.04 MiB browser UA memory after GC
+
+- `itop-side-test-medium`
+  - 48 frames
+  - 870 ms startup
+  - 8.72 MiB payload
+  - 7.86 MiB prepared CPU
+  - 0.17 MiB playback buffer
+  - 28.00 MiB browser UA memory after GC
+
+- `itop-side-test-long`
+  - 96 frames
+  - 1.38 s startup
+  - 17.42 MiB payload
+  - 15.71 MiB prepared CPU
+  - 0.17 MiB playback buffer
+  - 35.74 MiB browser UA memory after GC
+
+Interpretation:
+- the current eager raw-point path is still acceptable for these bounded rehearsal clips
+- the memory growth is dominated by fetched frame bytes plus prepared per-frame `SampleSet` storage, not playback-buffer residency
+- chunked/streaming playback should stay parked until a future clip materially exceeds this envelope
+
 ## Immediate Technical Debt / Open Edges
-
-### Still missing measurements
-- actual startup/memory numbers for `itop-side-test-short`
-- actual startup/memory numbers for `itop-side-test-medium`
-- actual startup/memory numbers for `itop-side-test-long`
-
-### Still not workerized
-- image-mode sampling prep
-- image-mode weighted Voronoi
-- browser BG preprocessing/image serialization path
-- browser depth-estimation path
 
 ### Still not built
 - real Kinect RGBD clip export path

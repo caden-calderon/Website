@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite dev",
     "dev:full": "node scripts/dev-full.mjs",
+    "measure:itop-browser": "node scripts/measure-itop-browser.mjs",
     "generate:test-ply": "node scripts/generate-test-ply.mjs",
     "generate:test-rgbd": "node scripts/generate-test-rgbd-sequence.mjs",
     "convert:itop": "python3 scripts/convert-itop-to-point-sequences.py",

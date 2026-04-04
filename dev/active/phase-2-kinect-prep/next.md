@@ -9,40 +9,17 @@ The repo is in a good rehearsal state:
 - stylized RGBD sequence playback works
 - derived-image RGBD rehearsal works
 - expensive RGBD sequence prep is workerized with progress/ETA
+- image-mode sample preparation is workerized with progress/ETA
+- derived-image RGBD clip baking is workerized with progress/ETA
+- browser image serialization/encoding is workerized where the browser supports it
+- browser BG model inference is workerized where the browser supports it
+- browser depth-estimation model inference is workerized where the browser supports it
 
 The next session should not spend time rediscovering architecture. Read `architecture.md` first and continue with the items below.
 
 ## Highest-Priority Next Steps
 
-### 1. Record real browser numbers for ITOP clips
-
-Use the existing sequence report panel and capture:
-
-- `itop-side-test-short`
-- `itop-side-test-medium`
-- `itop-side-test-long`
-
-For each, record at least:
-- startup total
-- fetch / parse / prep / build times
-- payload bytes
-- prepared CPU bytes
-- estimated playback bytes
-- points/frame range
-
-Goal:
-- determine whether the eager full-sequence path is still acceptable for bounded real body clips
-
-### 2. Extend workerization to other heavy browser paths
-
-Best next candidates:
-- image-mode weighted Voronoi
-- image-mode sample preparation generally
-- derived-image clip baking if it still causes visible main-thread stalls
-
-Do this without moving fetch/routing policy into workers. Keep workers focused on pure data transforms.
-
-### 3. Prepare the real Kinect RGBD path
+### 1. Prepare the real Kinect RGBD path
 
 This is the next major architecture step once hardware/export data is available:
 
@@ -51,7 +28,26 @@ This is the next major architecture step once hardware/export data is available:
 - feed those frames through the existing RGBD prep/playback path
 - keep raw point-cloud playback as the calibration/benchmark path
 
+Goal:
+- the pre-hardware browser-side work is already complete; the next meaningful phase work starts with a real registered Kinect RGBD clip routed through the existing manifest/source path
+
 ## Medium-Priority Next Steps
+
+### ITOP measurement result
+
+The raw point benchmark path is now measured:
+
+- `short`: 503 ms startup, 4.34 MiB payload, 3.91 MiB prepared CPU, 24.04 MiB UA memory
+- `medium`: 870 ms startup, 8.72 MiB payload, 7.86 MiB prepared CPU, 28.00 MiB UA memory
+- `long`: 1.38 s startup, 17.42 MiB payload, 15.71 MiB prepared CPU, 35.74 MiB UA memory
+
+Conclusion:
+- the eager full-sequence path is still acceptable for the current bounded ITOP clips
+- do not spend time on chunking yet unless a future clip materially exceeds the current long-clip envelope
+- image-mode sample preparation is no longer the blocker; that workerization is already done
+- derived-image clip baking is no longer the blocker; that workerization is already done
+- browser image serialization/encoding is no longer the blocker; that workerization is already done
+- browser BG/depth inference is no longer the blocker; that workerization is also done
 
 ### Offline baking
 
@@ -65,7 +61,7 @@ Desired future workflow:
 
 ### Chunked playback decision
 
-Only do this after measuring ITOP and/or real RGBD bounded clips.
+Only do this after a future clip looks materially worse than the current measured ITOP long clip and/or real RGBD bounded clips.
 
 If eager preload looks marginal, next architecture step is:
 - chunked or streaming playback
@@ -76,7 +72,7 @@ If eager preload looks marginal, next architecture step is:
 - do not invent hand-overlay architecture yet
 - do not shove dataset-specific conversion into the engine
 - do not replace raw point playback with stylized RGBD playback
-- do not spend time on visual polish without collecting ITOP performance numbers
+- do not spend time on visual polish before landing the real Kinect RGBD export path
 
 ## If Kinect Hardware Or Exports Are Suddenly Available
 
@@ -96,4 +92,4 @@ Do this first:
 - inspect `rgbdSequencePlayback.ts`
 - inspect `rgbdSequencePrep.worker.ts`
 - inspect `assets.ts`
-- capture ITOP measurements before making major new architecture changes
+- note that ITOP measurements are already recorded before making major new architecture changes

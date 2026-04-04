@@ -39,8 +39,8 @@
 - [x] Build an offline ITOP converter targeting manifest + frame-file output
 - [x] Start with `ITOP_side_test_point_cloud.h5.gz` plus `ITOP_side_test_labels.h5.gz`
 - [x] Extract short bounded clips instead of attempting full-split browser preload
-- [ ] Measure memory/startup cost of converted real clips in the current eager-loading runtime
-- [ ] Decide whether chunked/streaming playback is required before trying longer real sequences
+- [x] Measure memory/startup cost of converted real clips in the current eager-loading runtime
+- [x] Decide whether chunked/streaming playback is required before trying longer real sequences
 - [x] Refactor image sampling into a reusable raster/RGBD adapter beneath `ImageAdapter`
 - [x] Define the app/runtime boundary between raw point-cloud playback and stylized RGBD sampling
 - [x] Add an app-layer RGBD sequence manifest/source path plus local API route
@@ -50,6 +50,11 @@
 - [x] Add alpha-threshold sampling for masked RGBD/image sources
 - [x] Expose BG-removal and depth-model controls for derived RGBD sequences instead of applying them automatically
 - [x] Run RGBD sequence preparation in a worker with progress and rough ETA reporting
+- [x] Run image-mode sample preparation in a worker with progress and rough ETA reporting
+- [x] Run derived-image RGBD clip baking in a worker with progress and rough ETA reporting
+- [x] Run browser image serialization/encoding in a worker where supported
+- [x] Run browser BG model inference in a worker where supported
+- [x] Run browser depth-estimation model inference in a worker where supported
 - [x] Add RGBD manifest/playback/server tests and verify `pnpm check` + `pnpm test`
 
 ## Kinect Scaffold

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { buildDerivedRgbdSequence } from '../../src/lib/demo/rgbdDerivedSequence.js';
+import {
+	buildDerivedRgbdSequence,
+	buildDerivedRgbdSequenceData,
+	buildDerivedRgbdSequenceResult,
+	estimateDerivedRgbdBuildMs,
+	type DerivedRgbdSequenceBuildProgress,
+} from '../../src/lib/demo/rgbdDerivedSequence.js';
 import type { DemoDerivedRgbdSequenceAsset } from '../../src/lib/demo/assets.js';
 import type { RasterSampleSource } from '../../src/lib/engine/ingest/types.js';
 import type { DepthMap } from '../../src/lib/engine/preprocessing/DepthEstimation.js';
@@ -78,5 +84,41 @@ describe('rgbdDerivedSequence', () => {
 
 		expect(derived.rawFrames[0].depthMap?.modelId).toBe('derived-luminance-depth');
 		expect(derived.rawFrames[0].depthMap?.data[1]).toBeGreaterThan(derived.rawFrames[0].depthMap?.data[0] ?? 0);
+	});
+
+	it('reports progress and can rebuild the result from plain build data', async () => {
+		const raster = makeRaster(3, 1, new Uint8ClampedArray([
+			255, 0, 0, 255,
+			0, 255, 0, 255,
+			0, 0, 255, 255,
+		]));
+		const progress: DerivedRgbdSequenceBuildProgress[] = [];
+
+		const buildData = buildDerivedRgbdSequenceData({
+			asset: baseAsset,
+			raster,
+			onProgress: (entry) => {
+				progress.push(entry);
+			},
+		});
+		const rebuilt = buildDerivedRgbdSequenceResult({
+			asset: baseAsset,
+			buildData,
+		});
+
+		expect(progress).toHaveLength(baseAsset.frameCount);
+		expect(progress.at(-1)?.overallProgress).toBe(1);
+		expect(buildData.rawFrames).toHaveLength(baseAsset.frameCount);
+		expect(rebuilt.rawFrames).toHaveLength(baseAsset.frameCount);
+		expect(rebuilt.source.manifest.frameCount).toBe(baseAsset.frameCount);
+	});
+
+	it('estimates larger derived builds above a minimal floor', () => {
+		expect(
+			estimateDerivedRgbdBuildMs({
+				raster: makeRaster(64, 64, new Uint8ClampedArray(64 * 64 * 4)),
+				frameCount: 24,
+			}),
+		).toBeGreaterThan(40);
 	});
 });
