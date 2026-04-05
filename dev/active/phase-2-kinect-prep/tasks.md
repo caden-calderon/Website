@@ -68,7 +68,10 @@
 - [ ] Replace the mock `capture.py` bundle writer with live libfreenect2 registration output once captured frames exist
 - [ ] Extend `process.py` from capture-bundle export to live registration-backed XYZRGB export once captured frames exist
 - [x] Record the hardware-blocked probe result and fallback non-hardware RGBD/body dataset shortlist in the phase docs
-- [ ] Convert one small aligned Bonn RGB-D Dynamic or TUM RGB-D clip into the existing RGBD manifest/frame layout with dataset-specific offline tooling
+- [ ] Acquire access to a bounded `NTU RGB+D` subset and choose the first rehearsal sample IDs
+- [ ] Use `NTU RGB+D` as the preferred pre-hardware Kinect V2 rehearsal dataset
+- [ ] Decide whether the first NTU spike is raw/depth/body-only rehearsal or an offline RGB/depth alignment solve for stylized RGBD rehearsal
+- [ ] Keep any NTU-specific RGB/depth alignment solve outside the engine and route any resulting registered clip through the existing RGBD manifest/playback path
 
 ## Integration
 

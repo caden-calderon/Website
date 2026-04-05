@@ -44,10 +44,11 @@ Goal:
 Use the remaining time on better rehearsal inputs instead of speculative runtime changes:
 
 - use the shortlist in `dev/active/phase-2-kinect-prep/datasets.md`
-- first preference: convert one small Bonn RGB-D Dynamic or TUM RGB-D clip because both already provide aligned RGB + depth and can exercise the current RGBD export/playback path immediately
-- second preference: use a bounded Kinect V2 body dataset later if the goal shifts from export-contract rehearsal to fuller motion/body benchmarking
+- first preference: acquire and use one bounded `NTU RGB+D` sample because it is the closest practical pre-hardware Kinect V2 body dataset
+- treat TUM/Bonn only as secondary aligned-RGBD contract-smoke options if NTU access or NTU-specific offline alignment work is blocked
 - keep any dataset-specific conversion/downsampling outside the engine
 - favor datasets that help validate the capture-bundle/export contract, depth semantics, or browser memory envelope
+- note that NTU gives the closest motion/body rehearsal, but it does not hand us already-registered RGBD; any RGB/depth alignment solve must stay offline
 - avoid speculative capture/runtime refactors while the hardware path is still unverifiable on this machine
 
 ### ITOP measurement result
@@ -113,5 +114,5 @@ Do this first:
 - inspect `python/kinect_capture/capture.py`
 - inspect `python/kinect_capture/process.py`
 - inspect `dev/active/phase-2-kinect-prep/datasets.md`
-- if hardware is still unavailable, prefer one small aligned RGBD dataset conversion over more mock-only plumbing
+- if hardware is still unavailable, prefer one bounded NTU Kinect V2 rehearsal clip over more mock-only plumbing
 - note that ITOP measurements are already recorded before making major new architecture changes

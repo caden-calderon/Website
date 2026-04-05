@@ -51,7 +51,7 @@ Hardware arrives in about a week. The goal is to finish the architecture and sca
 - `python/kinect_capture/capture.py mock-bundle` now writes a raw registered capture bundle and `python/kinect_capture/process.py export-rgbd` converts that bundle into browser RGBD assets
 - `python/kinect_capture/capture.py`, `python/kinect_capture/hands.py`, and `python/kinect_capture/README.md` now exist as the first Python scaffold for the hardware phase
 - the current local environment still does not have an importable `freenect2` Python binding, so the live registration/export spike remains hardware-blocked here
-- a fallback shortlist of non-hardware RGBD/body rehearsal datasets is now recorded in `dev/active/phase-2-kinect-prep/datasets.md`
+- a fallback shortlist of non-hardware RGBD/body rehearsal datasets is now recorded in `dev/active/phase-2-kinect-prep/datasets.md`, with `NTU RGB+D` now preferred as the closest pre-hardware Kinect V2 body dataset
 - `pnpm check` and `pnpm test` are green
 - the ITOP `.gz` data files and generated `tmp/` outputs are local artifacts and are not committed
 
@@ -91,7 +91,7 @@ Measured on 2026-04-04 with Headless Chromium 146.0.7680.164 against `pnpm run p
   - `process.py export-rgbd` browser manifest export
 - both layers are smoke-testable without hardware and route through the existing RGBD manifest/source path
 - the next real architecture step is replacing the mock capture bundle with real libfreenect2 registration output once hardware arrives
-- until then, the best non-hardware rehearsal inputs are one small aligned RGBD clip from Bonn RGB-D Dynamic or TUM RGB-D, followed later by a Kinect V2-specific body dataset if needed
+- until hardware arrives, `NTU RGB+D` is now the preferred rehearsal dataset for Kinect V2-like body motion, while TUM/Bonn are only secondary aligned-RGBD contract-smoke options
 
 ## Most Important Gaps
 
@@ -103,4 +103,4 @@ Measured on 2026-04-04 with Headless Chromium 146.0.7680.164 against `pnpm run p
 Continue with the remaining next-session detail in `dev/active/phase-2-kinect-prep/next.md`, now centered on either:
 
 - the one-frame real registration/export spike once `libfreenect2` capture is actually available
-- or one small aligned RGBD dataset conversion spike from the shortlist in `dev/active/phase-2-kinect-prep/datasets.md`
+- or a bounded `NTU RGB+D` rehearsal spike, with any NTU-specific RGB/depth alignment work staying offline and outside the engine
