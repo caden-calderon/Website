@@ -65,6 +65,7 @@ Do not collapse these into one abstraction. The raw path is the benchmark path. 
 - `python/kinect_capture/capture.py`
 - `python/kinect_capture/process.py`
 - `python/kinect_capture/hands.py`
+- `python/kinect_capture/mock_data.py`
 - `python/kinect_capture/README.md`
 
 ### App-layer sequence sources
@@ -269,7 +270,8 @@ Interpretation:
 
 ### Newly scaffolded
 - the Python Kinect capture/export surface now exists
-- `process.py` currently proves the manifest/export contract with a mock registered RGBD clip
+- `capture.py` now defines a raw registered capture-bundle contract
+- `process.py export-rgbd` now converts that bundle into the browser RGBD manifest/frame format
 - live libfreenect2 frame ingestion plus one-frame registration validation still need hardware
 
 ## Recommended Reading Order For A Fresh Agent

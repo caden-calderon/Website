@@ -26,7 +26,7 @@ First tasks:
 1. Confirm the handoff docs are current and commit/push them if needed.
 2. Treat the pre-hardware browser-side work and mock export-contract scaffolding as complete and keep the docs aligned with that state.
 3. Continue with the real Kinect RGBD export path:
-   - replace the mock export inputs in `python/kinect_capture/process.py` with real registered capture outputs
+   - replace the mock capture-bundle inputs in `python/kinect_capture/capture.py` with real registered capture outputs
    - use registered color + depth as the source of truth
    - route that real clip through the existing RGBD prep/playback path
 

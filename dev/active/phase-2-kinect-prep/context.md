@@ -46,6 +46,7 @@ Hardware arrives in about a week. The goal is to finish the architecture and sca
 - browser depth-estimation model inference is now workerized when the browser supports `Worker` + `createImageBitmap` + `OffscreenCanvas`
 - derived-image RGBD rehearsal is in place as a bridge to future Kinect RGBD clips
 - `python/kinect_capture/process.py` can now emit a mock Kinect-style registered RGBD clip in the same manifest/frame layout the browser already consumes
+- `python/kinect_capture/capture.py mock-bundle` now writes a raw registered capture bundle and `python/kinect_capture/process.py export-rgbd` converts that bundle into browser RGBD assets
 - `python/kinect_capture/capture.py`, `python/kinect_capture/hands.py`, and `python/kinect_capture/README.md` now exist as the first Python scaffold for the hardware phase
 - `pnpm check` and `pnpm test` are green
 - the ITOP `.gz` data files and generated `tmp/` outputs are local artifacts and are not committed
@@ -81,8 +82,11 @@ Measured on 2026-04-04 with Headless Chromium 146.0.7680.164 against `pnpm run p
 - the shared playback-buffer design is doing its job; the playback residency stays nearly flat while payload/prepared storage scales with frame count
 - chunked/streaming playback is not the next step for the current ITOP rehearsal assets
 - the pre-hardware browser-side heavy work is now complete
-- the Kinect RGBD export contract is now defined and smoke-testable with a mock registered clip through the existing RGBD manifest/source path
-- the next real architecture step is replacing that mock export with real libfreenect2 registration output once hardware arrives
+- the Kinect RGBD export contract is now defined at two layers:
+  - `capture.py` raw registered bundle
+  - `process.py export-rgbd` browser manifest export
+- both layers are smoke-testable without hardware and route through the existing RGBD manifest/source path
+- the next real architecture step is replacing the mock capture bundle with real libfreenect2 registration output once hardware arrives
 
 ## Most Important Gaps
 
@@ -91,4 +95,4 @@ Measured on 2026-04-04 with Headless Chromium 146.0.7680.164 against `pnpm run p
 
 ## Immediate Next Step
 
-Continue with the remaining next-session detail in `dev/active/phase-2-kinect-prep/next.md`, now centered on the one-frame real registration/export spike and replacing the mock Kinect RGBD writer with live captured output.
+Continue with the remaining next-session detail in `dev/active/phase-2-kinect-prep/next.md`, now centered on the one-frame real registration/export spike and replacing the mock capture-bundle writer with live captured output.

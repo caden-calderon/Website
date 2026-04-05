@@ -61,10 +61,12 @@
 
 - [x] Create `capture.py`
 - [ ] Run a one-frame registration/export spike as soon as hardware arrives
-- [x] Create `process.py` scaffold with mock RGBD manifest export
+- [x] Create `process.py` scaffold with capture-bundle -> RGBD manifest export
 - [x] Create `hands.py`
 - [x] Write README/setup notes for Arch Linux and libfreenect2
-- [ ] Extend `process.py` from mock RGBD export to live registration-backed XYZRGB export once captured frames exist
+- [x] Define a raw registered capture-bundle contract between `capture.py` and `process.py`
+- [ ] Replace the mock `capture.py` bundle writer with live libfreenect2 registration output once captured frames exist
+- [ ] Extend `process.py` from capture-bundle export to live registration-backed XYZRGB export once captured frames exist
 
 ## Integration
 

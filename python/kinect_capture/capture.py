@@ -7,6 +7,8 @@ from datetime import UTC, datetime
 from importlib.util import find_spec
 from pathlib import Path
 
+from .mock_data import write_mock_capture_bundle
+
 
 KINECT_COLOR_RESOLUTION = (1920, 1080)
 KINECT_DEPTH_RESOLUTION = (512, 424)
@@ -43,6 +45,21 @@ def build_parser() -> argparse.ArgumentParser:
 		help='Path to write the mock capture metadata JSON.',
 	)
 
+	mock_bundle_parser = subparsers.add_parser(
+		'mock-bundle',
+		help='Write a mock registered capture bundle that `process.py export-rgbd` can convert into browser RGBD assets.',
+	)
+	mock_bundle_parser.add_argument(
+		'--output',
+		type=Path,
+		default=Path('tmp/kinect-capture/kinect-rgbd-registration-smoke'),
+		help='Directory to write the mock registered capture bundle.',
+	)
+	mock_bundle_parser.add_argument('--frames', type=int, default=24, help='Frame count for the mock bundle.')
+	mock_bundle_parser.add_argument('--width', type=int, default=192, help='Registered frame width.')
+	mock_bundle_parser.add_argument('--height', type=int, default=160, help='Registered frame height.')
+	mock_bundle_parser.add_argument('--fps', type=float, default=12.0, help='FPS for the mock bundle.')
+
 	return parser
 
 
@@ -56,6 +73,17 @@ def main() -> int:
 	if args.command == 'mock-snapshot':
 		write_mock_snapshot(args.output)
 		print(f'Wrote mock capture snapshot to {args.output}')
+		return 0
+
+	if args.command == 'mock-bundle':
+		write_mock_capture_bundle(
+			args.output,
+			frame_count=args.frames,
+			width=args.width,
+			height=args.height,
+			fps=args.fps,
+		)
+		print(f'Wrote mock registered capture bundle to {args.output}')
 		return 0
 
 	raise RuntimeError(f'Unsupported command: {args.command}')

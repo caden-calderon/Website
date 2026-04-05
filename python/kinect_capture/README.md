@@ -5,7 +5,8 @@ This directory holds the Phase 2 Kinect V2 capture/export scaffolding.
 Current status:
 
 - `capture.py` provides a backend probe plus a mock capture-metadata snapshot.
-- `process.py` can already write a mock registered RGBD clip in the same manifest/frame layout the browser demo consumes.
+- `capture.py` can now also write a mock registered capture bundle.
+- `process.py` converts that capture bundle into the same manifest/frame layout the browser demo consumes.
 - `hands.py` provides a MediaPipe probe plus a mock landmark export.
 - live libfreenect2 frame capture, one-frame registration validation, and real XYZRGB export still need actual hardware.
 
@@ -53,7 +54,11 @@ python3 -m python.kinect_capture.capture probe
 Write a mock registered RGBD clip for browser testing:
 
 ```bash
-python3 -m python.kinect_capture.process mock-rgbd \
+python3 -m python.kinect_capture.capture mock-bundle \
+  --output tmp/kinect-capture/kinect-rgbd-registration-smoke
+
+python3 -m python.kinect_capture.process export-rgbd \
+  --input-dir tmp/kinect-capture/kinect-rgbd-registration-smoke \
   --output tmp/rgbd-sequences/kinect-rgbd-registration-smoke
 ```
 
@@ -72,7 +77,13 @@ The real Kinect RGBD export path should keep these constraints:
 - raw point playback remains a separate truth/debug path
 - dataset-specific conversion and capture tooling stay outside the engine
 
-The current mock export intentionally writes:
+The current mock capture bundle intentionally writes:
+
+- `capture.json`
+- one raw registered color frame per timestep with `rgba8-json-base64`
+- one raw registered depth frame per timestep with `float32-meter-json-base64`
+
+The current RGBD export intentionally writes:
 
 - `manifest.json`
 - one JSON color frame per timestep with `rgba8-json-base64`
