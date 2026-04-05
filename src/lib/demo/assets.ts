@@ -180,6 +180,33 @@ export const DEMO_POINT_SEQUENCE_ASSETS: DemoPointSequenceAsset[] = [
 			'Converted 96-frame ITOP side-view body clip to probe the current eager full-sequence loading ceiling. Generate it with pnpm convert:itop first.',
 		initialClipId: 'full_clip',
 	},
+	{
+		kind: 'point-sequence',
+		id: 'utd-kinect2-high-wave',
+		label: 'UTD Kinect2 High Wave',
+		manifestUrl: '/api/point-sequences/utd-kinect2-high-wave/manifest.json',
+		description:
+			'Converted UTD Kinect v2 depth+skeleton clip for right-hand high-wave rehearsal. Generate it with pnpm convert:utd first.',
+		initialClipId: 'full_clip',
+	},
+	{
+		kind: 'point-sequence',
+		id: 'utd-kinect2-hand-clap',
+		label: 'UTD Kinect2 Hand Clap',
+		manifestUrl: '/api/point-sequences/utd-kinect2-hand-clap/manifest.json',
+		description:
+			'Converted UTD Kinect v2 depth+skeleton clip for two-hand clap rehearsal. Generate it with pnpm convert:utd first.',
+		initialClipId: 'full_clip',
+	},
+	{
+		kind: 'point-sequence',
+		id: 'utd-multiview-front-throw',
+		label: 'UTD Multiview Front Throw',
+		manifestUrl: '/api/point-sequences/utd-multiview-front-throw/manifest.json',
+		description:
+			'Converted UTD multiview Kinect v2 front-view throw clip with skeleton-fitted depth unprojection. Generate it with pnpm convert:utd first.',
+		initialClipId: 'full_clip',
+	},
 ];
 
 export const DEMO_RGBD_SEQUENCE_ASSETS: DemoRgbdSequenceAsset[] = [

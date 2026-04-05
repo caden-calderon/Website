@@ -22,6 +22,18 @@ const POINT_SEQUENCE_DIRECTORY_SOURCES: PointSequenceDirectorySource[] = [
 		id: 'itop-side-test-long',
 		rootDir: path.resolve(process.cwd(), 'tmp', 'point-sequences', 'itop-side-test-long'),
 	},
+	{
+		id: 'utd-kinect2-high-wave',
+		rootDir: path.resolve(process.cwd(), 'tmp', 'point-sequences', 'utd-kinect2-high-wave'),
+	},
+	{
+		id: 'utd-kinect2-hand-clap',
+		rootDir: path.resolve(process.cwd(), 'tmp', 'point-sequences', 'utd-kinect2-hand-clap'),
+	},
+	{
+		id: 'utd-multiview-front-throw',
+		rootDir: path.resolve(process.cwd(), 'tmp', 'point-sequences', 'utd-multiview-front-throw'),
+	},
 ];
 
 export function getPointSequenceDirectorySource(sequenceId: string): PointSequenceDirectorySource | null {

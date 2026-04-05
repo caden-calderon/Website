@@ -21,42 +21,61 @@ Recorded on 2026-04-04 after:
 
 ## Recommended Shortlist
 
-### 1. NTU RGB+D / NTU RGB+D 120
+### 1. UTD Kinect v2 datasets now local: `Kinect2Dataset.zip` and `MultiViewDataset.zip`
 
-Preferred rehearsal dataset before hardware arrives.
+Current active rehearsal source on this machine.
+
+Why:
+
+- they are already downloaded locally, so there is no request-gate delay
+- both are Kinect v2 datasets
+- both provide depth plus skeleton data in MATLAB files
+- `scripts/convert-utd-to-point-sequences.py` now converts selected clips directly into the existing raw point-sequence manifest + PLY layout
+- this makes the raw point/body rehearsal branch immediately usable in the browser
+
+Most important caveat:
+
+- the accessible UTD archives do not currently provide registered color frames in the downloaded bundles
+- they are therefore not a substitute for the real registered RGBD capture/export path
+
+That means:
+
+- UTD is now the best immediate rehearsal source for the raw point/body branch
+- UTD does not remove the need for real registered color + depth once the stylized RGBD branch becomes active
+- any dataset-specific reconstruction stays offline and outside the engine
+
+Use it for:
+
+- tuning raw point playback, body scale, clip cadence, and general motion rehearsal before hardware arrives
+- comparing single-view and multiview Kinect v2 body motion in the existing point-sequence runtime
+- selecting which gestures are worth repeating once the real capture path is online
+
+Caveats:
+
+- no registered color frames in the current local archives
+- no direct path from these archives into the stylized RGBD branch without inventing extra reconstruction work that is lower value than waiting for hardware
+- still not a substitute for the real libfreenect2 registration/export spike
+
+Sources:
+
+- local archives in the repo root: `Kinect2Dataset.zip` and `MultiViewDataset.zip`
+
+### 2. NTU RGB+D / NTU RGB+D 120
+
+Still the best request-gated option if we later decide we need a larger Kinect V2 rehearsal set with richer modality coverage.
 
 Why:
 
 - the official page says both datasets contain RGB videos, depth map sequences, 3D skeletal data, and IR
 - the official page says they were captured by three Kinect V2 cameras concurrently
 - the official page lists Kinect V2-native resolutions: `1920x1080` RGB and `512x424` depth
-- the official paper says NTU was collected with Microsoft Kinect v2 and distinguishes `RGB+D` from truly aligned `RGBD`
-- this is the closest practical pre-hardware body-motion rehearsal dataset to the intended recording workflow
-
-Most important caveat:
-
-- NTU is `RGB+D`, not pixel-registered `RGBD`
-- the official FAQ says no camera calibration was recorded
-- the official FAQ points to the provided joint correspondences between RGB and depth as the way to solve the transform
-
-That means:
-
-- NTU is the best pre-hardware motion/body rehearsal dataset
-- NTU does not remove the need for an offline NTU-specific RGB/depth alignment solve if we want true registered color + depth clips for the stylized RGBD path
-- that alignment work must stay outside the engine
-
-Use it for:
-
-- bounded single-person body-motion rehearsal clips that are close to future Kinect V2 animation recordings
-- validating the raw/depth/body side of the Phase 2 pipeline with real Kinect V2 capture characteristics
-- choosing a small action set worth tuning before hardware arrives
+- this is still a closer long-term rehearsal target than older Kinect v1 aligned-RGBD datasets
 
 Caveats:
 
-- very large download sizes
 - request-gated academic access
-- the first useful spike should stay small and bounded
-- stylized RGBD rehearsal from NTU still needs offline alignment work before it can honestly stand in for registered Kinect RGBD
+- not immediately actionable compared with the local UTD archives
+- still `RGB+D`, not guaranteed pre-registered `RGBD`
 
 Sources:
 
@@ -64,7 +83,7 @@ Sources:
 - https://github.com/shahroudy/NTURGB-D
 - https://www.ntu.edu.sg/docs/librariesprovider106/publications/9-action-recognition/ntu-rgb-d-a-large-scale-dataset-for-3d-human-activity-analysis.pdf?sfvrsn=23a1774d_2
 
-### 2. TUM RGB-D Dataset
+### 3. TUM RGB-D Dataset
 
 Useful only if we specifically need a fast aligned-RGBD contract smoke test.
 
@@ -89,7 +108,7 @@ Sources:
 - https://cvg.cit.tum.de/data/datasets/rgbd-dataset
 - https://cvg.cit.tum.de/data/datasets/rgbd-dataset/file_formats
 
-### 3. Bonn RGB-D Dynamic Dataset
+### 4. Bonn RGB-D Dynamic Dataset
 
 Useful only if we need another already-aligned RGBD source after TUM.
 
@@ -113,7 +132,7 @@ Source:
 
 - https://www.ipb.uni-bonn.de/data/rgbd-dynamic-dataset/index.html
 
-### 4. EgoBody
+### 5. EgoBody
 
 Best later-stage dataset for future body + hand/interaction planning, not the immediate rehearsal priority.
 
@@ -139,20 +158,20 @@ Source:
 
 ## Recommended Order
 
-1. Acquire access to `NTU RGB+D` and choose one or two bounded single-person sample IDs that match likely near-term recording motions.
-2. Use NTU first as the Kinect V2 body-motion rehearsal dataset.
-3. Keep ITOP as the raw point-cloud benchmark path until NTU-derived rehearsal clips are ready.
-4. If we specifically need an aligned-RGBD plumbing smoke test while NTU access or NTU-specific alignment work is blocked, temporarily use one small TUM or Bonn clip and do not confuse that with the main rehearsal direction.
-5. Once hardware arrives, replace NTU alignment assumptions with a real one-frame libfreenect2 registration/export spike as soon as possible.
+1. Use the converted local UTD Kinect v2 clips first for raw point/body rehearsal.
+2. Keep ITOP as the older raw point benchmark path for comparison.
+3. If we later need broader Kinect v2 rehearsal coverage before hardware, revisit NTU access.
+4. If we specifically need an aligned-RGBD plumbing smoke test, temporarily use one small TUM or Bonn clip and do not confuse that with the main rehearsal direction.
+5. Once hardware arrives, replace all dataset-side approximations with a real one-frame libfreenect2 registration/export spike as soon as possible.
 
-## What NTU Can De-Risk Now
+## What The Local UTD Data Can De-Risk Now
 
 - action selection for short bounded rehearsal clips
 - Kinect V2-like depth resolution, body scale, and action timing
 - future body playback separation from hand overlays
 - which motions and clip lengths are worth tuning for the eventual recording workflow
 
-## What NTU Does Not Solve By Itself
+## What The Local UTD Data Does Not Solve
 
 - registered color + depth export
 - true libfreenect2 registration correctness
@@ -160,11 +179,11 @@ Source:
 
 Those still depend on:
 
-- an offline NTU-specific RGB/depth alignment solve if we want stylized RGBD NTU clips
+- real registered color + depth from the Kinect capture path
 - and ultimately the real Kinect capture/export path once hardware is here
 
 ## Explicit Non-Goals
 
 - do not move any dataset-specific parsing, alignment, scaling, or downsampling into the engine
 - do not replace the raw point benchmark path with stylized RGBD playback
-- do not treat NTU as a substitute for the real registered Kinect capture spike once hardware is available
+- do not treat the UTD archives as a substitute for the real registered Kinect capture spike once hardware is available

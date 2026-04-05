@@ -128,6 +128,9 @@ Do not collapse these into one abstraction. The raw path is the benchmark path. 
 - `itop-side-test-short`
 - `itop-side-test-medium`
 - `itop-side-test-long`
+- `utd-kinect2-high-wave`
+- `utd-kinect2-hand-clap`
+- `utd-multiview-front-throw`
 
 ### RGBD sequences
 - `procedural-rgbd-portrait`
@@ -273,6 +276,8 @@ Interpretation:
 - `capture.py` now defines a raw registered capture-bundle contract
 - `process.py export-rgbd` now converts that bundle into the browser RGBD manifest/frame format
 - live libfreenect2 frame ingestion plus one-frame registration validation still need hardware
+- a UTD Kinect v2 depth+skeleton converter now exists under `scripts/convert-utd-to-point-sequences.py`
+- UTD rehearsal clips currently feed the raw point-sequence path, not the stylized RGBD path, because the accessible UTD archives do not include registered color frames
 
 ## Recommended Reading Order For A Fresh Agent
 

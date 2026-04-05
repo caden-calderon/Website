@@ -25,10 +25,13 @@ Current status:
   - `.codex`
   - `ITOP_side_test_point_cloud.h5.gz`
   - `ITOP_side_test_labels.h5.gz`
+  - `Kinect2Dataset.zip`
+  - `MultiViewDataset.zip`
   - `tmp/`
 - on this machine, `python3 -m python.kinect_capture.capture probe` currently reports `backend_available: false`
 - fallback dataset scouting is now recorded in `dev/active/phase-2-kinect-prep/datasets.md`
-- `NTU RGB+D` is now the preferred pre-hardware rehearsal dataset because it is Kinect V2 data, but remember it is `RGB+D`, not pre-registered `RGBD`
+- the accessible UTD Kinect v2 archives are now the active pre-hardware rehearsal source for the raw point/body branch
+- `pnpm convert:utd` now generates `utd-kinect2-high-wave`, `utd-kinect2-hand-clap`, and `utd-multiview-front-throw`
 
 First tasks:
 
@@ -36,7 +39,7 @@ First tasks:
 2. Treat the pre-hardware browser-side work and Kinect capture/export scaffolding as complete and keep the docs aligned with that state.
 3. Continue with the next highest-value branch:
    - preferred: replace the mock capture-bundle inputs in `python/kinect_capture/capture.py` with real registered Kinect outputs, then run a one-frame registration/export spike
-   - fallback if hardware is still unavailable: acquire and use one bounded `NTU RGB+D` rehearsal clip first, keeping any NTU-specific RGB/depth alignment solve offline and outside the engine
+   - fallback if hardware is still unavailable: keep tuning against the converted local UTD raw point clips and avoid inventing fake registered-RGBD plumbing from depth-only archives
 4. In either branch:
    - keep dataset-specific conversion and downsampling outside the engine
    - use registered color + depth as the source of truth for the real Kinect path

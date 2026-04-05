@@ -10,3 +10,10 @@ dist
 vite.config.ts.timestamp-*
 __pycache__/
 *.py[cod]
+.codex
+.codex/
+ITOP_side_test_point_cloud.h5.gz
+ITOP_side_test_labels.h5.gz
+Kinect2Dataset.zip
+MultiViewDataset.zip
+tmp/

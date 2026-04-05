@@ -19,6 +19,8 @@ The repo is in a good rehearsal state:
 - `process.py export-rgbd` converts that bundle into the browser RGBD manifest format
 - a mock registered Kinect-style RGBD clip can be generated end-to-end with `pnpm generate:test-kinect-rgbd`
 - the current local environment still reports `backend_available: false` for `python3 -m python.kinect_capture.capture probe`
+- `Kinect2Dataset.zip` and `MultiViewDataset.zip` are now present locally
+- `pnpm convert:utd` now emits raw point-sequence rehearsal clips from those UTD Kinect v2 depth+skeleton archives
 
 The next session should not spend time rediscovering architecture. Read `architecture.md` first and continue with the items below.
 
@@ -43,12 +45,11 @@ Goal:
 
 Use the remaining time on better rehearsal inputs instead of speculative runtime changes:
 
-- use the shortlist in `dev/active/phase-2-kinect-prep/datasets.md`
-- first preference: acquire and use one bounded `NTU RGB+D` sample because it is the closest practical pre-hardware Kinect V2 body dataset
-- treat TUM/Bonn only as secondary aligned-RGBD contract-smoke options if NTU access or NTU-specific offline alignment work is blocked
+- first preference: keep tuning against the converted local UTD Kinect v2 raw point clips because that data is already on disk and already routes through the existing point-sequence path
+- use the shortlist in `dev/active/phase-2-kinect-prep/datasets.md` only if another dataset is needed beyond the current UTD coverage
 - keep any dataset-specific conversion/downsampling outside the engine
 - favor datasets that help validate the capture-bundle/export contract, depth semantics, or browser memory envelope
-- note that NTU gives the closest motion/body rehearsal, but it does not hand us already-registered RGBD; any RGB/depth alignment solve must stay offline
+- note that the accessible UTD archives de-risk raw point/body playback, not registered RGBD export
 - avoid speculative capture/runtime refactors while the hardware path is still unverifiable on this machine
 
 ### ITOP measurement result
@@ -113,6 +114,7 @@ Do this first:
 - inspect `assets.ts`
 - inspect `python/kinect_capture/capture.py`
 - inspect `python/kinect_capture/process.py`
+- inspect `scripts/convert-utd-to-point-sequences.py`
 - inspect `dev/active/phase-2-kinect-prep/datasets.md`
-- if hardware is still unavailable, prefer one bounded NTU Kinect V2 rehearsal clip over more mock-only plumbing
+- if hardware is still unavailable, prefer the already-converted UTD raw point clips over more mock-only plumbing
 - note that ITOP measurements are already recorded before making major new architecture changes
