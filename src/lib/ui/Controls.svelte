@@ -26,7 +26,8 @@
 		selectedImageAssetId: string;
 		selectedSequenceAssetId: string;
 		selectedSequenceAssetKind: 'point-sequence' | 'rgbd-sequence';
-		selectedSequenceAssetSource: 'manifest' | 'derived-image' | null;
+		selectedSequenceAssetSource: 'manifest' | 'derived-image' | 'uploaded-video' | null;
+		uploadedSequenceVideoName: string | null;
 		selectedSequenceClipId: string;
 		selectedSequenceLookPresetId: string;
 		availableSequenceClipIds: string[];
@@ -82,6 +83,7 @@
 		onAlgorithmChange: (algorithm: 'rejection' | 'importance' | 'weighted-voronoi') => void;
 		onSampleCountChange: (count: number) => void;
 		onImageUpload: (file: File) => void;
+		onVideoUpload: (file: File) => void;
 		onResample: () => void;
 		onRemoveBg: (enabled: boolean) => void;
 		onBgProviderChange: (provider: BgRemovalProvider) => void;
@@ -105,6 +107,7 @@
 		selectedSequenceAssetId,
 		selectedSequenceAssetKind,
 		selectedSequenceAssetSource,
+		uploadedSequenceVideoName,
 		selectedSequenceClipId,
 		selectedSequenceLookPresetId,
 		availableSequenceClipIds,
@@ -160,6 +163,7 @@
 		onAlgorithmChange,
 		onSampleCountChange,
 		onImageUpload,
+		onVideoUpload,
 		onResample,
 		onRemoveBg,
 		onBgProviderChange,
@@ -204,10 +208,16 @@
 	let showRender = $state(false);
 	let showBloom = $state(false);
 
-	function handleFileInput(e: Event) {
+	function handleImageFileInput(e: Event) {
 		const input = e.target as HTMLInputElement;
 		const file = input.files?.[0];
 		if (file) onImageUpload(file);
+	}
+
+	function handleVideoFileInput(e: Event) {
+		const input = e.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (file) onVideoUpload(file);
 	}
 
 	function updateRender<K extends keyof RenderParams>(key: K, value: RenderParams[K]) {
@@ -378,7 +388,7 @@
 									type="file"
 									accept="image/*"
 									class="mt-1 block w-full min-w-0 overflow-hidden"
-									onchange={handleFileInput}
+									onchange={handleImageFileInput}
 								/>
 							</label>
 						</div>
@@ -748,6 +758,50 @@
 									>
 										{removeBg ? '✓ ' : ''}remove background
 									</button>
+
+									<select
+										class="min-w-0 rounded bg-white/10 px-2 py-1 text-white/80"
+										value={depthModelIndex}
+										onchange={(e) => {
+											depthModelIndex = Number((e.target as HTMLSelectElement).value);
+											onDepthModelChange(depthModelIndex);
+										}}
+										disabled={!!processingStatus}
+									>
+										{#each depthModels as model, i}
+											<option value={i}>{model.label} ({model.size})</option>
+										{/each}
+									</select>
+									<span class="break-words text-white/30">{depthModels[depthModelIndex]?.description}</span>
+
+									<button
+										class="rounded px-2 py-1 text-left {useDepthMap ? 'bg-blue-600/30' : 'bg-white/10'} hover:bg-white/20"
+										onclick={() => { useDepthMap = !useDepthMap; onEstimateDepth(useDepthMap); }}
+										disabled={!!processingStatus}
+									>
+										{useDepthMap ? '✓ ' : ''}estimate depth (3D)
+									</button>
+								{:else if selectedSequenceAssetSource === 'uploaded-video'}
+									<div class="rounded border border-white/10 bg-white/[0.03] p-2 text-white/35">
+										This RGBD clip is built from a recorded video upload. Frames are sampled offline in the browser, depth is estimated per frame, and the result is routed through the same RGBD prep/playback path as manifest-backed clips.
+									</div>
+
+									<label class="min-w-0 text-white/50">
+										upload video
+										<input
+											type="file"
+											accept="video/*"
+											class="mt-1 block w-full min-w-0 overflow-hidden"
+											onchange={handleVideoFileInput}
+										/>
+									</label>
+									<span class="break-words text-white/30">
+										{uploadedSequenceVideoName ? `selected: ${uploadedSequenceVideoName}` : 'No video uploaded yet.'}
+									</span>
+
+									<div class="rounded border border-white/10 bg-white/[0.03] p-2 text-white/35">
+										First pass constraint: uploaded-video rehearsal currently uses per-frame depth estimation only. Background removal is still limited to still-image derived clips.
+									</div>
 
 									<select
 										class="min-w-0 rounded bg-white/10 px-2 py-1 text-white/80"

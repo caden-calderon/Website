@@ -21,6 +21,7 @@ The repo is in a good rehearsal state:
 - the current local environment still reports `backend_available: false` for `python3 -m python.kinect_capture.capture probe`
 - `Kinect2Dataset.zip` and `MultiViewDataset.zip` are now present locally
 - `pnpm convert:utd` now emits raw point-sequence rehearsal clips from those UTD Kinect v2 depth+skeleton archives
+- the browser demo now also exposes `recorded-video-rgbd-study`, which samples a bounded uploaded video clip offline, estimates per-frame depth, and routes the result through the existing RGBD sequence path
 
 The next session should not spend time rediscovering architecture. Read `architecture.md` first and continue with the items below.
 
@@ -43,14 +44,26 @@ Goal:
 
 ### If hardware is still blocked
 
-Use the remaining time on better rehearsal inputs instead of speculative runtime changes:
+Use the remaining time on the two pre-hardware rehearsal branches instead of speculative runtime changes:
 
-- first preference: keep tuning against the converted local UTD Kinect v2 raw point clips because that data is already on disk and already routes through the existing point-sequence path
+- keep tuning against the converted local UTD Kinect v2 raw point clips because that data is already on disk and already routes through the existing point-sequence path
+- use the new uploaded-video RGBD branch for art-direction rehearsal with recorded footage, Depth Anything v2, and the current stylized RGBD sampling controls
 - use the shortlist in `dev/active/phase-2-kinect-prep/datasets.md` only if another dataset is needed beyond the current UTD coverage
 - keep any dataset-specific conversion/downsampling outside the engine
 - favor datasets that help validate the capture-bundle/export contract, depth semantics, or browser memory envelope
 - note that the accessible UTD archives de-risk raw point/body playback, not registered RGBD export
 - avoid speculative capture/runtime refactors while the hardware path is still unverifiable on this machine
+
+### Uploaded-video RGBD tuning
+
+This is now the highest-value non-hardware art-direction branch:
+
+- record one short local clip with the framing/motion style you actually want to capture later
+- load it through `recorded-video-rgbd-study`
+- start with `DA V2 Base (fp16)` and the current RGBD sequence sampling controls
+- record startup/memory numbers once a representative clip is chosen
+- keep this path routed through the current RGBD prep/playback runtime rather than adding a separate video runtime
+- do not confuse this branch with real Kinect RGBD; it is for visual rehearsal, not sensor-faithful registration testing
 
 ### ITOP measurement result
 
@@ -92,7 +105,7 @@ If eager preload looks marginal, next architecture step is:
 - do not invent hand-overlay architecture yet
 - do not shove dataset-specific conversion into the engine
 - do not replace raw point playback with stylized RGBD playback
-- do not spend time on visual polish before landing the real Kinect RGBD export path
+- do not spend time on live webcam/runtime work yet
 
 ## If Kinect Hardware Or Exports Are Suddenly Available
 

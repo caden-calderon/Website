@@ -15,7 +15,7 @@ There are now two separate playback surfaces and they must stay separate:
 
 2. Stylized RGBD sampling
 - Purpose: product-facing art direction and Kinect look development
-- Source examples: manifest-backed RGBD clips, derived-image RGBD rehearsal clips
+- Source examples: manifest-backed RGBD clips, derived-image RGBD rehearsal clips, uploaded-video RGBD rehearsal clips
 - Browser path: color/depth frames -> app-layer RGBD prep -> prepared `SampleSet[]` -> `FrameSequenceLoader` -> `FrameSequence`
 
 Do not collapse these into one abstraction. The raw path is the benchmark path. The stylized path is the art path.
@@ -141,6 +141,9 @@ Do not collapse these into one abstraction. The raw path is the benchmark path. 
 - `pearl-earring-rgbd-study`
   - derived-image RGBD rehearsal clip
   - built from a still image plus optional BG removal and depth estimation
+- `recorded-video-rgbd-study`
+  - uploaded-video RGBD rehearsal clip
+  - built from a local recorded video plus optional per-frame depth estimation
 
 ## Derived-Image RGBD Flow
 
@@ -156,6 +159,22 @@ Used for art-direction rehearsal before Kinect hardware:
 Files involved:
 - `src/lib/demo/rgbdDerivedSequence.ts`
 - `src/lib/demo/PointEngineDemo.svelte`
+
+## Uploaded-Video RGBD Flow
+
+Used for art-direction rehearsal that is closer to real recorded performance than still-image warps, without pretending to be true Kinect RGBD.
+
+1. Upload a recorded video clip in sequence mode
+2. Sample a bounded subset of frames offline in the browser
+3. Optionally estimate per-frame depth with the existing browser depth models
+4. Build a transient RGBD manifest + frame bundle in app memory
+5. Prepare sampled frames
+6. Build `FrameSequence`
+
+Files involved:
+- `src/lib/demo/rgbdVideoSequence.ts`
+- `src/lib/demo/PointEngineDemo.svelte`
+- `src/lib/ui/Controls.svelte`
 
 ## Workerized Prep Flow
 
@@ -220,6 +239,15 @@ Expensive RGBD prep now runs off the main thread.
 - server BG model
 - depth estimation on/off
 - depth model
+
+### Uploaded-video RGBD controls
+- local video upload
+- depth estimation on/off
+- depth model
+- shared RGBD sampling controls
+
+First pass constraint:
+- uploaded-video rehearsal currently skips per-frame BG removal and focuses on bounded video + depth-estimation rehearsal
 
 Manifest-backed RGBD clips do not expose live BG/depth preprocessing controls because those clips are already precomputed.
 

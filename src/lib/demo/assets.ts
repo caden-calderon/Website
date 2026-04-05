@@ -50,7 +50,20 @@ export interface DemoDerivedRgbdSequenceAsset extends DemoSequenceAssetBase {
 	motion: DemoRgbdSequenceMotion;
 }
 
-export type DemoRgbdSequenceAsset = DemoManifestRgbdSequenceAsset | DemoDerivedRgbdSequenceAsset;
+export interface DemoUploadedVideoRgbdSequenceAsset extends DemoSequenceAssetBase {
+	kind: 'rgbd-sequence';
+	source: 'uploaded-video';
+	fps: number;
+	maxFrameCount: number;
+	maxEdge: number;
+	useEstimatedDepth?: boolean;
+	depthModelIndex?: number;
+}
+
+export type DemoRgbdSequenceAsset =
+	| DemoManifestRgbdSequenceAsset
+	| DemoDerivedRgbdSequenceAsset
+	| DemoUploadedVideoRgbdSequenceAsset;
 export type DemoSequenceAsset = DemoPointSequenceAsset | DemoRgbdSequenceAsset;
 
 export const DEMO_MESH_ASSETS: DemoMeshAsset[] = [
@@ -210,6 +223,20 @@ export const DEMO_POINT_SEQUENCE_ASSETS: DemoPointSequenceAsset[] = [
 ];
 
 export const DEMO_RGBD_SEQUENCE_ASSETS: DemoRgbdSequenceAsset[] = [
+	{
+		kind: 'rgbd-sequence',
+		source: 'uploaded-video',
+		id: 'recorded-video-rgbd-study',
+		label: 'Recorded Video RGBD Study',
+		fps: 12,
+		maxFrameCount: 48,
+		maxEdge: 640,
+		useEstimatedDepth: true,
+		depthModelIndex: 3,
+		description:
+			'Upload a recorded video, sample a bounded clip offline in the browser, estimate per-frame depth, and route it through the existing RGBD sequence path.',
+		initialClipId: 'uploaded_clip',
+	},
 	{
 		kind: 'rgbd-sequence',
 		source: 'derived-image',

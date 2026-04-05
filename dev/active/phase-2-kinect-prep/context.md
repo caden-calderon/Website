@@ -97,15 +97,20 @@ Measured on 2026-04-04 with Headless Chromium 146.0.7680.164 against `pnpm run p
 - the next real architecture step is replacing the mock capture bundle with real libfreenect2 registration output once hardware arrives
 - the accessible UTD Kinect v2 archives now make the raw point/body rehearsal branch concrete without further data requests
 - stylized RGBD rehearsal still depends on registered color + depth, so the real Kinect registration/export spike remains the critical hardware-dependent step
+- an additional pre-hardware art-first rehearsal branch now exists: uploaded recorded video -> offline browser frame sampling -> per-frame depth estimation -> existing RGBD prep/playback path
+- the first pass for that uploaded-video branch is intentionally bounded: 12 fps target, 48-frame cap, 640 px max edge, depth-estimation optional, no per-frame BG removal yet
 
 ## Most Important Gaps
 
 - real registered Kinect RGBD clips are not in the browser path yet
 - hand-landmark alignment is still not designed
+- the uploaded-video RGBD branch still needs real clip tuning/measurement with local recorded footage
 
 ## Immediate Next Step
 
 Continue with the remaining next-session detail in `dev/active/phase-2-kinect-prep/next.md`, now centered on either:
 
 - the one-frame real registration/export spike once `libfreenect2` capture is actually available
-- or continued tuning against the converted local UTD raw point clips while keeping registered RGBD work parked behind real hardware
+- or continued tuning against:
+  - converted local UTD raw point clips for the truth/debug branch
+  - uploaded recorded video RGBD rehearsal for the art-first branch while keeping registered RGBD work parked behind real hardware

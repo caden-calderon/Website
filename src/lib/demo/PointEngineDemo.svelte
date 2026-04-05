@@ -13,6 +13,7 @@
 		type DemoImageAsset,
 		type DemoMeshAsset,
 		type DemoSequenceAsset,
+		type DemoUploadedVideoRgbdSequenceAsset,
 	} from '$lib/demo/assets.js';
 	import {
 		loadPreparedPointSequence,
@@ -36,6 +37,11 @@
 		extractRasterFromImage,
 	} from '$lib/demo/rgbdDerivedSequence.js';
 	import { buildDerivedRgbdSequenceDataInWorker } from '$lib/demo/rgbdDerivedSequenceClient.js';
+	import {
+		buildUploadedVideoRgbdSequence,
+		estimateUploadedVideoRgbdBuildMs,
+		type UploadedVideoRgbdSequenceResult,
+	} from '$lib/demo/rgbdVideoSequence.js';
 	import {
 		SEQUENCE_LOOK_PRESETS,
 		getSequenceLookPreset,
@@ -134,6 +140,7 @@
 	let sequenceBounds = $state<PreparedPointSequenceBounds | null>(null);
 	let sequenceReport = $state<PreparedPointSequenceReport | PreparedRgbdSequenceReport | null>(null);
 	let sequenceIsPlaying = $state(false);
+	let uploadedSequenceVideoFile = $state<File | null>(null);
 	let pendingObjectUrl = $state<string | null>(null);
 	let imagePipelineVersion = 0;
 	let imageLoadVersion = 0;
@@ -149,6 +156,7 @@
 	const imageAssetCache = new Map<string, HTMLImageElement>();
 	const rgbdSequenceFrameCache = new Map<string, readonly RgbdSequenceFrameData[]>();
 	const derivedRgbdSequenceCache = new Map<string, DerivedRgbdSequenceResult>();
+	const uploadedVideoSequenceCache = new Map<string, UploadedVideoRgbdSequenceResult>();
 	const selectedSequenceAsset = $derived(DEMO_SEQUENCE_ASSETS.find((asset) => asset.id === selectedSequenceAssetId) ?? null);
 	const selectedSequenceAssetKind = $derived(selectedSequenceAsset?.kind ?? 'point-sequence');
 	const selectedSequenceAssetSource = $derived(
@@ -308,6 +316,8 @@
 		sequenceReport = null;
 		sequenceStatus = '';
 		sequenceIsPlaying = false;
+		uploadedSequenceVideoFile = null;
+		uploadedVideoSequenceCache.clear();
 		glRenderer?.updateUniforms(renderParams);
 		handleResample();
 	}
@@ -506,7 +516,9 @@
 			if (asset.kind === 'rgbd-sequence') {
 				const { playbackSource, rawFrames, fetchMs } = asset.source === 'derived-image'
 					? await resolveDerivedRgbdSequence(asset, version)
-					: await resolveManifestRgbdSequence(asset);
+					: asset.source === 'uploaded-video'
+						? await resolveUploadedVideoRgbdSequence(asset, version)
+						: await resolveManifestRgbdSequence(asset);
 				if (version !== sequenceLoadVersion) return;
 
 				const initialClipId = resolveInitialSequenceClipId(
@@ -523,7 +535,7 @@
 					sizeVariation,
 					outlierRadius,
 					normalDisplacement,
-					alphaCutoff: asset.motion?.alphaCutoff,
+					alphaCutoff: 'motion' in asset ? asset.motion?.alphaCutoff : undefined,
 					frameParams,
 				} satisfies Parameters<typeof prepareRgbdSequenceData>[0]['sampling'];
 				const preparedData = await prepareRgbdSequenceForPlayback({
@@ -666,6 +678,64 @@
 		};
 	}
 
+	async function resolveUploadedVideoRgbdSequence(
+		asset: DemoUploadedVideoRgbdSequenceAsset,
+		version: number,
+	): Promise<{
+		playbackSource: UploadedVideoRgbdSequenceResult['source'];
+		rawFrames: readonly RgbdSequenceFrameData[];
+		fetchMs: number;
+	}> {
+		const file = uploadedSequenceVideoFile;
+		if (!file) {
+			throw new Error('Upload a recorded video before loading this RGBD sequence preset.');
+		}
+
+		const cacheKey = getUploadedVideoRgbdSequenceCacheKey(asset, file);
+		const cached = uploadedVideoSequenceCache.get(cacheKey);
+		if (cached) {
+			return {
+				playbackSource: cached.source,
+				rawFrames: cached.rawFrames,
+				fetchMs: 0,
+			};
+		}
+
+		const estimateMs = estimateUploadedVideoRgbdBuildMs({
+			frameCount: asset.maxFrameCount,
+			rasterWidth: asset.maxEdge,
+			rasterHeight: asset.maxEdge,
+			useEstimatedDepth: useDepthMap,
+		});
+		processingProgress = 0;
+		processingEstimatedRemainingMs = estimateMs;
+		processingStatus = buildUploadedVideoRgbdPreparationStartStatus(asset, file.name, estimateMs);
+
+		const built = await buildUploadedVideoRgbdSequence({
+			asset,
+			file,
+			useEstimatedDepth: useDepthMap,
+			depthModelIndex,
+			shouldCancel: () => version !== sequenceLoadVersion,
+			onProgress: (progress) => {
+				if (version !== sequenceLoadVersion) return;
+				processingProgress = progress.overallProgress;
+				processingEstimatedRemainingMs = progress.estimatedRemainingMs;
+				processingStatus = buildPreparationProgressStatus(progress);
+			},
+		});
+		if (version !== sequenceLoadVersion) {
+			return Promise.reject(new Error('Sequence load superseded.'));
+		}
+
+		uploadedVideoSequenceCache.set(cacheKey, built);
+		return {
+			playbackSource: built.source,
+			rawFrames: built.rawFrames,
+			fetchMs: 0,
+		};
+	}
+
 	function getDerivedRgbdSequenceCacheKey(asset: DemoDerivedRgbdSequenceAsset): string {
 		const bgKey = removeBg
 			? getBackgroundRemovalCacheKey(bgProvider, bgModelIndex, serverBgModelId)
@@ -674,6 +744,15 @@
 			? `depth-${depthModelIndex}`
 			: 'depth-luminance';
 		return `${asset.id}::${bgKey}::${depthKey}`;
+	}
+
+	function getUploadedVideoRgbdSequenceCacheKey(
+		asset: DemoUploadedVideoRgbdSequenceAsset,
+		file: File,
+	): string {
+		const fileKey = `${file.name}:${file.size}:${file.lastModified}`;
+		const depthKey = useDepthMap ? `depth-${depthModelIndex}` : 'depth-off';
+		return `${asset.id}::${fileKey}::${depthKey}`;
 	}
 
 	async function prepareRgbdSequenceForPlayback(options: {
@@ -828,6 +907,18 @@
 			return `Baking derived RGBD clip (${frameCount} frames)...`;
 		}
 		return `Baking derived RGBD clip (${frameCount} frames)... rough estimate ${formatDuration(estimateMs)}.`;
+	}
+
+	function buildUploadedVideoRgbdPreparationStartStatus(
+		asset: DemoUploadedVideoRgbdSequenceAsset,
+		fileName: string,
+		estimateMs: number,
+	): string {
+		const label = `Sampling uploaded video "${fileName}" into RGBD (${asset.maxFrameCount} frame cap)...`;
+		if (estimateMs < 5_000) {
+			return label;
+		}
+		return `${label} rough estimate ${formatDuration(estimateMs)}.`;
 	}
 
 	function buildPreparationProgressStatus(progress: {
@@ -1157,6 +1248,15 @@
 		img.src = objectUrl;
 	}
 
+	function handleVideoUpload(file: File) {
+		uploadedSequenceVideoFile = file;
+		uploadedVideoSequenceCache.clear();
+		selectedSequenceClipId = '';
+		if (mode === 'sequence' && selectedSequenceAssetSource === 'uploaded-video' && selectedSequenceAssetId) {
+			void loadSequenceAsset(selectedSequenceAssetId);
+		}
+	}
+
 	async function handleRemoveBg(enabled: boolean) {
 		removeBg = enabled;
 		if (mode === 'sequence' && selectedSequenceAssetSource === 'derived-image' && selectedSequenceAssetId) {
@@ -1199,7 +1299,11 @@
 
 	async function handleEstimateDepth(enabled: boolean) {
 		useDepthMap = enabled;
-		if (mode === 'sequence' && selectedSequenceAssetSource === 'derived-image' && selectedSequenceAssetId) {
+		if (
+			mode === 'sequence'
+			&& (selectedSequenceAssetSource === 'derived-image' || selectedSequenceAssetSource === 'uploaded-video')
+			&& selectedSequenceAssetId
+		) {
 			void loadSequenceAsset(selectedSequenceAssetId);
 			return;
 		}
@@ -1209,7 +1313,12 @@
 
 	async function handleDepthModelChange(index: number) {
 		depthModelIndex = index;
-		if (mode === 'sequence' && selectedSequenceAssetSource === 'derived-image' && useDepthMap && selectedSequenceAssetId) {
+		if (
+			mode === 'sequence'
+			&& (selectedSequenceAssetSource === 'derived-image' || selectedSequenceAssetSource === 'uploaded-video')
+			&& useDepthMap
+			&& selectedSequenceAssetId
+		) {
 			void loadSequenceAsset(selectedSequenceAssetId);
 			return;
 		}
@@ -1253,6 +1362,13 @@
 			const preset = getSequenceLookPreset(selectedSequenceLookPresetId);
 			if (preset) {
 				handleRenderParamsChange({ ...renderParams, ...preset.renderParams });
+			}
+		} else if (asset?.kind === 'rgbd-sequence' && asset.source === 'uploaded-video') {
+			if (asset.useEstimatedDepth != null) {
+				useDepthMap = asset.useEstimatedDepth;
+			}
+			if (asset.depthModelIndex != null) {
+				depthModelIndex = asset.depthModelIndex;
 			}
 		}
 		if (mode === 'sequence' && assetId) void loadSequenceAsset(assetId);
@@ -1401,6 +1517,7 @@
 			{selectedSequenceAssetId}
 			{selectedSequenceAssetKind}
 			{selectedSequenceAssetSource}
+			uploadedSequenceVideoName={uploadedSequenceVideoFile?.name ?? null}
 			{selectedSequenceClipId}
 			{selectedSequenceLookPresetId}
 			availableSequenceClipIds={availableSequenceClipIds}
@@ -1456,6 +1573,7 @@
 			onAlgorithmChange={handleAlgorithmChange}
 			onSampleCountChange={handleSampleCountChange}
 			onImageUpload={handleImageUpload}
+			onVideoUpload={handleVideoUpload}
 			onResample={handleResample}
 			onRemoveBg={handleRemoveBg}
 			onBgProviderChange={handleBgProviderChange}

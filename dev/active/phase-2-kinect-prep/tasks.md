@@ -70,7 +70,9 @@
 - [x] Record the hardware-blocked probe result and fallback non-hardware RGBD/body dataset shortlist in the phase docs
 - [x] Convert accessible UTD Kinect v2 depth+skeleton archives into raw point-sequence rehearsal clips with dataset-specific offline tooling
 - [x] Add the first UTD Kinect v2 rehearsal clips to the existing point-sequence path
+- [x] Add an uploaded recorded-video -> offline depth-estimation -> RGBD sequence rehearsal path that reuses the existing RGBD prep/playback runtime
 - [ ] Measure browser startup/memory for the UTD Kinect v2 rehearsal clips
+- [ ] Measure browser startup/memory for at least one representative uploaded-video RGBD rehearsal clip
 - [ ] Decide whether a second UTD conversion pass should add more gestures/views or whether effort should stay parked until hardware
 
 ## Integration
