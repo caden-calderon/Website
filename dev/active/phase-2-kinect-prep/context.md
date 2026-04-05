@@ -33,6 +33,7 @@ Hardware arrives in about a week. The goal is to finish the architecture and sca
 
 ## Current State Summary
 
+- `main` now includes the browser-side completion work plus the Kinect scaffold follow-up commits `4fb7cfa`, `185ea78`, and `413c632`
 - `PlyAdapter`, `FrameSequence`, `FrameSequenceLoader`, and `GLPointRenderer` are in place and covered by tests
 - synthetic point-sequence playback works in-browser
 - bounded ITOP clips can be converted into manifest + frame-file directories and loaded in the demo

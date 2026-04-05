@@ -38,6 +38,14 @@ Goal:
 
 ## Medium-Priority Next Steps
 
+### If hardware is still blocked
+
+Use the remaining time on better rehearsal inputs instead of speculative runtime changes:
+
+- look for additional non-hardware RGBD/body datasets beyond the current ITOP clips if they can exercise the raw point path or the RGBD export path more realistically
+- keep any dataset-specific conversion/downsampling outside the engine
+- favor datasets that help validate the capture-bundle/export contract, depth semantics, or browser memory envelope
+
 ### ITOP measurement result
 
 The raw point benchmark path is now measured:
@@ -100,4 +108,5 @@ Do this first:
 - inspect `assets.ts`
 - inspect `python/kinect_capture/capture.py`
 - inspect `python/kinect_capture/process.py`
+- if hardware is still unavailable, consider whether additional non-hardware RGBD/body data would de-risk the export path more than more mock-only plumbing
 - note that ITOP measurements are already recorded before making major new architecture changes
