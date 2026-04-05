@@ -242,6 +242,8 @@ Expensive RGBD prep now runs off the main thread.
 
 ### Uploaded-video RGBD controls
 - local video upload
+- target fps
+- frame cap
 - depth estimation on/off
 - depth model
 - shared RGBD sampling controls

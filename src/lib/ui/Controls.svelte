@@ -28,6 +28,8 @@
 		selectedSequenceAssetKind: 'point-sequence' | 'rgbd-sequence';
 		selectedSequenceAssetSource: 'manifest' | 'derived-image' | 'uploaded-video' | null;
 		uploadedSequenceVideoName: string | null;
+		uploadedVideoTargetFps: number;
+		uploadedVideoMaxFrameCount: number;
 		selectedSequenceClipId: string;
 		selectedSequenceLookPresetId: string;
 		availableSequenceClipIds: string[];
@@ -84,6 +86,8 @@
 		onSampleCountChange: (count: number) => void;
 		onImageUpload: (file: File) => void;
 		onVideoUpload: (file: File) => void;
+		onUploadedVideoTargetFpsChange: (fps: number) => void;
+		onUploadedVideoMaxFrameCountChange: (maxFrameCount: number) => void;
 		onResample: () => void;
 		onRemoveBg: (enabled: boolean) => void;
 		onBgProviderChange: (provider: BgRemovalProvider) => void;
@@ -108,6 +112,8 @@
 		selectedSequenceAssetKind,
 		selectedSequenceAssetSource,
 		uploadedSequenceVideoName,
+		uploadedVideoTargetFps = $bindable(),
+		uploadedVideoMaxFrameCount = $bindable(),
 		selectedSequenceClipId,
 		selectedSequenceLookPresetId,
 		availableSequenceClipIds,
@@ -164,6 +170,8 @@
 		onSampleCountChange,
 		onImageUpload,
 		onVideoUpload,
+		onUploadedVideoTargetFpsChange,
+		onUploadedVideoMaxFrameCountChange,
 		onResample,
 		onRemoveBg,
 		onBgProviderChange,
@@ -207,6 +215,8 @@
 	let showFrame = $state(true);
 	let showRender = $state(false);
 	let showBloom = $state(false);
+	const uploadedVideoFpsOptions = [6, 12, 24, 30];
+	const uploadedVideoFrameCapOptions = [24, 48, 72, 96, 120, 150];
 
 	function handleImageFileInput(e: Event) {
 		const input = e.target as HTMLInputElement;
@@ -797,6 +807,37 @@
 									</label>
 									<span class="break-words text-white/30">
 										{uploadedSequenceVideoName ? `selected: ${uploadedSequenceVideoName}` : 'No video uploaded yet.'}
+									</span>
+
+									<div class="flex min-w-0 items-center gap-2">
+										<span class="text-white/50">fps</span>
+										<select
+											class="min-w-0 flex-1 rounded bg-white/10 px-2 py-1 text-white/80"
+											value={uploadedVideoTargetFps}
+											onchange={(e) => onUploadedVideoTargetFpsChange(Number((e.target as HTMLSelectElement).value))}
+											disabled={!!processingStatus}
+										>
+											{#each uploadedVideoFpsOptions as fps}
+												<option value={fps}>{fps} fps</option>
+											{/each}
+										</select>
+									</div>
+
+									<div class="flex min-w-0 items-center gap-2">
+										<span class="text-white/50">cap</span>
+										<select
+											class="min-w-0 flex-1 rounded bg-white/10 px-2 py-1 text-white/80"
+											value={uploadedVideoMaxFrameCount}
+											onchange={(e) => onUploadedVideoMaxFrameCountChange(Number((e.target as HTMLSelectElement).value))}
+											disabled={!!processingStatus}
+										>
+											{#each uploadedVideoFrameCapOptions as frameCap}
+												<option value={frameCap}>{frameCap} frames</option>
+											{/each}
+										</select>
+									</div>
+									<span class="break-words text-white/30">
+										Current clip budget: up to {(uploadedVideoMaxFrameCount / uploadedVideoTargetFps).toFixed(1)} seconds before truncation.
 									</span>
 
 									<div class="rounded border border-white/10 bg-white/[0.03] p-2 text-white/35">

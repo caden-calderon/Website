@@ -22,6 +22,7 @@ The repo is in a good rehearsal state:
 - `Kinect2Dataset.zip` and `MultiViewDataset.zip` are now present locally
 - `pnpm convert:utd` now emits raw point-sequence rehearsal clips from those UTD Kinect v2 depth+skeleton archives
 - the browser demo now also exposes `recorded-video-rgbd-study`, which samples a bounded uploaded video clip offline, estimates per-frame depth, and routes the result through the existing RGBD sequence path
+- that uploaded-video branch now exposes user controls for target fps and frame cap so short clips can be pushed beyond the original 12 fps / 48-frame default
 
 The next session should not spend time rediscovering architecture. Read `architecture.md` first and continue with the items below.
 

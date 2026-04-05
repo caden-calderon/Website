@@ -98,7 +98,7 @@ Measured on 2026-04-04 with Headless Chromium 146.0.7680.164 against `pnpm run p
 - the accessible UTD Kinect v2 archives now make the raw point/body rehearsal branch concrete without further data requests
 - stylized RGBD rehearsal still depends on registered color + depth, so the real Kinect registration/export spike remains the critical hardware-dependent step
 - an additional pre-hardware art-first rehearsal branch now exists: uploaded recorded video -> offline browser frame sampling -> per-frame depth estimation -> existing RGBD prep/playback path
-- the first pass for that uploaded-video branch is intentionally bounded: 12 fps target, 48-frame cap, 640 px max edge, depth-estimation optional, no per-frame BG removal yet
+- the first pass for that uploaded-video branch is intentionally bounded but now user-tunable in the demo: fps target, frame cap, 640 px max edge, depth-estimation optional, no per-frame BG removal yet
 
 ## Most Important Gaps
 

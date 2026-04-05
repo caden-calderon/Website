@@ -99,6 +99,8 @@ export function estimateUploadedVideoRgbdBuildMs(options: {
 export async function buildUploadedVideoRgbdSequence(options: {
 	asset: DemoUploadedVideoRgbdSequenceAsset;
 	file: File;
+	targetFps: number;
+	maxFrameCount: number;
 	useEstimatedDepth: boolean;
 	depthModelIndex: number;
 	onProgress?: (progress: UploadedVideoRgbdSequenceBuildProgress) => void;
@@ -111,8 +113,8 @@ export async function buildUploadedVideoRgbdSequence(options: {
 			durationSeconds: videoHandle.video.duration,
 			sourceWidth: videoHandle.video.videoWidth,
 			sourceHeight: videoHandle.video.videoHeight,
-			targetFps: options.asset.fps,
-			maxFrameCount: options.asset.maxFrameCount,
+			targetFps: options.targetFps,
+			maxFrameCount: options.maxFrameCount,
 			maxEdge: options.asset.maxEdge,
 		});
 		const estimatedInitialMs = estimateUploadedVideoRgbdBuildMs({
@@ -199,6 +201,8 @@ export async function buildUploadedVideoRgbdSequence(options: {
 			asset: options.asset,
 			file: options.file,
 			plan,
+			targetFps: options.targetFps,
+			maxFrameCount: options.maxFrameCount,
 			depthMap: rawFrames[0]?.depthMap,
 			useEstimatedDepth: options.useEstimatedDepth,
 			depthModelIndex: options.depthModelIndex,
@@ -217,6 +221,8 @@ function buildUploadedVideoManifest(options: {
 	asset: DemoUploadedVideoRgbdSequenceAsset;
 	file: File;
 	plan: UploadedVideoFramePlan;
+	targetFps: number;
+	maxFrameCount: number;
 	depthMap?: DepthMap;
 	useEstimatedDepth: boolean;
 	depthModelIndex: number;
@@ -264,8 +270,8 @@ function buildUploadedVideoManifest(options: {
 		units: 'normalized-depth',
 		processing: {
 			source: 'uploaded-video',
-			maxFrameCount: options.asset.maxFrameCount,
-			targetFps: options.asset.fps,
+			maxFrameCount: options.maxFrameCount,
+			targetFps: options.targetFps,
 			maxEdge: options.asset.maxEdge,
 			useEstimatedDepth: options.useEstimatedDepth,
 			depthModelIndex: options.useEstimatedDepth ? options.depthModelIndex : null,

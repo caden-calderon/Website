@@ -141,6 +141,8 @@
 	let sequenceReport = $state<PreparedPointSequenceReport | PreparedRgbdSequenceReport | null>(null);
 	let sequenceIsPlaying = $state(false);
 	let uploadedSequenceVideoFile = $state<File | null>(null);
+	let uploadedVideoTargetFps = $state(12);
+	let uploadedVideoMaxFrameCount = $state(48);
 	let pendingObjectUrl = $state<string | null>(null);
 	let imagePipelineVersion = 0;
 	let imageLoadVersion = 0;
@@ -221,6 +223,8 @@
 		serverBgModelId: string;
 		useDepthMap: boolean;
 		depthModelIndex: number;
+		uploadedVideoTargetFps: number;
+		uploadedVideoMaxFrameCount: number;
 	}
 
 	function saveSettings() {
@@ -231,6 +235,7 @@
 			depthScale, densityGamma, radiusFromLuminance, sizeVariation,
 			outlierRadius, normalDisplacement, outerBackgroundColor,
 			innerBackgroundColor, frameParams, removeBg, bgProvider, bgModelIndex, serverBgModelId, useDepthMap, depthModelIndex,
+			uploadedVideoTargetFps, uploadedVideoMaxFrameCount,
 		};
 		localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 	}
@@ -271,6 +276,8 @@
 			if (s.serverBgModelId) serverBgModelId = s.serverBgModelId;
 			if (s.useDepthMap != null) useDepthMap = s.useDepthMap;
 			if (s.depthModelIndex != null) depthModelIndex = s.depthModelIndex;
+			if (s.uploadedVideoTargetFps != null) uploadedVideoTargetFps = s.uploadedVideoTargetFps;
+			if (s.uploadedVideoMaxFrameCount != null) uploadedVideoMaxFrameCount = s.uploadedVideoMaxFrameCount;
 
 			return true;
 		} catch {
@@ -310,6 +317,8 @@
 		serverBgModelId = SERVER_BG_REMOVAL_MODELS[0].id;
 		useDepthMap = false;
 		depthModelIndex = 0;
+		uploadedVideoTargetFps = 12;
+		uploadedVideoMaxFrameCount = 48;
 		activeSequence = null;
 		availableSequenceClips = [];
 		sequenceBounds = null;
@@ -702,18 +711,20 @@
 		}
 
 		const estimateMs = estimateUploadedVideoRgbdBuildMs({
-			frameCount: asset.maxFrameCount,
+			frameCount: uploadedVideoMaxFrameCount,
 			rasterWidth: asset.maxEdge,
 			rasterHeight: asset.maxEdge,
 			useEstimatedDepth: useDepthMap,
 		});
 		processingProgress = 0;
 		processingEstimatedRemainingMs = estimateMs;
-		processingStatus = buildUploadedVideoRgbdPreparationStartStatus(asset, file.name, estimateMs);
+		processingStatus = buildUploadedVideoRgbdPreparationStartStatus(file.name, estimateMs);
 
 		const built = await buildUploadedVideoRgbdSequence({
 			asset,
 			file,
+			targetFps: uploadedVideoTargetFps,
+			maxFrameCount: uploadedVideoMaxFrameCount,
 			useEstimatedDepth: useDepthMap,
 			depthModelIndex,
 			shouldCancel: () => version !== sequenceLoadVersion,
@@ -752,7 +763,7 @@
 	): string {
 		const fileKey = `${file.name}:${file.size}:${file.lastModified}`;
 		const depthKey = useDepthMap ? `depth-${depthModelIndex}` : 'depth-off';
-		return `${asset.id}::${fileKey}::${depthKey}`;
+		return `${asset.id}::${fileKey}::${uploadedVideoTargetFps}fps::${uploadedVideoMaxFrameCount}frames::${depthKey}`;
 	}
 
 	async function prepareRgbdSequenceForPlayback(options: {
@@ -910,11 +921,10 @@
 	}
 
 	function buildUploadedVideoRgbdPreparationStartStatus(
-		asset: DemoUploadedVideoRgbdSequenceAsset,
 		fileName: string,
 		estimateMs: number,
 	): string {
-		const label = `Sampling uploaded video "${fileName}" into RGBD (${asset.maxFrameCount} frame cap)...`;
+		const label = `Sampling uploaded video "${fileName}" into RGBD (${uploadedVideoTargetFps} fps, ${uploadedVideoMaxFrameCount} frame cap)...`;
 		if (estimateMs < 5_000) {
 			return label;
 		}
@@ -1257,6 +1267,22 @@
 		}
 	}
 
+	function handleUploadedVideoTargetFpsChange(fps: number) {
+		uploadedVideoTargetFps = fps;
+		uploadedVideoSequenceCache.clear();
+		if (mode === 'sequence' && selectedSequenceAssetSource === 'uploaded-video' && selectedSequenceAssetId) {
+			void loadSequenceAsset(selectedSequenceAssetId);
+		}
+	}
+
+	function handleUploadedVideoMaxFrameCountChange(maxFrameCount: number) {
+		uploadedVideoMaxFrameCount = maxFrameCount;
+		uploadedVideoSequenceCache.clear();
+		if (mode === 'sequence' && selectedSequenceAssetSource === 'uploaded-video' && selectedSequenceAssetId) {
+			void loadSequenceAsset(selectedSequenceAssetId);
+		}
+	}
+
 	async function handleRemoveBg(enabled: boolean) {
 		removeBg = enabled;
 		if (mode === 'sequence' && selectedSequenceAssetSource === 'derived-image' && selectedSequenceAssetId) {
@@ -1364,6 +1390,8 @@
 				handleRenderParamsChange({ ...renderParams, ...preset.renderParams });
 			}
 		} else if (asset?.kind === 'rgbd-sequence' && asset.source === 'uploaded-video') {
+			uploadedVideoTargetFps = asset.fps;
+			uploadedVideoMaxFrameCount = asset.maxFrameCount;
 			if (asset.useEstimatedDepth != null) {
 				useDepthMap = asset.useEstimatedDepth;
 			}
@@ -1518,6 +1546,8 @@
 			{selectedSequenceAssetKind}
 			{selectedSequenceAssetSource}
 			uploadedSequenceVideoName={uploadedSequenceVideoFile?.name ?? null}
+			bind:uploadedVideoTargetFps
+			bind:uploadedVideoMaxFrameCount
 			{selectedSequenceClipId}
 			{selectedSequenceLookPresetId}
 			availableSequenceClipIds={availableSequenceClipIds}
@@ -1574,6 +1604,8 @@
 			onSampleCountChange={handleSampleCountChange}
 			onImageUpload={handleImageUpload}
 			onVideoUpload={handleVideoUpload}
+			onUploadedVideoTargetFpsChange={handleUploadedVideoTargetFpsChange}
+			onUploadedVideoMaxFrameCountChange={handleUploadedVideoMaxFrameCountChange}
 			onResample={handleResample}
 			onRemoveBg={handleRemoveBg}
 			onBgProviderChange={handleBgProviderChange}
