@@ -18,6 +18,7 @@ The repo is in a good rehearsal state:
 - `capture.py mock-bundle` writes a raw registered capture bundle
 - `process.py export-rgbd` converts that bundle into the browser RGBD manifest format
 - a mock registered Kinect-style RGBD clip can be generated end-to-end with `pnpm generate:test-kinect-rgbd`
+- the current local environment still reports `backend_available: false` for `python3 -m python.kinect_capture.capture probe`
 
 The next session should not spend time rediscovering architecture. Read `architecture.md` first and continue with the items below.
 
@@ -42,9 +43,12 @@ Goal:
 
 Use the remaining time on better rehearsal inputs instead of speculative runtime changes:
 
-- look for additional non-hardware RGBD/body datasets beyond the current ITOP clips if they can exercise the raw point path or the RGBD export path more realistically
+- use the shortlist in `dev/active/phase-2-kinect-prep/datasets.md`
+- first preference: convert one small Bonn RGB-D Dynamic or TUM RGB-D clip because both already provide aligned RGB + depth and can exercise the current RGBD export/playback path immediately
+- second preference: use a bounded Kinect V2 body dataset later if the goal shifts from export-contract rehearsal to fuller motion/body benchmarking
 - keep any dataset-specific conversion/downsampling outside the engine
 - favor datasets that help validate the capture-bundle/export contract, depth semantics, or browser memory envelope
+- avoid speculative capture/runtime refactors while the hardware path is still unverifiable on this machine
 
 ### ITOP measurement result
 
@@ -108,5 +112,6 @@ Do this first:
 - inspect `assets.ts`
 - inspect `python/kinect_capture/capture.py`
 - inspect `python/kinect_capture/process.py`
-- if hardware is still unavailable, consider whether additional non-hardware RGBD/body data would de-risk the export path more than more mock-only plumbing
+- inspect `dev/active/phase-2-kinect-prep/datasets.md`
+- if hardware is still unavailable, prefer one small aligned RGBD dataset conversion over more mock-only plumbing
 - note that ITOP measurements are already recorded before making major new architecture changes

@@ -281,3 +281,4 @@ Interpretation:
 3. `dev/active/phase-2-kinect-prep/architecture.md`
 4. `dev/active/phase-2-kinect-prep/next.md`
 5. `dev/active/phase-2-kinect-prep/tasks.md`
+6. `dev/active/phase-2-kinect-prep/datasets.md` if the hardware path is still blocked

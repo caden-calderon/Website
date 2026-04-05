@@ -67,6 +67,8 @@
 - [x] Define a raw registered capture-bundle contract between `capture.py` and `process.py`
 - [ ] Replace the mock `capture.py` bundle writer with live libfreenect2 registration output once captured frames exist
 - [ ] Extend `process.py` from capture-bundle export to live registration-backed XYZRGB export once captured frames exist
+- [x] Record the hardware-blocked probe result and fallback non-hardware RGBD/body dataset shortlist in the phase docs
+- [ ] Convert one small aligned Bonn RGB-D Dynamic or TUM RGB-D clip into the existing RGBD manifest/frame layout with dataset-specific offline tooling
 
 ## Integration
 
