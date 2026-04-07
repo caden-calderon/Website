@@ -28,7 +28,16 @@ The next session should not spend time rediscovering architecture. Read `archite
 
 ## Highest-Priority Next Steps
 
-### 1. Prepare the real Kinect RGBD path
+### 1. Establish the production capture split
+
+Treat the two capture lanes as separate on purpose:
+
+- primary production lane: recorded video + offline depth estimation
+- parallel truth/R&D lane: real Kinect registered RGBD
+
+Do not block the video-first art path on perfect Kinect bring-up, and do not throw away the Kinect path just because it is not the preferred final look.
+
+### 2. Prepare the real Kinect RGBD path
 
 This is the next major architecture step once hardware/export data is available:
 
@@ -41,9 +50,32 @@ This is the next major architecture step once hardware/export data is available:
 Goal:
 - the pre-hardware browser-side work and export-contract scaffolding are already complete; the next meaningful phase work starts with one real registered Kinect RGBD clip routed through the existing capture-bundle -> export-rgbd -> manifest/source path
 
+### 3. Define the first offline video-depth bake path
+
+This is now the main art-path engineering step:
+
+- keep using the browser uploaded-video branch for fast preview and look tuning
+- add an offline/server-side depth backend for higher-quality final bakes
+- current model recommendation:
+  - preview: `DA V2 Base (fp16)`
+  - first offline video target: `Video Depth Anything`
+  - secondary comparison target: `Depth Pro`
+- do not start with hybrid iPhone+Kinect capture; it adds synchronization and alignment problems before there is a proven need
+- first provider choice: `Runpod Pods`
+- first hardware choice: `A100 80GB`
+- do not wait for a turnkey API if the best checkpoint is not already hosted
+- do not start with TPU unless a later model/runtime makes that path clearly easier
+
+Goal:
+- one recorded clip should be able to move through:
+  - video capture
+  - offline depth bake
+  - existing RGBD prep/playback path
+  - without inventing a second runtime
+
 ## Medium-Priority Next Steps
 
-### If hardware is still blocked
+### If hardware bring-up is slower than expected
 
 Use the remaining time on the two pre-hardware rehearsal branches instead of speculative runtime changes:
 
@@ -65,6 +97,34 @@ This is now the highest-value non-hardware art-direction branch:
 - record startup/memory numbers once a representative clip is chosen
 - keep this path routed through the current RGBD prep/playback runtime rather than adding a separate video runtime
 - do not confuse this branch with real Kinect RGBD; it is for visual rehearsal, not sensor-faithful registration testing
+
+### Depth-model direction
+
+Current recommendation, based on official project claims as of 2026-04-07:
+
+- `Video Depth Anything`
+  - first model to test for final offline video bakes
+  - best fit for this project because temporal consistency matters more than single-frame sharpness alone
+- `Depth Pro`
+  - strong per-frame comparison candidate, especially for boundary sharpness and metric monocular depth
+  - use as a benchmark against per-frame DA/Depth Pro style pipelines, not as the first default for full videos
+- `Depth Anything V2`
+  - keep as the current browser preview model family and a lightweight offline fallback
+- `DepthCrafter`
+  - promising, but heavier and not the first integration target unless Video Depth Anything proves insufficient
+
+### Provider direction
+
+Current recommendation, based on official provider/model docs as of 2026-04-07:
+
+- `Runpod Pods`
+  - first provider to use for remote video-depth bakes
+  - best mix of low setup friction, acceptable reliability, and cost for ad hoc GPU jobs
+- `Google Cloud GPU`
+  - viable later if we want deeper cloud integration, but not the first cost/complexity choice here
+- `Google Cloud TPU`
+  - not the first path for `Video Depth Anything`
+  - the model is published as a standard GPU-oriented PyTorch stack, not a TPU-first workflow
 
 ### ITOP measurement result
 
@@ -107,6 +167,7 @@ If eager preload looks marginal, next architecture step is:
 - do not shove dataset-specific conversion into the engine
 - do not replace raw point playback with stylized RGBD playback
 - do not spend time on live webcam/runtime work yet
+- do not jump straight into hybrid iPhone+Kinect capture without a concrete calibration/sync plan
 
 ## If Kinect Hardware Or Exports Are Suddenly Available
 

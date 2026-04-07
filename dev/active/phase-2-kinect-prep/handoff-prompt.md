@@ -33,14 +33,23 @@ Current status:
 - the accessible UTD Kinect v2 archives are now the active pre-hardware rehearsal source for the raw point/body branch
 - `pnpm convert:utd` now generates `utd-kinect2-high-wave`, `utd-kinect2-hand-clap`, and `utd-multiview-front-throw`
 - the browser demo now includes `recorded-video-rgbd-study` for uploaded recorded video -> offline depth estimation -> RGBD-sequence rehearsal on the existing RGBD runtime
+- production direction is now video-first for art, with Kinect retained as a parallel truth/R&D branch rather than the primary art path
+- current depth-model direction:
+  - browser preview: `DA V2 Base (fp16)`
+  - first offline/final video-depth target: `Video Depth Anything`
+  - secondary comparison target: `Depth Pro`
+- current provider direction:
+  - first remote provider: `Runpod Pods`
+  - first GPU target: `A100 80GB`
+  - do not start with TPU for the current first-choice model
 
 First tasks:
 
 1. Confirm the handoff docs are current and commit/push them if needed.
 2. Treat the pre-hardware browser-side work and Kinect capture/export scaffolding as complete and keep the docs aligned with that state.
-3. Continue with the next highest-value branch:
-   - preferred: replace the mock capture-bundle inputs in `python/kinect_capture/capture.py` with real registered Kinect outputs, then run a one-frame registration/export spike
-   - fallback if hardware is still unavailable: keep tuning against the converted local UTD raw point clips for the truth branch and against `recorded-video-rgbd-study` for the art-first RGBD branch
+3. Continue with the next highest-value branches:
+   - first: replace the mock capture-bundle inputs in `python/kinect_capture/capture.py` with real registered Kinect outputs, then run a one-frame registration/export spike
+   - in parallel: start the first offline video-depth bake path for recorded video on `Runpod`, targeting `Metric-Video-Depth-Anything-Large`
 4. In either branch:
    - keep dataset-specific conversion and downsampling outside the engine
    - use registered color + depth as the source of truth for the real Kinect path

@@ -20,6 +20,11 @@ There are now two separate playback surfaces and they must stay separate:
 
 Do not collapse these into one abstraction. The raw path is the benchmark path. The stylized path is the art path.
 
+The current ingestion priority is:
+
+1. recorded video + offline depth estimation for production-facing art
+2. Kinect registered RGBD for truth/depth grounding and future hybrid R&D
+
 ## Core Engine Contracts
 
 ### `SampleSet.count`
@@ -171,6 +176,8 @@ Used for art-direction rehearsal that is closer to real recorded performance tha
 5. Prepare sampled frames
 6. Build `FrameSequence`
 
+This path is now the primary art-direction capture path.
+
 Files involved:
 - `src/lib/demo/rgbdVideoSequence.ts`
 - `src/lib/demo/PointEngineDemo.svelte`
@@ -250,6 +257,37 @@ Expensive RGBD prep now runs off the main thread.
 
 First pass constraint:
 - uploaded-video rehearsal currently skips per-frame BG removal and focuses on bounded video + depth-estimation rehearsal
+
+## Depth Backend Direction
+
+There are now two depth-model tiers:
+
+1. Browser preview tier
+- current default: `Depth Anything V2 Base (fp16)` in the demo
+- purpose: fast local iteration and visual tuning
+
+2. Offline/server bake tier
+- first target: `Video Depth Anything`
+- secondary comparison target: `Depth Pro`
+- optional later/heavier experiment: `DepthCrafter`
+
+Reason:
+- temporal consistency matters more than per-frame sharpness for final recorded performance clips
+- the browser path is for tuning, not necessarily the final bake quality ceiling
+
+## Remote Execution Direction
+
+The first remote execution target is:
+
+- provider: `Runpod Pods`
+- model: `Metric-Video-Depth-Anything-Large`
+- preferred GPU: `A100 80GB`
+
+Operational stance:
+
+- treat the browser model path as preview-only
+- treat the remote pod path as the first serious final-bake path
+- do not assume TPU support for the current first-choice model
 
 Manifest-backed RGBD clips do not expose live BG/depth preprocessing controls because those clips are already precomputed.
 

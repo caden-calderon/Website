@@ -60,13 +60,13 @@
 ## Kinect Scaffold
 
 - [x] Create `capture.py`
-- [ ] Run a one-frame registration/export spike as soon as hardware arrives
+- [ ] Run a one-frame registration/export spike now that hardware is available
 - [x] Create `process.py` scaffold with capture-bundle -> RGBD manifest export
 - [x] Create `hands.py`
 - [x] Write README/setup notes for Arch Linux and libfreenect2
 - [x] Define a raw registered capture-bundle contract between `capture.py` and `process.py`
-- [ ] Replace the mock `capture.py` bundle writer with live libfreenect2 registration output once captured frames exist
-- [ ] Extend `process.py` from capture-bundle export to live registration-backed XYZRGB export once captured frames exist
+- [ ] Replace the mock `capture.py` bundle writer with live libfreenect2 registration output
+- [ ] Extend `process.py` from capture-bundle export to live registration-backed XYZRGB export
 - [x] Record the hardware-blocked probe result and fallback non-hardware RGBD/body dataset shortlist in the phase docs
 - [x] Convert accessible UTD Kinect v2 depth+skeleton archives into raw point-sequence rehearsal clips with dataset-specific offline tooling
 - [x] Add the first UTD Kinect v2 rehearsal clips to the existing point-sequence path
@@ -74,6 +74,10 @@
 - [ ] Measure browser startup/memory for the UTD Kinect v2 rehearsal clips
 - [ ] Measure browser startup/memory for at least one representative uploaded-video RGBD rehearsal clip
 - [ ] Decide whether a second UTD conversion pass should add more gestures/views or whether effort should stay parked until hardware
+- [ ] Define the first offline/server video-depth bake path for recorded clips
+- [ ] Benchmark `Video Depth Anything` against at least one per-frame alternative on a representative recorded clip
+- [ ] Bring up the first remote `Runpod` depth-bake pod for `Metric-Video-Depth-Anything-Large`
+- [ ] Define how baked depth outputs are copied back into the repo for RGBD playback preparation
 
 ## Integration
 
