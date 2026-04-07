@@ -73,6 +73,15 @@ The goal of Phase 2 is now to finish both paths without confusing their roles.
   - first GPU target: `A100 80GB`
   - fallback GPU target: `H100 80GB` if speed matters more than cost
   - do not start with TPU for the current first-choice model
+- the first remote bake has now been proven on a `Runpod A100 PCIe 80GB` pod using `Metric-Video-Depth-Anything-Large`
+- the proven artifact contract from that bake is:
+  - original source video remains local
+  - baked depth comes back as `*_depths.npz`
+  - the `npz` currently stores one `depths` array shaped `(frames, height, width)` in `float32`
+  - `PLY` frames, preview videos, and EXR frames are optional side artifacts, not the primary ingest contract
+- reusable pod scripts now live in:
+  - `scripts/runpod/setup-video-depth-anything.sh`
+  - `scripts/runpod/run-vda-metric-large.sh`
 - `pnpm check` and `pnpm test` are green
 - the ITOP `.gz` data files and generated `tmp/` outputs are local artifacts and are not committed
 
@@ -125,6 +134,7 @@ Measured on 2026-04-04 with Headless Chromium 146.0.7680.164 against `pnpm run p
   - run `Metric-Video-Depth-Anything-Large`
   - bake depth outputs offline
   - route the results back into the existing RGBD prep/playback path
+- the pod setup friction is now understood, so the repo should own reusable setup/run scripts instead of repeating manual package/debug work
 
 ## Most Important Gaps
 

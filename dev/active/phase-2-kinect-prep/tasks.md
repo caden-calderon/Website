@@ -74,10 +74,13 @@
 - [ ] Measure browser startup/memory for the UTD Kinect v2 rehearsal clips
 - [ ] Measure browser startup/memory for at least one representative uploaded-video RGBD rehearsal clip
 - [ ] Decide whether a second UTD conversion pass should add more gestures/views or whether effort should stay parked until hardware
-- [ ] Define the first offline/server video-depth bake path for recorded clips
+- [x] Define the first offline/server video-depth bake path for recorded clips
 - [ ] Benchmark `Video Depth Anything` against at least one per-frame alternative on a representative recorded clip
-- [ ] Bring up the first remote `Runpod` depth-bake pod for `Metric-Video-Depth-Anything-Large`
-- [ ] Define how baked depth outputs are copied back into the repo for RGBD playback preparation
+- [x] Bring up the first remote `Runpod` depth-bake pod for `Metric-Video-Depth-Anything-Large`
+- [x] Define the first returned artifact contract as `video.mp4 + *_depths.npz`
+- [x] Add reusable Runpod setup/run scripts for future `Metric-Video-Depth-Anything-Large` sessions
+- [ ] Implement the offline converter from `video.mp4 + *_depths.npz` into the existing RGBD manifest/frame layout
+- [ ] Decide whether to also support returned `PLY` frames as an optional raw point-sequence path
 
 ## Integration
 

@@ -65,6 +65,10 @@ This is now the main art-path engineering step:
 - first hardware choice: `A100 80GB`
 - do not wait for a turnkey API if the best checkpoint is not already hosted
 - do not start with TPU unless a later model/runtime makes that path clearly easier
+- the first successful remote proof used:
+  - `Runpod A100 PCIe 80GB`
+  - `Metric-Video-Depth-Anything-Large`
+  - `*_depths.npz` as the artifact to bring back into this repo
 
 Goal:
 - one recorded clip should be able to move through:
@@ -72,6 +76,11 @@ Goal:
   - offline depth bake
   - existing RGBD prep/playback path
   - without inventing a second runtime
+
+Immediate implementation follow-up:
+- add an offline converter in this repo for `video.mp4 + *_depths.npz -> RGBD sequence manifest`
+- keep `PLY` output as optional debug/raw data, not the main production artifact
+- use `scripts/runpod/setup-video-depth-anything.sh` and `scripts/runpod/run-vda-metric-large.sh` for repeatable future pod sessions instead of repeating manual setup/debug steps
 
 ## Medium-Priority Next Steps
 
@@ -126,6 +135,11 @@ Current recommendation, based on official provider/model docs as of 2026-04-07:
   - not the first path for `Video Depth Anything`
   - the model is published as a standard GPU-oriented PyTorch stack, not a TPU-first workflow
 
+The first real bake also showed:
+- shell SSH on Runpod is usable
+- file transfer support is awkward enough that browser/Jupyter upload/download is the safer default for ad hoc sessions
+- repeated pod setup should be scripted, not done manually
+
 ### ITOP measurement result
 
 The raw point benchmark path is now measured:
@@ -152,6 +166,11 @@ Desired future workflow:
 2. lock settings
 3. run offline bake on source RGBD clips
 4. playback uses precomputed prepared assets
+
+The first concrete offline artifact target is now:
+- `video.mp4`
+- `*_depths.npz`
+- converted into the existing app-layer RGBD manifest/frame layout
 
 ### Chunked playback decision
 

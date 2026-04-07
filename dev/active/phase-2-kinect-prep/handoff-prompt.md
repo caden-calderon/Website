@@ -42,6 +42,14 @@ Current status:
   - first remote provider: `Runpod Pods`
   - first GPU target: `A100 80GB`
   - do not start with TPU for the current first-choice model
+- the first remote run is now proven:
+  - provider: `Runpod`
+  - GPU: `A100 PCIe 80GB`
+  - model: `Metric-Video-Depth-Anything-Large`
+  - returned artifact contract: `video.mp4 + *_depths.npz`
+  - repeatable pod setup/run scripts now live in:
+    - `scripts/runpod/setup-video-depth-anything.sh`
+    - `scripts/runpod/run-vda-metric-large.sh`
 
 First tasks:
 
@@ -49,7 +57,7 @@ First tasks:
 2. Treat the pre-hardware browser-side work and Kinect capture/export scaffolding as complete and keep the docs aligned with that state.
 3. Continue with the next highest-value branches:
    - first: replace the mock capture-bundle inputs in `python/kinect_capture/capture.py` with real registered Kinect outputs, then run a one-frame registration/export spike
-   - in parallel: start the first offline video-depth bake path for recorded video on `Runpod`, targeting `Metric-Video-Depth-Anything-Large`
+   - in parallel: implement the offline converter from `video.mp4 + *_depths.npz` into the existing RGBD manifest/playback path
 4. In either branch:
    - keep dataset-specific conversion and downsampling outside the engine
    - use registered color + depth as the source of truth for the real Kinect path

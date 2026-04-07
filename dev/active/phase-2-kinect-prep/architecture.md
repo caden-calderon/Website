@@ -289,6 +289,30 @@ Operational stance:
 - treat the remote pod path as the first serious final-bake path
 - do not assume TPU support for the current first-choice model
 
+The first proven remote run used:
+
+- provider: `Runpod`
+- GPU: `A100 PCIe 80GB`
+- model: `Metric-Video-Depth-Anything-Large`
+
+Observed returned artifacts:
+
+- `*_depths.npz`
+- `*_src.mp4`
+- `*_vis.mp4`
+- `pointXXXX.ply`
+- optional EXR depth frames when enabled
+
+Primary ingest contract moving forward:
+
+- keep the original source video locally
+- download `*_depths.npz`
+- convert `video.mp4 + *_depths.npz` into the existing RGBD sequence format
+
+Secondary/optional contract:
+
+- treat returned `PLY` frames as a possible raw/debug playback branch, not the primary production path
+
 Manifest-backed RGBD clips do not expose live BG/depth preprocessing controls because those clips are already precomputed.
 
 ## Current Constraints
