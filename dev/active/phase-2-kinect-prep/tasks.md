@@ -85,6 +85,7 @@
 - [x] Generalize app-layer RGBD source registration to discover arbitrary local converted studies
 - [x] Record the first human converted-VDA playback result and the conclusion that monocular depth is insufficient for forward-reaching production motion
 - [ ] Define the narrow hybrid spike: camera RGB + Kinect depth + offline alignment into the existing RGBD manifest path
+- [ ] Define how RGB contributes beyond literal color in the hybrid path: detail guidance, edge cues, and optional monochrome/stylized palette handling
 - [ ] Decide whether to also support returned `PLY` frames as an optional raw point-sequence path
 
 ## Integration

@@ -146,7 +146,10 @@ Measured on 2026-04-04 with Headless Chromium 146.0.7680.164 against `pnpm run p
   - keep recorded video + depth estimation as a useful art/look-dev branch
   - do not trust monocular/video depth alone for the main production geometry path when forward-reaching motion matters
   - keep the Kinect path alive not just as R&D but as the likely primary depth-truth input
-  - investigate a hybrid path where camera RGB carries the look and Kinect depth carries the actual spatial extension
+  - investigate a hybrid path where camera RGB carries high-frequency appearance/detail structure and Kinect depth carries the actual spatial extension
+  - RGB is not just a color source in that hybrid path:
+    - it should help face readability, clothing folds, hand/finger edges, hair contours, and smoother perceived curvature
+    - it may still be essential even if the final palette becomes mostly monochrome or emotion-driven rather than literal video color
 - the first serious offline execution plan is now:
   - rent a Runpod GPU pod
   - run `Metric-Video-Depth-Anything-Large`

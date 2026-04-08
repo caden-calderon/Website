@@ -61,6 +61,10 @@ Current status:
   - the browser/runtime path works
   - but monocular/video-depth flattening is still too weak for forward-reaching motion
   - so the next main branch is a narrow hybrid spike using camera RGB plus Kinect depth, not more monocular-model chasing
+- the hybrid rationale is now more specific:
+  - Kinect depth should provide the low-frequency geometry truth, especially for forward-reaching limbs
+  - camera RGB should provide high-frequency perceptual detail: face readability, clothing folds, hand/finger edges, hair contours, and smoother perceived form
+  - RGB is not just for literal color; it may still be essential even if the final palette becomes mostly monochrome or stylized
 
 First tasks:
 
@@ -73,6 +77,12 @@ First tasks:
    - keep dataset-specific conversion and downsampling outside the engine
    - use registered color + depth as the source of truth for the real Kinect path
    - route any real or rehearsal RGBD clip through the existing RGBD prep/playback path rather than inventing a parallel runtime
+
+When planning the hybrid spike, optimize for this artistic target:
+
+- reduce the topographical-map feel of raw Kinect depth
+- preserve real arm extension toward camera
+- use RGB to improve perceived curvature/detail rather than assuming the final render must keep literal camera color
 
 Constraints still in force:
 

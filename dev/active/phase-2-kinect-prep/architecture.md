@@ -329,9 +329,20 @@ Current interpretation after the first real converted human-clip playback:
 - forward-reaching limbs are flattened enough that the result misses the spatial behavior the piece needs
 - so the most defensible architecture is no longer “best monocular model first”
 - it is:
-  - camera RGB for the look
+  - camera RGB for high-frequency appearance/detail structure
   - Kinect depth for the spatial truth
   - offline alignment and export into the same RGBD manifest/runtime path
+
+Important nuance:
+
+- RGB is not only useful as literal color
+- even if the final rendering becomes mostly monochrome, RGB still carries:
+  - face and clothing detail
+  - hand/finger edge cues
+  - hair contours
+  - edge-aware guidance that can make Kinect depth feel less like a topographical map
+- the intended art path is therefore not “paint RGB over Kinect”
+- it is “use Kinect for low-frequency geometry truth and RGB for high-frequency perceptual detail”
 
 Manifest-backed RGBD clips do not expose live BG/depth preprocessing controls because those clips are already precomputed.
 

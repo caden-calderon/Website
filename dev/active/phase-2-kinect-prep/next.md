@@ -130,9 +130,14 @@ This is now the highest-value production branch:
 - capture Kinect depth for the same action
 - align camera RGB to Kinect depth offline
 - export the result into the same RGBD manifest/runtime path already in place
+- treat the hybrid roles explicitly as:
+  - Kinect depth = low-frequency geometry truth
+  - camera RGB = high-frequency appearance/detail guidance
+  - final palette may be literal color, stylized color, or mostly monochrome; RGB is still useful either way
 
 Success criterion:
 - the aligned hybrid clip should preserve real arm extension toward camera in a way the monocular/video-depth branch does not
+- the resulting stylized playback should feel less like a stepped topographical scan and closer to the smoother sculptural/detail-rich target references
 
 ### Depth-model direction
 
