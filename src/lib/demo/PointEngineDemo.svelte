@@ -9,6 +9,7 @@
 		DEMO_IMAGE_ASSETS,
 		DEMO_MESH_ASSETS,
 		DEMO_SEQUENCE_ASSETS,
+		type DemoManifestRgbdSequenceAsset,
 		type DemoDerivedRgbdSequenceAsset,
 		type DemoImageAsset,
 		type DemoMeshAsset,
@@ -92,12 +93,24 @@
 		selectSequenceAsset: (assetId: string) => void;
 	}
 
+	interface ListedManifestSequenceAssetResponse {
+		sources: Array<{
+			id: string;
+			label: string;
+			description: string;
+			manifestUrl: string;
+			initialClipId?: string;
+			builtin: boolean;
+		}>;
+	}
+
 	// ── Tunable state ────────────────────────────────────────────────────
 	let renderParams = $state<RenderParams>({ ...DEFAULT_RENDER_PARAMS });
 	let bloomParams = $state<BloomParams>({ ...DEFAULT_BLOOM_PARAMS });
 	let mode = $state<'mesh' | 'image' | 'sequence'>('mesh');
 	let selectedMeshAssetId = $state(DEMO_MESH_ASSETS[0]?.id ?? 'procedural');
 	let selectedImageAssetId = $state(DEMO_IMAGE_ASSETS[0]?.id ?? '');
+	let sequenceAssets = $state<DemoSequenceAsset[]>([...DEMO_SEQUENCE_ASSETS]);
 	let selectedSequenceAssetId = $state(DEMO_SEQUENCE_ASSETS[0]?.id ?? '');
 	let selectedSequenceClipId = $state('');
 	let selectedSequenceLookPresetId = $state('painted-figure');
@@ -159,7 +172,7 @@
 	const rgbdSequenceFrameCache = new Map<string, readonly RgbdSequenceFrameData[]>();
 	const derivedRgbdSequenceCache = new Map<string, DerivedRgbdSequenceResult>();
 	const uploadedVideoSequenceCache = new Map<string, UploadedVideoRgbdSequenceResult>();
-	const selectedSequenceAsset = $derived(DEMO_SEQUENCE_ASSETS.find((asset) => asset.id === selectedSequenceAssetId) ?? null);
+	const selectedSequenceAsset = $derived(sequenceAssets.find((asset) => asset.id === selectedSequenceAssetId) ?? null);
 	const selectedSequenceAssetKind = $derived(selectedSequenceAsset?.kind ?? 'point-sequence');
 	const selectedSequenceAssetSource = $derived(
 		selectedSequenceAsset?.kind === 'rgbd-sequence' ? selectedSequenceAsset.source : null,
@@ -292,7 +305,7 @@
 		mode = 'mesh';
 		selectedMeshAssetId = DEMO_MESH_ASSETS[0]?.id ?? 'procedural';
 		selectedImageAssetId = DEMO_IMAGE_ASSETS[0]?.id ?? '';
-		selectedSequenceAssetId = DEMO_SEQUENCE_ASSETS[0]?.id ?? '';
+		selectedSequenceAssetId = sequenceAssets[0]?.id ?? '';
 		selectedSequenceClipId = '';
 		selectedSequenceLookPresetId = 'painted-figure';
 		sequenceMaxPointsPerFrame = 12000;
@@ -359,6 +372,41 @@
 		processingEstimatedRemainingMs = null;
 	}
 
+	async function loadDynamicManifestSequenceAssets() {
+		try {
+			const response = await fetch('/api/rgbd-sequences');
+			if (!response.ok) {
+				throw new Error(`Failed to list RGBD sequences (${response.status} ${response.statusText}).`);
+			}
+			const payload = (await response.json()) as ListedManifestSequenceAssetResponse;
+			const dynamicAssets = payload.sources
+				.filter((source) => !source.builtin)
+				.map((source): DemoManifestRgbdSequenceAsset => ({
+					kind: 'rgbd-sequence',
+					source: 'manifest',
+					id: source.id,
+					label: source.label,
+					description: source.description,
+					manifestUrl: source.manifestUrl,
+					initialClipId: source.initialClipId,
+					motion: {
+						parallaxPixels: 7,
+						verticalPixels: 0.8,
+						depthDrift: 0.03,
+						alphaCutoff: 0.08,
+					},
+				}));
+			const merged = [...DEMO_SEQUENCE_ASSETS];
+			for (const asset of dynamicAssets) {
+				if (merged.some((existing) => existing.id === asset.id)) continue;
+				merged.push(asset);
+			}
+			sequenceAssets = merged;
+		} catch (error) {
+			console.warn('Failed to load dynamic RGBD sequence assets.', error);
+		}
+	}
+
 	// ── Lifecycle ────────────────────────────────────────────────────────
 	onMount(() => {
 		installBrowserDebugApi();
@@ -375,15 +423,20 @@
 		meshAdapter = new MeshAdapter();
 		frameGenerator = new FrameGenerator();
 		frameSequenceLoader = new FrameSequenceLoader();
-
-		if (mode === 'sequence' && selectedSequenceAssetId) {
-			void loadSequenceAsset(selectedSequenceAssetId);
-		} else if (mode === 'image' && selectedImageAssetId) {
-			void loadImageAsset(selectedImageAssetId);
-		} else {
-			void generateMeshSamples();
-		}
-		ready = true;
+		void (async () => {
+			await loadDynamicManifestSequenceAssets();
+			if (!sequenceAssets.some((asset) => asset.id === selectedSequenceAssetId)) {
+				selectedSequenceAssetId = sequenceAssets[0]?.id ?? '';
+			}
+			if (mode === 'sequence' && selectedSequenceAssetId) {
+				await loadSequenceAsset(selectedSequenceAssetId);
+			} else if (mode === 'image' && selectedImageAssetId) {
+				await loadImageAsset(selectedImageAssetId);
+			} else {
+				await generateMeshSamples();
+			}
+			ready = true;
+		})();
 
 		return () => {
 			cancelImagePipeline();
@@ -514,7 +567,7 @@
 		sequenceReport = null;
 		sequenceIsPlaying = false;
 
-		const asset = DEMO_SEQUENCE_ASSETS.find((entry) => entry.id === assetId);
+		const asset = sequenceAssets.find((entry) => entry.id === assetId);
 		if (!asset) {
 			if (version !== sequenceLoadVersion) return;
 			sequenceStatus = `Unknown sequence asset: ${assetId}`;
@@ -1383,7 +1436,7 @@
 	function handleSequenceAssetChange(assetId: string) {
 		selectedSequenceAssetId = assetId;
 		selectedSequenceClipId = '';
-		const asset = DEMO_SEQUENCE_ASSETS.find((entry) => entry.id === assetId);
+		const asset = sequenceAssets.find((entry) => entry.id === assetId);
 		if (asset?.kind === 'point-sequence') {
 			const preset = getSequenceLookPreset(selectedSequenceLookPresetId);
 			if (preset) {
@@ -1580,7 +1633,7 @@
 			bind:frameParams
 			meshAssets={DEMO_MESH_ASSETS}
 			imageAssets={DEMO_IMAGE_ASSETS}
-			sequenceAssets={DEMO_SEQUENCE_ASSETS}
+			{sequenceAssets}
 			bgModels={BG_REMOVAL_MODELS}
 			serverBgModels={SERVER_BG_REMOVAL_MODELS}
 			depthModels={DEPTH_MODELS}

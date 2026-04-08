@@ -82,7 +82,7 @@
 - [x] Implement the offline converter from `video.mp4 + *_depths.npz` into the existing RGBD manifest/frame layout
 - [x] Smoke-test the converter on at least one real VDA clip
 - [ ] Measure browser startup/memory for converted VDA RGBD clips
-- [ ] Decide whether app-layer RGBD source registration should support arbitrary local converted studies or remain explicitly enumerated
+- [x] Generalize app-layer RGBD source registration to discover arbitrary local converted studies
 - [ ] Decide whether to also support returned `PLY` frames as an optional raw point-sequence path
 
 ## Integration

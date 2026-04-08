@@ -87,6 +87,9 @@ The goal of Phase 2 is now to finish both paths without confusing their roles.
   - input: `video.mp4 + *_depths.npz`
   - output: `tmp/rgbd-sequences/<clip-id>/manifest.json + color/depth frame JSON files`
   - the converter keeps full-clip duration while applying explicit output controls for target fps, max frame count, and max edge
+- local manifest-backed RGBD studies under `tmp/rgbd-sequences/<id>` are now discovered automatically by the app layer:
+  - server asset resolution no longer requires hard-coding each converted study
+  - the demo fetches `/api/rgbd-sequences` and merges discovered local manifest clips into the sequence picker
 - local smoke outputs currently exist outside git at:
   - `tmp/rgbd-sequences/vda-butterfly-study`
   - `tmp/rgbd-sequences/vda-body-study`

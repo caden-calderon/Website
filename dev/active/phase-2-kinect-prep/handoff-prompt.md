@@ -54,6 +54,9 @@ Current status:
   - `scripts/convert-video-depth-npz-to-rgbd-sequence.py`
   - tested against local `butterfly` and `Body` VDA bakes
   - output stays in the existing manifest-backed RGBD path
+- local manifest-backed RGBD studies are now app-discoverable:
+  - server-side source resolution falls back to `tmp/rgbd-sequences/<id>/manifest.json`
+  - the demo fetches `/api/rgbd-sequences` so converted studies can appear without adding new asset constants
 
 First tasks:
 
@@ -61,7 +64,7 @@ First tasks:
 2. Treat the pre-hardware browser-side work and Kinect capture/export scaffolding as complete and keep the docs aligned with that state.
 3. Continue with the next highest-value branches:
    - first: replace the mock capture-bundle inputs in `python/kinect_capture/capture.py` with real registered Kinect outputs, then run a one-frame registration/export spike
-   - in parallel: measure and tune the converted VDA RGBD clips in-browser, then decide whether app-layer source registration should be generalized beyond the current fixed source list
+   - in parallel: measure and tune the converted VDA RGBD clips in-browser now that app-layer source discovery is generalized
 4. In either branch:
    - keep dataset-specific conversion and downsampling outside the engine
    - use registered color + depth as the source of truth for the real Kinect path

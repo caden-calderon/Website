@@ -84,8 +84,11 @@ Immediate implementation follow-up:
 
 What remains after the converter:
 - load the converted VDA clips through the current app-layer RGBD route and measure startup/memory
-- decide whether RGBD source registration should stay fixed-per-asset or be relaxed for arbitrary local `tmp/rgbd-sequences/<id>` studies
 - tune conversion defaults for human clips now that large VDA bakes are proven to need explicit output limits
+
+App-layer source discovery is now generalized:
+- manifest-backed RGBD studies under `tmp/rgbd-sequences/<id>` can be resolved and listed without new hard-coded asset entries
+- the next practical step is to open the converted studies in the web demo and tune their motion/look settings rather than wiring more source IDs
 
 ## Medium-Priority Next Steps
 
