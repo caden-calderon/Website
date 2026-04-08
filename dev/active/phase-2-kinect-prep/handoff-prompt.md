@@ -50,6 +50,10 @@ Current status:
   - repeatable pod setup/run scripts now live in:
     - `scripts/runpod/setup-video-depth-anything.sh`
     - `scripts/runpod/run-vda-metric-large.sh`
+- the local converter is also now implemented:
+  - `scripts/convert-video-depth-npz-to-rgbd-sequence.py`
+  - tested against local `butterfly` and `Body` VDA bakes
+  - output stays in the existing manifest-backed RGBD path
 
 First tasks:
 
@@ -57,7 +61,7 @@ First tasks:
 2. Treat the pre-hardware browser-side work and Kinect capture/export scaffolding as complete and keep the docs aligned with that state.
 3. Continue with the next highest-value branches:
    - first: replace the mock capture-bundle inputs in `python/kinect_capture/capture.py` with real registered Kinect outputs, then run a one-frame registration/export spike
-   - in parallel: implement the offline converter from `video.mp4 + *_depths.npz` into the existing RGBD manifest/playback path
+   - in parallel: measure and tune the converted VDA RGBD clips in-browser, then decide whether app-layer source registration should be generalized beyond the current fixed source list
 4. In either branch:
    - keep dataset-specific conversion and downsampling outside the engine
    - use registered color + depth as the source of truth for the real Kinect path

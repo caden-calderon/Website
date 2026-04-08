@@ -79,7 +79,10 @@
 - [x] Bring up the first remote `Runpod` depth-bake pod for `Metric-Video-Depth-Anything-Large`
 - [x] Define the first returned artifact contract as `video.mp4 + *_depths.npz`
 - [x] Add reusable Runpod setup/run scripts for future `Metric-Video-Depth-Anything-Large` sessions
-- [ ] Implement the offline converter from `video.mp4 + *_depths.npz` into the existing RGBD manifest/frame layout
+- [x] Implement the offline converter from `video.mp4 + *_depths.npz` into the existing RGBD manifest/frame layout
+- [x] Smoke-test the converter on at least one real VDA clip
+- [ ] Measure browser startup/memory for converted VDA RGBD clips
+- [ ] Decide whether app-layer RGBD source registration should support arbitrary local converted studies or remain explicitly enumerated
 - [ ] Decide whether to also support returned `PLY` frames as an optional raw point-sequence path
 
 ## Integration

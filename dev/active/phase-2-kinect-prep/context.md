@@ -82,6 +82,14 @@ The goal of Phase 2 is now to finish both paths without confusing their roles.
 - reusable pod scripts now live in:
   - `scripts/runpod/setup-video-depth-anything.sh`
   - `scripts/runpod/run-vda-metric-large.sh`
+- the local offline converter now also exists:
+  - `scripts/convert-video-depth-npz-to-rgbd-sequence.py`
+  - input: `video.mp4 + *_depths.npz`
+  - output: `tmp/rgbd-sequences/<clip-id>/manifest.json + color/depth frame JSON files`
+  - the converter keeps full-clip duration while applying explicit output controls for target fps, max frame count, and max edge
+- local smoke outputs currently exist outside git at:
+  - `tmp/rgbd-sequences/vda-butterfly-study`
+  - `tmp/rgbd-sequences/vda-body-study`
 - `pnpm check` and `pnpm test` are green
 - the ITOP `.gz` data files and generated `tmp/` outputs are local artifacts and are not committed
 

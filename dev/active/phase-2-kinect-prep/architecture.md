@@ -308,6 +308,15 @@ Primary ingest contract moving forward:
 - keep the original source video locally
 - download `*_depths.npz`
 - convert `video.mp4 + *_depths.npz` into the existing RGBD sequence format
+- perform browser-facing frame decimation and raster downscaling at conversion time, outside the engine/runtime
+
+Current converter behavior:
+
+- probe the source video with `ffprobe`
+- memory-map the baked `depths.npy` extracted from the `npz` so large clips do not require a full in-memory load
+- derive the baked depth timeline from the depth frame count and the probed video duration
+- prefer mapping baked depth indices back onto the original video frame indices when the original video frame count is available
+- normalize each output depth frame to `0-far-1-near` and record per-frame near/far meter ranges in manifest metadata
 
 Secondary/optional contract:
 

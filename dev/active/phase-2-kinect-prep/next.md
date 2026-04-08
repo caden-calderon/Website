@@ -78,9 +78,14 @@ Goal:
   - without inventing a second runtime
 
 Immediate implementation follow-up:
-- add an offline converter in this repo for `video.mp4 + *_depths.npz -> RGBD sequence manifest`
 - keep `PLY` output as optional debug/raw data, not the main production artifact
 - use `scripts/runpod/setup-video-depth-anything.sh` and `scripts/runpod/run-vda-metric-large.sh` for repeatable future pod sessions instead of repeating manual setup/debug steps
+- use `scripts/convert-video-depth-npz-to-rgbd-sequence.py` to keep frame decimation and downscaling outside the engine while targeting the existing RGBD manifest format
+
+What remains after the converter:
+- load the converted VDA clips through the current app-layer RGBD route and measure startup/memory
+- decide whether RGBD source registration should stay fixed-per-asset or be relaxed for arbitrary local `tmp/rgbd-sequences/<id>` studies
+- tune conversion defaults for human clips now that large VDA bakes are proven to need explicit output limits
 
 ## Medium-Priority Next Steps
 
@@ -171,6 +176,11 @@ The first concrete offline artifact target is now:
 - `video.mp4`
 - `*_depths.npz`
 - converted into the existing app-layer RGBD manifest/frame layout
+
+The first local smoke conversions produced:
+- `vda-butterfly-study`: `61` frames at `640x360`
+- `vda-body-study`: `96` frames at `270x480`
+- both confirm that large baked clips are practical only when fps/max-frame/max-edge controls are applied during conversion
 
 ### Chunked playback decision
 
