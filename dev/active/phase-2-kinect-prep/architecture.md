@@ -322,6 +322,17 @@ Secondary/optional contract:
 
 - treat returned `PLY` frames as a possible raw/debug playback branch, not the primary production path
 
+Current interpretation after the first real converted human-clip playback:
+
+- the offline video-depth path is still valuable because it proved the browser/runtime route and the camera-driven art direction
+- but it is not sufficient as the main geometry source for performance motion that projects strongly toward the camera
+- forward-reaching limbs are flattened enough that the result misses the spatial behavior the piece needs
+- so the most defensible architecture is no longer “best monocular model first”
+- it is:
+  - camera RGB for the look
+  - Kinect depth for the spatial truth
+  - offline alignment and export into the same RGBD manifest/runtime path
+
 Manifest-backed RGBD clips do not expose live BG/depth preprocessing controls because those clips are already precomputed.
 
 ## Current Constraints

@@ -83,6 +83,8 @@
 - [x] Smoke-test the converter on at least one real VDA clip
 - [ ] Measure browser startup/memory for converted VDA RGBD clips
 - [x] Generalize app-layer RGBD source registration to discover arbitrary local converted studies
+- [x] Record the first human converted-VDA playback result and the conclusion that monocular depth is insufficient for forward-reaching production motion
+- [ ] Define the narrow hybrid spike: camera RGB + Kinect depth + offline alignment into the existing RGBD manifest path
 - [ ] Decide whether to also support returned `PLY` frames as an optional raw point-sequence path
 
 ## Integration

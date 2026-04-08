@@ -93,6 +93,12 @@ The goal of Phase 2 is now to finish both paths without confusing their roles.
 - local smoke outputs currently exist outside git at:
   - `tmp/rgbd-sequences/vda-butterfly-study`
   - `tmp/rgbd-sequences/vda-body-study`
+- the first real converted human-clip playback result changed the direction:
+  - the stylized RGBD path works end-to-end in browser for converted VDA clips
+  - but monocular/video-depth flattening is still too weak for forward-reaching motion such as an arm extending toward camera
+  - this matches the earlier architectural concern that model-estimated depth gives plausible relief, not reliable truth for strong camera-axis motion
+  - the current conclusion is that Kinect depth remains necessary for the main production geometry signal
+  - so the next primary branch is no longer “better monocular depth first”; it is a narrow hybrid spike using Kinect depth with camera RGB
 - `pnpm check` and `pnpm test` are green
 - the ITOP `.gz` data files and generated `tmp/` outputs are local artifacts and are not committed
 
@@ -136,10 +142,11 @@ Measured on 2026-04-04 with Headless Chromium 146.0.7680.164 against `pnpm run p
 - stylized RGBD rehearsal still depends on registered color + depth, so the real Kinect registration/export spike remains the critical hardware-dependent step
 - an additional pre-hardware art-first rehearsal branch now exists: uploaded recorded video -> offline browser frame sampling -> per-frame depth estimation -> existing RGBD prep/playback path
 - the first pass for that uploaded-video branch is intentionally bounded but now user-tunable in the demo: fps target, frame cap, 640 px max edge, depth-estimation optional, no per-frame BG removal yet
-- production direction is now explicit:
-  - use recorded video + depth estimation as the primary art/animation ingestion path
-  - keep the Kinect path alive as a real-depth/truth/R&D branch
-  - do not force the Kinect-only look into the primary art pipeline
+- production direction is now revised by the first human playback test:
+  - keep recorded video + depth estimation as a useful art/look-dev branch
+  - do not trust monocular/video depth alone for the main production geometry path when forward-reaching motion matters
+  - keep the Kinect path alive not just as R&D but as the likely primary depth-truth input
+  - investigate a hybrid path where camera RGB carries the look and Kinect depth carries the actual spatial extension
 - the first serious offline execution plan is now:
   - rent a Runpod GPU pod
   - run `Metric-Video-Depth-Anything-Large`
@@ -150,6 +157,8 @@ Measured on 2026-04-04 with Headless Chromium 146.0.7680.164 against `pnpm run p
 ## Most Important Gaps
 
 - real registered Kinect RGBD clips are not in the browser path yet
+- the first real human converted-VDA playback confirmed that monocular depth is not enough for the desired spatial extension
+- the hybrid camera-RGB + Kinect-depth path is not designed or tested yet
 - hand-landmark alignment is still not designed
 - the uploaded-video RGBD branch still needs real clip tuning/measurement with local recorded footage
 - the offline/server depth-bake path is not implemented yet, so stronger video models are not in the production loop yet
@@ -159,4 +168,4 @@ Measured on 2026-04-04 with Headless Chromium 146.0.7680.164 against `pnpm run p
 Continue with the remaining next-session detail in `dev/active/phase-2-kinect-prep/next.md`, now centered on both of these in parallel:
 
 - bring up the first real Kinect registration/export spike
-- define the first offline video-depth bake path for recorded video as the main art-direction branch
+- define the first narrow hybrid spike that uses Kinect depth to fix forward-reaching motion while keeping camera RGB in the existing stylized RGBD path

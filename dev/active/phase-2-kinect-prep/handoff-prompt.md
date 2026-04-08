@@ -57,6 +57,10 @@ Current status:
 - local manifest-backed RGBD studies are now app-discoverable:
   - server-side source resolution falls back to `tmp/rgbd-sequences/<id>/manifest.json`
   - the demo fetches `/api/rgbd-sequences` so converted studies can appear without adding new asset constants
+- the first real converted human-clip playback also changed the production conclusion:
+  - the browser/runtime path works
+  - but monocular/video-depth flattening is still too weak for forward-reaching motion
+  - so the next main branch is a narrow hybrid spike using camera RGB plus Kinect depth, not more monocular-model chasing
 
 First tasks:
 
@@ -64,7 +68,7 @@ First tasks:
 2. Treat the pre-hardware browser-side work and Kinect capture/export scaffolding as complete and keep the docs aligned with that state.
 3. Continue with the next highest-value branches:
    - first: replace the mock capture-bundle inputs in `python/kinect_capture/capture.py` with real registered Kinect outputs, then run a one-frame registration/export spike
-   - in parallel: measure and tune the converted VDA RGBD clips in-browser now that app-layer source discovery is generalized
+   - in parallel: define and execute the first narrow hybrid spike: camera RGB + Kinect depth + offline alignment into the existing RGBD manifest/playback path
 4. In either branch:
    - keep dataset-specific conversion and downsampling outside the engine
    - use registered color + depth as the source of truth for the real Kinect path

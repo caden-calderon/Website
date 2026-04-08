@@ -69,11 +69,16 @@ This is now the main art-path engineering step:
   - `Runpod A100 PCIe 80GB`
   - `Metric-Video-Depth-Anything-Large`
   - `*_depths.npz` as the artifact to bring back into this repo
+- the first real converted human-clip playback also proved a limit:
+  - the stylized RGBD route works
+  - but monocular/video-depth flattening is still too weak for motion that projects strongly toward the camera
+  - for the target performance language, that is a truth-source failure, not just a tuning problem
 
 Goal:
-- one recorded clip should be able to move through:
-  - video capture
-  - offline depth bake
+- one short hybrid clip should be able to move through:
+  - camera RGB capture
+  - Kinect depth capture
+  - offline alignment into the existing RGBD manifest contract
   - existing RGBD prep/playback path
   - without inventing a second runtime
 
@@ -83,12 +88,13 @@ Immediate implementation follow-up:
 - use `scripts/convert-video-depth-npz-to-rgbd-sequence.py` to keep frame decimation and downscaling outside the engine while targeting the existing RGBD manifest format
 
 What remains after the converter:
-- load the converted VDA clips through the current app-layer RGBD route and measure startup/memory
-- tune conversion defaults for human clips now that large VDA bakes are proven to need explicit output limits
+- measure startup/memory for the converted VDA clips now that they load through the current app-layer RGBD route
+- stop treating “better monocular depth” as the primary next lever for production geometry
+- plan the first hybrid spike around viewpoint matching, sync, and offline RGB/depth alignment
 
 App-layer source discovery is now generalized:
 - manifest-backed RGBD studies under `tmp/rgbd-sequences/<id>` can be resolved and listed without new hard-coded asset entries
-- the next practical step is to open the converted studies in the web demo and tune their motion/look settings rather than wiring more source IDs
+- the converted-study playback test already served its purpose: it validated the route and exposed the monocular-depth limit that now motivates the hybrid spike
 
 ## Medium-Priority Next Steps
 
@@ -106,14 +112,27 @@ Use the remaining time on the two pre-hardware rehearsal branches instead of spe
 
 ### Uploaded-video RGBD tuning
 
-This is now the highest-value non-hardware art-direction branch:
+This remains useful, but it is no longer the main geometry bet:
 
 - record one short local clip with the framing/motion style you actually want to capture later
 - load it through `recorded-video-rgbd-study`
 - start with `DA V2 Base (fp16)` and the current RGBD sequence sampling controls
 - record startup/memory numbers once a representative clip is chosen
 - keep this path routed through the current RGBD prep/playback runtime rather than adding a separate video runtime
-- do not confuse this branch with real Kinect RGBD; it is for visual rehearsal, not sensor-faithful registration testing
+- do not confuse this branch with real Kinect RGBD; it is now explicitly for visual rehearsal and fallback, not the main truth source
+
+### Hybrid Spike
+
+This is now the highest-value production branch:
+
+- mount the camera as close as practical to the Kinect viewpoint
+- capture one short clip with obvious forward-reaching motion
+- capture Kinect depth for the same action
+- align camera RGB to Kinect depth offline
+- export the result into the same RGBD manifest/runtime path already in place
+
+Success criterion:
+- the aligned hybrid clip should preserve real arm extension toward camera in a way the monocular/video-depth branch does not
 
 ### Depth-model direction
 
@@ -199,7 +218,8 @@ If eager preload looks marginal, next architecture step is:
 - do not shove dataset-specific conversion into the engine
 - do not replace raw point playback with stylized RGBD playback
 - do not spend time on live webcam/runtime work yet
-- do not jump straight into hybrid iPhone+Kinect capture without a concrete calibration/sync plan
+- do not keep chasing monocular/video-depth models as the primary fix for forward-reaching geometry
+- do not jump into a broad hybrid system without a narrow calibration/sync/alignment spike first
 
 ## If Kinect Hardware Or Exports Are Suddenly Available
 
@@ -211,6 +231,7 @@ Do this first:
 4. compare:
 - raw truth path
 - stylized RGBD path
+- converted monocular/video-depth path only as a reference baseline
 
 ## Fresh-Agent Checklist
 
