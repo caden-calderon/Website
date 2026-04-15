@@ -1,0 +1,102 @@
+<script lang="ts">
+	import type { AppId } from './types.js';
+
+	let {
+		label,
+		icon,
+		appId,
+		selected = false,
+		onopen,
+		onselect,
+	}: {
+		label: string;
+		icon: string;
+		appId: AppId;
+		selected?: boolean;
+		onopen: (appId: AppId) => void;
+		onselect: (appId: AppId) => void;
+	} = $props();
+
+	let lastClickTime = 0;
+	const DOUBLE_CLICK_MS = 500;
+
+	function handleClick() {
+		const now = Date.now();
+		if (now - lastClickTime < DOUBLE_CLICK_MS) {
+			onopen(appId);
+			lastClickTime = 0;
+		} else {
+			onselect(appId);
+			lastClickTime = now;
+		}
+	}
+
+	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter') onopen(appId);
+	}
+</script>
+
+<button
+	class="desktop-icon"
+	class:selected
+	onclick={handleClick}
+	onkeydown={handleKeydown}
+	type="button"
+>
+	<img
+		src={icon}
+		alt=""
+		width="32"
+		height="32"
+		draggable="false"
+		onerror={(e) => {
+			// Fallback to a simple colored square if icon fails to load
+			const target = e.currentTarget as HTMLImageElement;
+			target.style.display = 'none';
+		}}
+	/>
+	<span class="icon-label">{label}</span>
+</button>
+
+<style>
+	.desktop-icon {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 4px;
+		width: 70px;
+		padding: 4px 2px;
+		border: 1px solid transparent;
+		background: transparent;
+		cursor: default;
+		outline: none;
+	}
+
+	.desktop-icon.selected {
+		background: rgba(0, 0, 128, 0.3);
+		border: 1px dotted white;
+	}
+
+	.desktop-icon:focus-visible {
+		border: 1px dotted white;
+	}
+
+	.icon-label {
+		color: white;
+		font-size: 11px;
+		font-family: 'Pixelated MS Sans Serif', Arial, sans-serif;
+		text-align: center;
+		line-height: 1.2;
+		word-break: break-word;
+		text-shadow:
+			1px 1px 1px black,
+			-1px -1px 1px black,
+			1px -1px 1px black,
+			-1px 1px 1px black;
+	}
+
+	img {
+		image-rendering: pixelated;
+		pointer-events: none;
+	}
+</style>
