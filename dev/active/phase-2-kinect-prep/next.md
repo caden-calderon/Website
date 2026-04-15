@@ -18,7 +18,14 @@ The repo is in a good rehearsal state:
 - `capture.py mock-bundle` writes a raw registered capture bundle
 - `process.py export-rgbd` converts that bundle into the browser RGBD manifest format
 - a mock registered Kinect-style RGBD clip can be generated end-to-end with `pnpm generate:test-kinect-rgbd`
-- the current local environment still reports `backend_available: false` for `python3 -m python.kinect_capture.capture probe`
+- a mock hybrid-aligned external-camera-RGB + Kinect-depth bundle can now be generated with `python3 -m python.kinect_capture.capture mock-bundle --color-source external-camera-rgb`
+- the local upstream `libfreenect2` build at `/home/caden/libfreenect2` is working through `Protonect`
+- the repo now builds a native helper with `scripts/build-kinect-capture-helper.sh` into `tmp/bin/kinect_capture_helper`
+- the helper uses the local TurboJPEG/CPU libfreenect2 build at `/home/caden/libfreenect2/build-turbojpeg` to avoid the unsupported VAAPI profile hit by the first build
+- `capture.py probe` now reports helper availability and, outside the sandbox, sees Kinect serial `188705633947`
+- `capture.py live-bundle` successfully wrote a real registered Kinect RGBD capture bundle
+- `process.py export-rgbd` successfully converted that live bundle into `tmp/rgbd-sequences/live-kinect-rgbd-smoke`
+- capture-control can now use live Kinect RGBD when the helper sees a device; no-device/sandboxed runs still use the mock fallback
 - `Kinect2Dataset.zip` and `MultiViewDataset.zip` are now present locally
 - `pnpm convert:utd` now emits raw point-sequence rehearsal clips from those UTD Kinect v2 depth+skeleton archives
 - the browser demo now also exposes `recorded-video-rgbd-study`, which samples a bounded uploaded video clip offline, estimates per-frame depth, and routes the result through the existing RGBD sequence path
@@ -28,27 +35,59 @@ The next session should not spend time rediscovering architecture. Read `archite
 
 ## Highest-Priority Next Steps
 
+### 0. Fix the operator workflow gap
+
+The first operator workflow scaffold now exists.
+
+What landed:
+
+- `/capture-control` operator route
+- preview / record-start / record-stop commands in `python/kinect_capture/capture.py`
+- raw takes under `tmp/kinect-capture/raw-takes/`
+- edited takes under `tmp/kinect-capture/edited-takes/`
+- immediate review, keep/discard/rename, and trim metadata
+- tests covering raw take creation plus explicit record-start / record-stop control
+- helper-backed live preview, record, stop, and raw-take finalization when a Kinect is visible
+- live preview now runs through a persistent preview worker so browser polling does not repeatedly open/close the Kinect
+- a stopped live capture-control smoke take with `70` real RGBD frames
+- export of that stopped raw take into `tmp/rgbd-sequences/live-control-stop-smoke-2`
+- the browser route proved the contracts, but the live preview is still laggy compared with `Protonect`
+
+What remains:
+
+- replace the browser-first operator workflow with a fully local/native operator app
+- keep the same raw-take, edited-take, and export contracts
+- capture one intentional human take in the local app, review it, mark/trim it, and export it
+- inspect the exported live smoke and the next intentional reviewed take in the existing playback demo
+- add sync-marker / external-camera association metadata once real capture is flowing
+
+Do not confuse this with a new playback runtime. This is capture tooling.
+
 ### 1. Establish the production capture split
 
 Treat the two capture lanes as separate on purpose:
 
-- primary production lane: recorded video + offline depth estimation
-- parallel truth/R&D lane: real Kinect registered RGBD
+- primary production lane: Kinect-only registered RGBD using Kinect RGB + Kinect depth
+- secondary look-dev/fallback lane: recorded video + offline depth estimation
+- optional later upgrade: external-camera/iPhone RGB + Kinect depth hybrid if Kinect RGB becomes the visual bottleneck
 
-Do not block the video-first art path on perfect Kinect bring-up, and do not throw away the Kinect path just because it is not the preferred final look.
+Do not add iPhone/external-camera sync and calibration complexity until Kinect-only RGBD has produced at least one reviewed/exported take.
 
 ### 2. Prepare the real Kinect RGBD path
 
 This is the next major architecture step once hardware/export data is available:
 
-- replace the mock capture-bundle writer in `python/kinect_capture/capture.py` with live libfreenect2 registration output
-- use registered color + depth as source of truth
+- keep the live helper-backed capture-control path narrow; do not turn it into a new website/runtime feature
+- move the operator UX local/native so preview and capture feel closer to `Protonect`
+- use registered Kinect RGB + depth as source of truth
 - feed those frames through the existing RGBD prep/playback path
 - keep raw point-cloud playback as the calibration/benchmark path
-- run a one-frame registration/export spike before building any higher-level batch tooling
+- the one-frame registration/export spike has succeeded; the next milestone is one reviewed multi-frame human take
 
 Goal:
 - the pre-hardware browser-side work and export-contract scaffolding are already complete; the next meaningful phase work starts with one real registered Kinect RGBD clip routed through the existing capture-bundle -> export-rgbd -> manifest/source path
+- the hybrid metadata contract is also in place, but it is no longer the immediate path now that Kinect RGB is acceptable
+- the first live-capture milestone is now “local smooth preview, record, review, trim/keep, and export one usable Kinect-only clip”
 
 ### 3. Define the first offline video-depth bake path
 
@@ -75,10 +114,10 @@ This is now the main art-path engineering step:
   - for the target performance language, that is a truth-source failure, not just a tuning problem
 
 Goal:
-- one short hybrid clip should be able to move through:
-  - camera RGB capture
-  - Kinect depth capture
-  - offline alignment into the existing RGBD manifest contract
+- one short Kinect-only RGBD clip should be able to move through:
+  - Kinect RGB + depth capture
+  - registration into the existing raw capture-bundle contract
+  - `process.py export-rgbd`
   - existing RGBD prep/playback path
   - without inventing a second runtime
 
@@ -90,7 +129,7 @@ Immediate implementation follow-up:
 What remains after the converter:
 - measure startup/memory for the converted VDA clips now that they load through the current app-layer RGBD route
 - stop treating “better monocular depth” as the primary next lever for production geometry
-- plan the first hybrid spike around viewpoint matching, sync, and offline RGB/depth alignment
+- keep the hybrid spike documented, but do not execute it until Kinect-only RGBD has been tested end-to-end
 
 App-layer source discovery is now generalized:
 - manifest-backed RGBD studies under `tmp/rgbd-sequences/<id>` can be resolved and listed without new hard-coded asset entries
@@ -123,7 +162,12 @@ This remains useful, but it is no longer the main geometry bet:
 
 ### Hybrid Spike
 
-This is now the highest-value production branch:
+This is now a parked fallback branch, not the next primary branch.
+
+Reason:
+- the live Kinect test showed Kinect RGB is usable
+- Kinect-only capture avoids external-camera sync, calibration, and parallax
+- the first production milestone should be one real Kinect-only RGBD take through preview, record, review, export, and playback
 
 - mount the camera as close as practical to the Kinect viewpoint
 - capture one short clip with obvious forward-reaching motion
@@ -135,9 +179,17 @@ This is now the highest-value production branch:
   - camera RGB = high-frequency appearance/detail guidance
   - final palette may be literal color, stylized color, or mostly monochrome; RGB is still useful either way
 
+The current first-pass contract is now fixed:
+
+- aligned color must already be resampled into the Kinect depth grid before `process.py export-rgbd`
+- `registration.colorSource = external-camera-rgb` is the switch that marks a bundle as hybrid
+- hybrid bundles must persist external-camera calibration, sync, and alignment metadata
+- `process.py export-rgbd` now validates that metadata and forwards it into the exported manifest
+
 Success criterion:
 - the aligned hybrid clip should preserve real arm extension toward camera in a way the monocular/video-depth branch does not
 - the resulting stylized playback should feel less like a stepped topographical scan and closer to the smoother sculptural/detail-rich target references
+- the capture process itself should be fast enough to iterate without blind sensor positioning
 
 ### Depth-model direction
 
@@ -222,7 +274,7 @@ If eager preload looks marginal, next architecture step is:
 - do not invent hand-overlay architecture yet
 - do not shove dataset-specific conversion into the engine
 - do not replace raw point playback with stylized RGBD playback
-- do not spend time on live webcam/runtime work yet
+- do not build a full editor/NLE when a take-review + trim tool will do
 - do not keep chasing monocular/video-depth models as the primary fix for forward-reaching geometry
 - do not jump into a broad hybrid system without a narrow calibration/sync/alignment spike first
 
@@ -241,12 +293,17 @@ Do this first:
 ## Fresh-Agent Checklist
 
 - read `architecture.md`
+- read `capture-control.md`
+- read `hybrid-spike.md`
+- inspect `cpp/kinect_capture/kinect_capture_helper.cpp`
+- inspect `python/kinect_capture/control.py`
+- inspect `python/kinect_capture/capture.py`
 - inspect `PointEngineDemo.svelte`
 - inspect `rgbdSequencePlayback.ts`
 - inspect `rgbdSequencePrep.worker.ts`
 - inspect `assets.ts`
-- inspect `python/kinect_capture/capture.py`
 - inspect `python/kinect_capture/process.py`
+- inspect `src/routes/capture-control/+page.svelte` and `src/lib/server/captureControl.ts` only as scaffold/reference, not as the next primary surface
 - inspect `scripts/convert-utd-to-point-sequences.py`
 - inspect `dev/active/phase-2-kinect-prep/datasets.md`
 - if hardware is still unavailable, prefer the already-converted UTD raw point clips over more mock-only plumbing

@@ -22,8 +22,14 @@ Do not collapse these into one abstraction. The raw path is the benchmark path. 
 
 The current ingestion priority is:
 
-1. recorded video + offline depth estimation for production-facing art
-2. Kinect registered RGBD for truth/depth grounding and future hybrid R&D
+1. Kinect-only registered RGBD using Kinect RGB + Kinect depth
+2. recorded video + offline depth estimation for look-dev/fallback
+3. optional external-camera/iPhone RGB + Kinect depth hybrid only if Kinect RGB becomes the visual bottleneck
+
+The current hybrid planning note lives in:
+
+- `dev/active/phase-2-kinect-prep/capture-control.md`
+- `dev/active/phase-2-kinect-prep/hybrid-spike.md`
 
 ## Core Engine Contracts
 
@@ -68,10 +74,16 @@ The current ingestion priority is:
 
 ### Kinect Python scaffold
 - `python/kinect_capture/capture.py`
+- `python/kinect_capture/control.py`
 - `python/kinect_capture/process.py`
 - `python/kinect_capture/hands.py`
 - `python/kinect_capture/mock_data.py`
+- `python/kinect_capture/native_helper.py`
 - `python/kinect_capture/README.md`
+- `cpp/kinect_capture/kinect_capture_helper.cpp`
+- `scripts/build-kinect-capture-helper.sh`
+- `dev/active/phase-2-kinect-prep/capture-control.md`
+- `dev/active/phase-2-kinect-prep/hybrid-spike.md`
 
 ### App-layer sequence sources
 - `src/lib/browser/imageEncoding.ts`
@@ -96,6 +108,21 @@ The current ingestion priority is:
 - `src/lib/demo/PointEngineDemo.svelte`
 - `src/lib/ui/Controls.svelte`
 - `src/lib/scene/PointCloudScene.svelte`
+
+### Operator capture control
+- `src/lib/capture/types.ts`
+- `src/lib/server/captureControl.ts`
+- `src/routes/capture-control/+page.svelte`
+- `src/routes/api/capture-control/status/+server.ts`
+- `src/routes/api/capture-control/preview/+server.ts`
+- `src/routes/api/capture-control/record/start/+server.ts`
+- `src/routes/api/capture-control/record/stop/+server.ts`
+- `src/routes/api/capture-control/takes/+server.ts`
+- `src/routes/api/capture-control/takes/[takeId]/+server.ts`
+- `src/routes/api/capture-control/takes/[takeId]/frames/[frameIndex]/+server.ts`
+- `src/routes/api/capture-control/takes/[takeId]/rename/+server.ts`
+- `src/routes/api/capture-control/takes/[takeId]/decision/+server.ts`
+- `src/routes/api/capture-control/takes/[takeId]/trim/+server.ts`
 
 ### Local asset serving
 - `src/lib/server/pointSequenceSources.ts`
@@ -126,6 +153,16 @@ The current ingestion priority is:
   - raster/depth metadata
   - coordinate system / units / processing / capture metadata
 
+### Registered capture bundle
+- Defined operationally by `python/kinect_capture/capture.py`, `python/kinect_capture/mock_data.py`, and `python/kinect_capture/process.py`
+- Intermediate offline contract only; not a browser runtime format
+- Carries:
+  - registered color frames already aligned to the Kinect depth grid
+  - registered meter depth frames
+  - registration metadata
+  - capture metadata
+  - optional hybrid external-camera calibration/sync/alignment metadata when `registration.colorSource` is `external-camera-rgb`
+
 ## Current Demo Assets
 
 ### Raw point sequences
@@ -149,6 +186,9 @@ The current ingestion priority is:
 - `recorded-video-rgbd-study`
   - uploaded-video RGBD rehearsal clip
   - built from a local recorded video plus optional per-frame depth estimation
+- `live-kinect-rgbd-smoke`
+  - local real Kinect RGBD export under `tmp/rgbd-sequences/live-kinect-rgbd-smoke`
+  - generated from `capture.py live-bundle` plus `process.py export-rgbd`
 
 ## Derived-Image RGBD Flow
 
@@ -176,7 +216,7 @@ Used for art-direction rehearsal that is closer to real recorded performance tha
 5. Prepare sampled frames
 6. Build `FrameSequence`
 
-This path is now the primary art-direction capture path.
+This path remains useful for look-dev and fallback rehearsal, but it is not the production geometry truth path now that live Kinect RGBD is working.
 
 Files involved:
 - `src/lib/demo/rgbdVideoSequence.ts`
@@ -257,6 +297,56 @@ Expensive RGBD prep now runs off the main thread.
 
 First pass constraint:
 - uploaded-video rehearsal currently skips per-frame BG removal and focuses on bounded video + depth-estimation rehearsal
+
+## Hybrid Capture/Export Seam
+
+The narrow hybrid spike does not add a new runtime. It only strengthens the offline seam before `export-rgbd`.
+
+Rules:
+
+- Kinect depth remains the geometry truth source
+- external camera RGB must be solved offline into the Kinect depth grid before browser export
+- the registered capture bundle stays the handoff between capture/alignment tooling and `process.py export-rgbd`
+- `process.py` is an export/validation step, not the place to solve calibration from scratch
+
+The current scaffold now supports two registered color-source contracts:
+
+1. `kinect-registered-color`
+- native registered Kinect color aligned to the depth grid
+
+2. `external-camera-rgb`
+- external RGB camera resampled offline into the Kinect depth grid
+- requires persisted sync/calibration/alignment metadata
+- documented in `dev/active/phase-2-kinect-prep/hybrid-spike.md`
+
+## Capture Control Surface
+
+The repo now explicitly distinguishes between:
+
+1. capture control tooling
+- live preview
+- record / stop
+- take review
+- trim/edit metadata
+- raw-take / edited-take state management under `tmp/kinect-capture/`
+
+2. browser playback/runtime tooling
+- exported point or RGBD sequence playback
+- look-dev and sampling controls
+
+Do not collapse these. The browser demo is not the low-level Kinect operator surface.
+
+The operator workflow requirements live in:
+
+- `dev/active/phase-2-kinect-prep/capture-control.md`
+
+The currently landed scaffold shape is:
+
+- Python CLI owns preview capture, raw-take writing, edited-take metadata, and frame review access
+- SvelteKit provides a small operator route and API proxy layer, but it does not talk to Kinect hardware directly
+- raw takes stay export-compatible with `process.py export-rgbd`
+- edited takes stay separate from raw takes and only store trim/decision metadata
+- preview/record uses the native libfreenect2 helper when the Kinect is visible; sandboxed/no-device runs use a mock fallback on the same contracts
 
 ## Depth Backend Direction
 

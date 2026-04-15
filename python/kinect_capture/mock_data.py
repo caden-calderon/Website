@@ -12,6 +12,12 @@ from typing import Sequence
 RAW_COLOR_ENCODING = 'rgba8-json-base64'
 RAW_DEPTH_ENCODING = 'float32-meter-json-base64'
 RAW_DEPTH_INVALID_METERS = 0.0
+KINECT_REGISTERED_COLOR_SOURCE = 'kinect-registered-color'
+EXTERNAL_CAMERA_RGB_SOURCE = 'external-camera-rgb'
+SUPPORTED_COLOR_SOURCES = (
+	KINECT_REGISTERED_COLOR_SOURCE,
+	EXTERNAL_CAMERA_RGB_SOURCE,
+)
 
 
 @dataclass(frozen=True)
@@ -32,6 +38,7 @@ def build_mock_capture_bundle_data(
 	width: int,
 	height: int,
 	fps: float,
+	color_source: str = KINECT_REGISTERED_COLOR_SOURCE,
 ) -> MockCaptureBundleData:
 	if frame_count <= 0:
 		raise ValueError(f'frame_count must be positive; received {frame_count}')
@@ -39,6 +46,8 @@ def build_mock_capture_bundle_data(
 		raise ValueError(f'width and height must be positive; received {width}x{height}')
 	if fps <= 0:
 		raise ValueError(f'fps must be > 0; received {fps}')
+	if color_source not in SUPPORTED_COLOR_SOURCES:
+		raise ValueError(f'Unsupported color_source {color_source!r}; expected one of {SUPPORTED_COLOR_SOURCES!r}')
 
 	frames = [
 		build_mock_capture_frame(
@@ -49,6 +58,63 @@ def build_mock_capture_bundle_data(
 		)
 		for frame_index in range(frame_count)
 	]
+
+	capture_metadata: dict[str, object] = {
+		'purpose': 'pre-hardware-capture-bundle-smoke-test',
+		'notes': 'Mock registered capture bundle used to validate the capture/process handoff before Kinect hardware arrives.',
+	}
+	calibration: dict[str, object] = {
+		'source': 'mock-calibration-snapshot',
+		'registrationProvider': 'libfreenect2',
+		'colorResolution': {'width': 1920, 'height': 1080},
+		'depthResolution': {'width': 512, 'height': 424},
+	}
+	registration_status = 'mock-captured-bundle'
+
+	if color_source == EXTERNAL_CAMERA_RGB_SOURCE:
+		registration_status = 'mock-hybrid-aligned-bundle'
+		calibration['externalColorCamera'] = {
+			'cameraId': 'mock-cinema-camera',
+			'nativeResolution': {'width': 3840, 'height': 2160},
+			'intrinsics': {
+				'fx': 2860.4,
+				'fy': 2855.9,
+				'cx': 1917.2,
+				'cy': 1081.6,
+				'distortionModel': 'brown-conrady',
+				'distortionCoefficients': [-0.112, 0.041, 0.0009, -0.0006, -0.007],
+			},
+			'extrinsicsToDepthCamera': {
+				'rotationMatrixRowMajor': [
+					0.9998,
+					-0.0044,
+					0.0178,
+					0.0046,
+					1.0,
+					-0.0031,
+					-0.0177,
+					0.0032,
+					0.9998,
+				],
+				'translationMeters': [0.034, -0.012, 0.021],
+				'reprojectionRmsePixels': 0.84,
+				'calibrationClipId': 'mock-hybrid-calibration-clip',
+			},
+		}
+		capture_metadata['hybrid'] = {
+			'captureMode': 'external-camera-rgb-plus-kinect-depth',
+			'sync': {
+				'strategy': 'manual-clap-spike',
+				'offsetMs': -16.7,
+				'residualJitterMs': 4.2,
+			},
+			'alignment': {
+				'targetGrid': 'kinect-depth',
+				'method': 'offline-remap-to-depth-grid',
+				'occlusionPolicy': 'keep-kinect-depth-visibility',
+				'coverageRatio': 0.91,
+			},
+		}
 
 	capture_payload: dict[str, object] = {
 		'version': 1,
@@ -87,21 +153,14 @@ def build_mock_capture_bundle_data(
 		'registration': {
 			'provider': 'libfreenect2',
 			'alignedTo': 'depth-grid',
-			'status': 'mock-captured-bundle',
+			'status': registration_status,
+			'colorSource': color_source,
 		},
 		'capture': {
 			'sensor': 'kinect-v2',
 			'serial': 'MOCK-KINECT-V2',
-			'calibration': {
-				'source': 'mock-calibration-snapshot',
-				'registrationProvider': 'libfreenect2',
-				'colorResolution': {'width': 1920, 'height': 1080},
-				'depthResolution': {'width': 512, 'height': 424},
-			},
-			'metadata': {
-				'purpose': 'pre-hardware-capture-bundle-smoke-test',
-				'notes': 'Mock registered capture bundle used to validate the capture/process handoff before Kinect hardware arrives.',
-			},
+			'calibration': calibration,
+			'metadata': capture_metadata,
 		},
 	}
 
@@ -115,12 +174,14 @@ def write_mock_capture_bundle(
 	width: int,
 	height: int,
 	fps: float,
+	color_source: str = KINECT_REGISTERED_COLOR_SOURCE,
 ) -> None:
 	bundle = build_mock_capture_bundle_data(
 		frame_count=frame_count,
 		width=width,
 		height=height,
 		fps=fps,
+		color_source=color_source,
 	)
 	output_dir.mkdir(parents=True, exist_ok=True)
 	frames_dir = output_dir / 'frames'

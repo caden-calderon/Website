@@ -9,9 +9,12 @@ from pathlib import Path
 from typing import Sequence
 
 from .mock_data import (
+	EXTERNAL_CAMERA_RGB_SOURCE,
+	KINECT_REGISTERED_COLOR_SOURCE,
 	RAW_COLOR_ENCODING,
 	RAW_DEPTH_ENCODING,
 	RAW_DEPTH_INVALID_METERS,
+	SUPPORTED_COLOR_SOURCES,
 	build_mock_capture_bundle_data,
 	decode_float32_base64,
 	write_json,
@@ -177,6 +180,7 @@ def validate_capture_payload(payload: object) -> None:
 	frame_timestamps = payload.get('frameTimestampsMs')
 	color_info = payload.get('color')
 	depth_info = payload.get('depth')
+	registration = payload.get('registration')
 
 	if not isinstance(frame_count, int) or frame_count <= 0:
 		raise ValueError(f'Capture bundle frameCount must be a positive integer; received {frame_count!r}')
@@ -188,12 +192,25 @@ def validate_capture_payload(payload: object) -> None:
 		raise ValueError('Capture bundle frameTimestampsMs length must match frameCount.')
 	if not isinstance(color_info, dict) or not isinstance(depth_info, dict):
 		raise ValueError('Capture bundle must define color and depth metadata.')
+	if not isinstance(registration, dict):
+		raise ValueError('Capture bundle must define registration metadata.')
 
 	for key in ('width', 'height'):
 		if not isinstance(color_info.get(key), int) or color_info[key] <= 0:
 			raise ValueError(f'Capture bundle color.{key} must be a positive integer; received {color_info.get(key)!r}')
 		if not isinstance(depth_info.get(key), int) or depth_info[key] <= 0:
 			raise ValueError(f'Capture bundle depth.{key} must be a positive integer; received {depth_info.get(key)!r}')
+
+	provider = registration.get('provider')
+	if not isinstance(provider, str) or not provider.strip():
+		raise ValueError('Capture bundle registration.provider must be a non-empty string.')
+	if registration.get('alignedTo') != 'depth-grid':
+		raise ValueError('Capture bundle registration.alignedTo must be "depth-grid".')
+	color_source = registration.get('colorSource', KINECT_REGISTERED_COLOR_SOURCE)
+	if color_source not in SUPPORTED_COLOR_SOURCES:
+		raise ValueError(f'Unsupported capture bundle registration.colorSource {color_source!r}.')
+	if color_source == EXTERNAL_CAMERA_RGB_SOURCE:
+		validate_hybrid_capture_payload(payload)
 
 
 def write_rgbd_export_from_bundle(bundle: CaptureBundle, output_dir: Path) -> None:
@@ -273,6 +290,7 @@ def write_rgbd_export_from_bundle(bundle: CaptureBundle, output_dir: Path) -> No
 		'processing': {
 			'generator': 'python.kinect_capture.process:export-rgbd',
 			'registration': payload.get('registration'),
+			'colorSource': payload.get('registration', {}).get('colorSource', KINECT_REGISTERED_COLOR_SOURCE),
 			'depthSourceUnits': depth_info.get('units', 'meters'),
 			'depthNormalization': {
 				'strategy': 'per-frame-minmax',
@@ -285,6 +303,125 @@ def write_rgbd_export_from_bundle(bundle: CaptureBundle, output_dir: Path) -> No
 	}
 
 	write_json(output_dir / 'manifest.json', manifest)
+
+
+def validate_hybrid_capture_payload(payload: dict[str, object]) -> None:
+	capture = payload.get('capture')
+	if not isinstance(capture, dict):
+		raise ValueError('Hybrid capture bundle must define capture metadata.')
+	calibration = capture.get('calibration')
+	if not isinstance(calibration, dict):
+		raise ValueError('Hybrid capture bundle capture.calibration must be a JSON object.')
+	external_camera = calibration.get('externalColorCamera')
+	if not isinstance(external_camera, dict):
+		raise ValueError('Hybrid capture bundle must define capture.calibration.externalColorCamera.')
+
+	camera_id = external_camera.get('cameraId')
+	if not isinstance(camera_id, str) or not camera_id.strip():
+		raise ValueError('Hybrid capture bundle externalColorCamera.cameraId must be a non-empty string.')
+
+	validate_named_resolution(
+		external_camera.get('nativeResolution'),
+		name='capture.calibration.externalColorCamera.nativeResolution',
+	)
+
+	intrinsics = external_camera.get('intrinsics')
+	if not isinstance(intrinsics, dict):
+		raise ValueError('Hybrid capture bundle externalColorCamera.intrinsics must be a JSON object.')
+	for key in ('fx', 'fy', 'cx', 'cy'):
+		value = intrinsics.get(key)
+		if not isinstance(value, (int, float)) or value <= 0:
+			raise ValueError(f'Hybrid capture bundle externalColorCamera.intrinsics.{key} must be > 0.')
+	distortion_model = intrinsics.get('distortionModel')
+	if not isinstance(distortion_model, str) or not distortion_model.strip():
+		raise ValueError('Hybrid capture bundle externalColorCamera.intrinsics.distortionModel must be a non-empty string.')
+	validate_number_list(
+		intrinsics.get('distortionCoefficients'),
+		name='capture.calibration.externalColorCamera.intrinsics.distortionCoefficients',
+		minimum_length=0,
+	)
+
+	extrinsics = external_camera.get('extrinsicsToDepthCamera')
+	if not isinstance(extrinsics, dict):
+		raise ValueError('Hybrid capture bundle externalColorCamera.extrinsicsToDepthCamera must be a JSON object.')
+	validate_number_list(
+		extrinsics.get('rotationMatrixRowMajor'),
+		name='capture.calibration.externalColorCamera.extrinsicsToDepthCamera.rotationMatrixRowMajor',
+		exact_length=9,
+	)
+	validate_number_list(
+		extrinsics.get('translationMeters'),
+		name='capture.calibration.externalColorCamera.extrinsicsToDepthCamera.translationMeters',
+		exact_length=3,
+	)
+	reprojection_rmse = extrinsics.get('reprojectionRmsePixels')
+	if not isinstance(reprojection_rmse, (int, float)) or reprojection_rmse < 0:
+		raise ValueError('Hybrid capture bundle externalColorCamera.extrinsicsToDepthCamera.reprojectionRmsePixels must be >= 0.')
+	calibration_clip_id = extrinsics.get('calibrationClipId')
+	if not isinstance(calibration_clip_id, str) or not calibration_clip_id.strip():
+		raise ValueError('Hybrid capture bundle externalColorCamera.extrinsicsToDepthCamera.calibrationClipId must be a non-empty string.')
+
+	metadata = capture.get('metadata')
+	if not isinstance(metadata, dict):
+		raise ValueError('Hybrid capture bundle capture.metadata must be a JSON object.')
+	hybrid = metadata.get('hybrid')
+	if not isinstance(hybrid, dict):
+		raise ValueError('Hybrid capture bundle capture.metadata.hybrid must be a JSON object.')
+	if hybrid.get('captureMode') != 'external-camera-rgb-plus-kinect-depth':
+		raise ValueError('Hybrid capture bundle capture.metadata.hybrid.captureMode must describe external camera RGB plus Kinect depth.')
+
+	sync = hybrid.get('sync')
+	if not isinstance(sync, dict):
+		raise ValueError('Hybrid capture bundle capture.metadata.hybrid.sync must be a JSON object.')
+	sync_strategy = sync.get('strategy')
+	if not isinstance(sync_strategy, str) or not sync_strategy.strip():
+		raise ValueError('Hybrid capture bundle capture.metadata.hybrid.sync.strategy must be a non-empty string.')
+	offset_ms = sync.get('offsetMs')
+	if not isinstance(offset_ms, (int, float)):
+		raise ValueError('Hybrid capture bundle capture.metadata.hybrid.sync.offsetMs must be numeric.')
+	residual_jitter_ms = sync.get('residualJitterMs')
+	if not isinstance(residual_jitter_ms, (int, float)) or residual_jitter_ms < 0:
+		raise ValueError('Hybrid capture bundle capture.metadata.hybrid.sync.residualJitterMs must be >= 0.')
+
+	alignment = hybrid.get('alignment')
+	if not isinstance(alignment, dict):
+		raise ValueError('Hybrid capture bundle capture.metadata.hybrid.alignment must be a JSON object.')
+	if alignment.get('targetGrid') != 'kinect-depth':
+		raise ValueError('Hybrid capture bundle capture.metadata.hybrid.alignment.targetGrid must be "kinect-depth".')
+	for key in ('method', 'occlusionPolicy'):
+		value = alignment.get(key)
+		if not isinstance(value, str) or not value.strip():
+			raise ValueError(f'Hybrid capture bundle capture.metadata.hybrid.alignment.{key} must be a non-empty string.')
+	coverage_ratio = alignment.get('coverageRatio')
+	if not isinstance(coverage_ratio, (int, float)) or coverage_ratio < 0 or coverage_ratio > 1:
+		raise ValueError('Hybrid capture bundle capture.metadata.hybrid.alignment.coverageRatio must be between 0 and 1.')
+
+
+def validate_named_resolution(value: object, *, name: str) -> None:
+	if not isinstance(value, dict):
+		raise ValueError(f'{name} must be a JSON object.')
+	for key in ('width', 'height'):
+		resolution_value = value.get(key)
+		if not isinstance(resolution_value, int) or resolution_value <= 0:
+			raise ValueError(f'{name}.{key} must be a positive integer.')
+
+
+def validate_number_list(
+	value: object,
+	*,
+	name: str,
+	exact_length: int | None = None,
+	minimum_length: int | None = None,
+) -> None:
+	if not isinstance(value, list):
+		raise ValueError(f'{name} must be a JSON array.')
+	if exact_length is not None and len(value) != exact_length:
+		raise ValueError(f'{name} must contain exactly {exact_length} values.')
+	if minimum_length is not None and len(value) < minimum_length:
+		raise ValueError(f'{name} must contain at least {minimum_length} values.')
+	for index, item in enumerate(value):
+		if not isinstance(item, (int, float)):
+			raise ValueError(f'{name}[{index}] must be numeric.')
 
 
 def normalize_depth_values(
@@ -312,6 +449,8 @@ def normalize_depth_values(
 		normalized.append(clamp01(1.0 - zero_to_one))
 
 	return normalized, (near_meters, far_meters), len(valid_values), invalid_count
+
+
 def encode_float32_base64(values: Sequence[float]) -> str:
 	return base64.b64encode(struct.pack(f'<{len(values)}f', *values)).decode('ascii')
 

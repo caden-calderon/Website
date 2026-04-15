@@ -2,14 +2,16 @@
 
 ## Purpose
 
-Hardware is still unavailable in the current environment, so this document records the highest-value non-hardware RGBD/body datasets to use next without changing the engine/runtime architecture.
+This document records the highest-value non-hardware RGBD/body datasets to use when live Kinect access is unavailable, blocked by sandboxing, or not needed for a rehearsal branch.
 
 The current priority is now Kinect V2-like rehearsal data, not generic aligned-RGBD plumbing. That makes `NTU RGB+D` the preferred non-hardware dataset even though it does not hand us pre-registered color + depth.
 
-Recorded on 2026-04-04 after:
+Originally recorded on 2026-04-04 after:
 
 - `python3 -m python.kinect_capture.capture probe` returned `backend_available: false`
 - `lsusb` was not usable enough in this environment to validate a live Kinect path
+
+As of the live hardware bring-up, the real Kinect path is available outside the sandbox through the native helper. These datasets are fallback/rehearsal data, not the primary production capture path.
 
 ## Selection Criteria
 
