@@ -69,7 +69,8 @@ Win95 system sounds are copyrighted. Create original sounds that evoke the same 
 ## Key References
 
 - **daedalOS** (dustinbrett.com) — Complete web desktop portfolio, 12.5K stars. Best reference for architecture decisions.
-- **98.css** (jdan/98.css) — CSS library for Win98 faithful UI. Our visual foundation.
+- **1j01/98** (98.js.org) — Win98 recreation, 1.4K stars. Has pixel-perfect Solitaire, Minesweeper, Pinball, Paint, Calculator. Best source for game assets and sprite sheets.
+- **98.css** (jdan/98.css) — CSS library for Win98 faithful UI. Our visual foundation. Has inaccurate color defaults that we override.
 - **poolside.fm** — Retro computer aesthetic music player. Good mood reference.
 - **simone.computer** — Retro computer portfolio by Simone Giertz.
 - **GUIdebook** (guidebookgallery.org) — Screenshots of historical OS GUIs for pixel reference.
@@ -102,12 +103,20 @@ The apps that make the desktop useful.
 
 ### Phase 3: Games
 
-Interactive content that works in both 3D and 2D.
+Interactive content that works in both 3D and 2D. Use existing open-source implementations where possible rather than building from scratch.
 
-- Chess (2D board renderer, AI opponent at multiple difficulty levels)
-- Axial (2D board renderer for 3D Connect-4)
-- Solitaire (Klondike — classic Win95 game)
-- Minesweeper (classic Win95 game)
+**Approach by game:**
+
+- **Solitaire**: Adapt `rjanjic/js-solitaire` (MIT, used by 1j01/98). Already pixel-perfect Win98 with green felt, classic card sprites (71x96px spritesheet), cascading win animation. Vanilla JS, wrap in Svelte component.
+- **Minesweeper**: Adapt from 1j01/98's `programs/minesweeper/`. Pixel-perfect with full sprite sheet (tiles, smiley, LED digits). Vanilla JS, wrap in Svelte component.
+- **Chess**: Build with `chess.js` (npm, BSD-2) for rules + `stockfish` (npm v18, WASM) for AI. Custom Svelte board UI with retro piece sprites. Stockfish difficulty via `Skill Level` 0-20 or `UCI_Elo` 1320-3190. The AI character needs programmatic access to game state — this is why we can't use an emulated original.
+- **Axial**: Build custom — port from Caden's existing Axial project or rebuild. AI opponent needed for the AI character integration.
+- **Pinball** (stretch): SpaceCadetPinball decompilation (MIT, 4.3K stars) compiles to WASM.
+- **DOS games** (stretch): js-dos (npm v8.3.20) runs DOSBox in WASM. Bundle `.jsdos` files with game + config. Doom shareware is freely distributable.
+
+**Card assets**: The spritesheet from `rjanjic/js-solitaire` (MIT) has all 52 card faces + classic blue crosshatch backs. Reuse for Solitaire, FreeCell, and any future card games.
+
+**AI integration requirement**: Chess and Axial must use JS game engines (not emulated executables) so the AI character can read board state, adjust difficulty, and interact with the game in real time.
 
 ### Phase 4: Theme System
 

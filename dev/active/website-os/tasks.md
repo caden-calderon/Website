@@ -178,40 +178,50 @@
 
 ## Phase 3: Games
 
-### Chess
-- [ ] Design chess state interface in `state.svelte.ts`
-- [ ] Implement chess logic in `engine.ts` (or evaluate chess.js)
-- [ ] AI opponent with adjustable difficulty (evaluate stockfish.js WASM or lighter alternative)
-- [ ] Build `ChessBoard2D.svelte` — 2D board with piece rendering
+### Solitaire (adapt rjanjic/js-solitaire, MIT)
+- [ ] Extract and adapt js-solitaire from 1j01/98 project
+- [ ] Wrap vanilla JS in Svelte component for OS window integration
+- [ ] Verify spritesheet renders correctly (71x96px card faces, blue crosshatch backs)
+- [ ] Verify green felt background, drag-and-drop, cascading win animation
+- [ ] Add Win98-style menu bar (Game: Deal, Undo, Options; Help)
+- [ ] Score tracking
+
+### Minesweeper (adapt 1j01/98 minesweeper)
+- [ ] Extract and adapt minesweeper from 1j01/98 project
+- [ ] Wrap vanilla JS in Svelte component
+- [ ] Verify sprite sheet renders correctly (tiles, smiley, LED digits)
+- [ ] Verify difficulty presets (Beginner, Intermediate, Expert)
+- [ ] Add Win98-style menu bar
+
+### Chess (custom build: chess.js + stockfish WASM)
+- [ ] Install chess.js (npm, BSD-2) and stockfish (npm v18, GPL-3)
+- [ ] Design chess state interface in `state.svelte.ts` wrapping chess.js
+- [ ] Build `ChessBoard2D.svelte` — DOM-based 8x8 grid with retro piece sprites
 - [ ] Click-to-select, click-to-move interaction
 - [ ] Legal move highlighting
 - [ ] Check/checkmate/stalemate detection and display
+- [ ] Wire Stockfish WASM as AI opponent
+- [ ] Adjustable difficulty via Stockfish UCI: Skill Level 0-20, UCI_Elo 1320-3190
+- [ ] Expose game state API for AI character integration (board position, evaluation, move history)
 - [ ] Game menu: New Game, Undo, Difficulty selector
 
-### Axial
+### Axial (custom build)
 - [ ] Design Axial state interface
-- [ ] Implement 3D Connect-4 rules in `engine.ts`
-- [ ] AI opponent (port from existing Axial project or rebuild)
+- [ ] Port or rebuild 3D Connect-4 rules from Caden's Axial project
+- [ ] AI opponent with adjustable difficulty
 - [ ] Build `AxialBoard2D.svelte` — 2D representation of 3D board
+- [ ] Expose game state API for AI character integration
 - [ ] Game controls: New Game, Difficulty selector
 
-### Solitaire
-- [ ] Implement Klondike solitaire state
-- [ ] Build card rendering (Win98 card face/back style)
-- [ ] Drag-and-drop card movement
-- [ ] Auto-flip tableau cards, auto-complete to foundation
-- [ ] Win animation (cascading bouncing cards)
-- [ ] Game menu: New Game, Undo
-- [ ] Score tracking
+### Stretch: Pinball
+- [ ] Evaluate SpaceCadetPinball WASM build (MIT, 4.3K stars)
+- [ ] Embed WASM binary in OS window
 
-### Minesweeper
-- [ ] Implement minesweeper grid state
-- [ ] Build grid renderer (Win98 style: sunken revealed cells, raised unrevealed)
-- [ ] Left-click reveal, right-click flag, middle-click chord
-- [ ] Difficulty presets (Beginner 9x9/10, Intermediate 16x16/40, Expert 30x16/99)
-- [ ] Timer and mine counter (LED-style digits)
-- [ ] Smiley face button (click to reset, changes expression on game events)
-- [ ] Game menu: New, Beginner/Intermediate/Expert/Custom
+### Stretch: DOS Games via js-dos
+- [ ] Install js-dos (npm v8.3.20)
+- [ ] Create .jsdos bundle with Doom shareware WAD + dosbox.conf
+- [ ] Wire js-dos player into OS window
+- [ ] Verify COOP/COEP headers work (already set for SharedArrayBuffer)
 
 ## Phase 4: Theme System
 
