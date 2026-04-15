@@ -120,7 +120,7 @@ export interface ContextMenuItem {
 // Constants
 // ---------------------------------------------------------------------------
 
-export const TASKBAR_HEIGHT = 40;
+export const TASKBAR_HEIGHT = 32;
 export const ICON_GRID_SIZE = 75;
 export const CASCADE_OFFSET = 30;
 export const MIN_VISIBLE_TITLE_BAR = 50;

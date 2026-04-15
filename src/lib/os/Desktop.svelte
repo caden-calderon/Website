@@ -164,8 +164,9 @@
 		flex-direction: column;
 		flex-wrap: wrap;
 		align-content: flex-start;
-		gap: 4px;
-		padding: 8px;
+		/* Viewport-relative gap matching Win98's 75px spacing proportionally */
+		gap: clamp(2px, 0.5vw, 8px);
+		padding: clamp(6px, 1vw, 16px);
 		height: 100%;
 	}
 

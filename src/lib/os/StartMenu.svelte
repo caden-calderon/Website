@@ -196,8 +196,8 @@
 
 	.start-menu {
 		position: fixed;
-		/* Overlap the taskbar slightly — the menu sits flush on the taskbar edge */
-		bottom: 39px;
+		/* Overlap the taskbar by 2px — matches Win98 where the menu sits on the taskbar */
+		bottom: 30px;
 		left: 0;
 		display: flex;
 		flex-direction: row;

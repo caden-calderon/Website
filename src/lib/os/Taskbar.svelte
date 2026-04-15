@@ -29,7 +29,7 @@
 
 <div class="taskbar" style="height: {TASKBAR_HEIGHT}px;">
 	<button class="start-button" onclick={onStartClick} type="button">
-		<img src={windowsFlag} alt="" width="20" height="20" class="start-icon" draggable="false" />
+		<img src={windowsFlag} alt="" width="16" height="16" class="start-icon" draggable="false" />
 		<span class="start-text">Start</span>
 	</button>
 
@@ -63,32 +63,33 @@
 		right: 0;
 		display: flex;
 		align-items: center;
-		gap: 3px;
-		padding: 4px 3px;
+		gap: 2px;
+		padding: 2px 2px;
 		background: #c0c0c0;
-		border-top: 2px solid #dfdfdf;
+		border-top: 1px solid #ffffff;
 		z-index: 99999;
-		font-family: 'Pixelated MS Sans Serif', 'MS Sans Serif', 'Microsoft Sans Serif', Tahoma, Arial, sans-serif;
+		font-family: 'Pixelated MS Sans Serif', 'MS Sans Serif', 'Microsoft Sans Serif', Arial, sans-serif;
 		font-size: 11px;
+		color: #000000;
 	}
 
 	.start-button {
 		display: flex;
 		align-items: center;
-		gap: 4px;
-		padding: 2px 8px;
-		height: 30px;
+		gap: 3px;
+		padding: 2px 6px;
+		height: 26px;
 		font-weight: bold;
-		font-size: 12px;
+		font-size: 11px;
 		font-family: inherit;
+		color: #000000;
 		cursor: default;
 		flex-shrink: 0;
-		min-width: 64px;
 	}
 
 	.start-icon {
-		width: 20px;
-		height: 20px;
+		width: 16px;
+		height: 16px;
 		image-rendering: pixelated;
 		flex-shrink: 0;
 	}
@@ -99,7 +100,7 @@
 
 	.divider {
 		width: 2px;
-		height: 28px;
+		height: 24px;
 		border-left: 1px solid #808080;
 		border-right: 1px solid white;
 		flex-shrink: 0;
@@ -118,7 +119,7 @@
 		align-items: center;
 		gap: 4px;
 		padding: 2px 8px;
-		height: 28px;
+		height: 24px;
 		max-width: 170px;
 		min-width: 90px;
 		font-size: 11px;
@@ -150,8 +151,8 @@
 	.system-tray {
 		display: flex;
 		align-items: center;
-		padding: 3px 10px;
-		height: 28px;
+		padding: 2px 8px;
+		height: 24px;
 		border: 1px solid;
 		border-color: #808080 #dfdfdf #dfdfdf #808080;
 		flex-shrink: 0;
