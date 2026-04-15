@@ -1,20 +1,23 @@
 # Website OS Tasks
 
-## Phase 0: Project Setup
+## Phase 0: Project Setup — COMPLETE
 
 ### CSS Scoping
-- [ ] Restructure routes into layout groups: `(main)/` for existing routes, `(os)/` for desktop
-- [ ] Move `import '../app.css'` from root layout to `(main)/+layout.svelte`
-- [ ] Create `(os)/+layout.svelte` that imports 98.css and OS base styles
-- [ ] Verify existing routes (`/`, `/capture-control`) still work unchanged
-- [ ] Verify `pnpm check` and `pnpm test` pass after restructure
+- [x] Restructure routes into layout groups: `(main)/` for existing routes, `(os)/` for desktop
+- [x] Move `import '../app.css'` from root layout to `(main)/+layout.svelte`
+- [x] Create `(os)/+layout.svelte` that imports 98.css and OS base styles
+- [x] Override 98.css wrong color defaults (`--button-face`, `--text-color`, `--window-frame`)
+- [x] Verify existing routes (`/`, `/capture-control`) still work unchanged
+- [x] Verify `pnpm check` and `pnpm test` pass after restructure
 
 ### Dependencies
-- [ ] Install `98.css`
-- [ ] Create `static/os-assets/` directory structure (icons, sounds, wallpapers, cursors)
-- [ ] Create `src/lib/os/types.ts` with core type definitions
+- [x] Install `98.css`
+- [x] Create `static/os-assets/` directory structure (icons, sounds, wallpapers, cursors)
+- [x] Create `src/lib/os/types.ts` with core type definitions
+- [x] Create `src/lib/os/palette.ts` with complete Win98 color reference
+- [x] Source real Win98 PNG icons from icon pack into `static/os-assets/icons/`
 
-## Phase 1: OS Shell
+## Phase 1: OS Shell — MOSTLY COMPLETE
 
 ### Virtual Filesystem
 - [ ] Implement `filesystem.ts` with OverlayFS pattern (read-only base + IndexedDB writes)
@@ -33,67 +36,70 @@
 - [ ] Reset capability (clear IndexedDB, restore defaults)
 
 ### Window Manager
-- [ ] Implement `windowManager.svelte.ts` with rune-based state
-- [ ] open, close, focus, minimize, maximize, restore operations
-- [ ] Z-index stacking with monotonic counter
-- [ ] Cascading position for new windows (30px offset, wrap at viewport edge)
-- [ ] Mobile-aware: open maximized on small viewports (<640px width)
-- [ ] Clamp windows to viewport bounds
+- [x] Implement `windowManager.svelte.ts` with rune-based state
+- [x] open, close, focus, minimize, maximize, restore operations
+- [x] Z-index stacking with monotonic counter
+- [x] Cascading position for new windows (30px offset, wrap at viewport edge)
+- [x] Mobile-aware: open maximized on small viewports (<640px width)
+- [x] Clamp windows to viewport bounds
 - [ ] Session integration: save/restore window state
 
 ### App Registry
-- [ ] Implement `appRegistry.ts` with lazy component imports
-- [ ] Register initial apps: IE, File Explorer, Notepad, Calculator, Run Dialog
-- [ ] Singleton enforcement (only one Calculator, etc.)
+- [x] Implement `appRegistry.ts` with lazy component imports
+- [x] Register initial apps: IE, File Explorer, Notepad, Calculator, Run Dialog, Chess, Axial, Solitaire, Minesweeper, Point Engine
+- [x] Singleton enforcement (only one Calculator, etc.)
 - [ ] App launch from filesystem shortcut resolution
 
 ### Window Component
-- [ ] Build `Window.svelte` with 98.css title bar chrome
-- [ ] Title bar drag-to-move with `setPointerCapture`
-- [ ] Edge/corner resize handles (8 zones) with pointer capture
-- [ ] Minimize/maximize/restore/close button handlers
-- [ ] Enforce minSize constraints and viewport clamping
-- [ ] Lazy-render app component in content area
-- [ ] Pass window ID, dimensions, and props to app component
-- [ ] Double-click title bar to maximize/restore (Win95 behavior)
+- [x] Build `Window.svelte` with 98.css title bar chrome
+- [x] Title bar drag-to-move with `setPointerCapture`
+- [x] Edge/corner resize handles (8 zones) with pointer capture
+- [x] Minimize/maximize/restore/close button handlers
+- [x] Enforce minSize constraints and viewport clamping
+- [x] Lazy-render app component in content area
+- [x] Pass window ID, dimensions, and props to app component
+- [x] Double-click title bar to maximize/restore
 
 ### Desktop
-- [ ] Build `Desktop.svelte` with wallpaper layer
+- [x] Build `Desktop.svelte` with wallpaper layer (teal `#008080`)
+- [x] Build `DesktopIcon.svelte` with select/double-click behavior
+- [x] Icon grid layout (columns top-to-bottom, left-to-right)
+- [x] Viewport-relative icon sizing via `clamp()`
+- [x] White text labels, regular weight, no text shadow (correct Win98)
+- [x] Win98 selection: blue tint on icon + navy label background
+- [x] Click desktop to deselect icons
 - [ ] Source desktop icons from filesystem (`C:\Windows\Desktop\`)
-- [ ] Build `DesktopIcon.svelte` with select/double-click behavior
-- [ ] Icon grid layout (columns top-to-bottom, left-to-right, ~75px spacing)
-- [ ] White text labels with 1px black shadow
-- [ ] Click desktop to deselect icons
 - [ ] Drag icons to reposition (persist positions in session)
-- [ ] Default wallpaper: solid teal `#008080`
 
 ### Taskbar
-- [ ] Build `Taskbar.svelte` fixed to bottom, 30px tall
-- [ ] Start button with Win95 logo
-- [ ] Window list entries (one per open window, icon + truncated title)
-- [ ] Click entry: focused → minimize; minimized/background → focus
-- [ ] System tray: live clock (12h format with AM/PM)
-- [ ] Raised 3D border styling (98.css)
+- [x] Build `Taskbar.svelte` fixed to bottom (32px)
+- [x] Start button with Windows flag icon
+- [x] Window list entries (one per open window, icon + truncated title)
+- [x] Click entry: focused → minimize; minimized/background → focus
+- [x] System tray: live clock (12h format with AM/PM)
+- [x] Proper Win98 colors and 3D border
 
 ### Start Menu
-- [ ] Build `StartMenu.svelte` anchored to Start button, opens upward
-- [ ] Vertical "Windows 95" banner on left edge
-- [ ] Source Programs submenu from filesystem (`C:\Windows\Start Menu\Programs\`)
-- [ ] Nested submenu support (hover to expand)
-- [ ] Settings entry (placeholder)
-- [ ] Find entry (placeholder)
-- [ ] Run... entry (opens Run dialog)
-- [ ] Shut Down... entry (placeholder for 3D transition)
-- [ ] Click-outside-to-close behavior
-- [ ] Keyboard: Escape to close
+- [x] Build `StartMenu.svelte` anchored to Start button, opens upward
+- [x] Vertical "Windows 98" banner on left edge
+- [x] Nested submenu support (hover to expand)
+- [x] Programs > Accessories, Games submenus
+- [x] Favorites, Documents, Settings, Find entries with submenus
+- [x] Help, Run, Log Off, Shut Down entries
+- [x] Click-outside-to-close behavior
+- [x] Submenu overlaps parent by 2px (Win98 attached look)
+- [x] Menu overlaps taskbar slightly
+- [x] Black text default, white on hover highlight
+- [ ] Source Programs submenu from filesystem
+- [ ] Keyboard: Escape to close (partially — works from Desktop, not internal)
 
 ### Context Menus
-- [ ] Build `ContextMenu.svelte` with absolute positioning
-- [ ] Desktop right-click: Arrange Icons, Refresh, New ▸, Properties
+- [x] Build `ContextMenu.svelte` with absolute positioning
+- [x] Desktop right-click: Arrange Icons, New, Properties
+- [x] Nested submenu support
+- [x] Dismiss on click-outside or Escape
 - [ ] Desktop icon right-click: Open, Rename, Delete, Properties
 - [ ] Taskbar right-click: Cascade Windows, Tile Windows, Minimize All
-- [ ] Dismiss on click-outside or Escape
-- [ ] Nested submenu support
 
 ### Sounds
 - [ ] Create `sounds.ts` with sound playback (Audio API)
@@ -106,11 +112,11 @@
 - [ ] Implement `use:doubleclick` Svelte action (500ms window, 12px move cancel)
 - [ ] Verify window drag works on touch via pointer events
 - [ ] Verify window resize works on touch
-- [ ] Disable default touch behaviors (tap highlight, callout, text selection)
+- [x] Disable default touch behaviors (tap highlight, callout, text selection)
 
 ### Keyboard
-- [ ] Alt+F4 closes focused window
-- [ ] Escape closes Start menu / context menus / dialogs
+- [x] Alt+F4 closes focused window
+- [x] Escape closes Start menu / context menus
 - [ ] Tab / Shift+Tab cycles between open windows (stretch: Alt+Tab overlay)
 
 ## Phase 2: Core Apps
@@ -146,9 +152,9 @@
 - [ ] Open .txt files from File Explorer / double-click
 
 ### Calculator
-- [ ] Build `Calculator.svelte` matching Win95 layout
+- [ ] Build `Calculator.svelte` matching Win98 layout
 - [ ] Standard mode: digit buttons, operations, memory (MC, MR, MS, M+)
-- [ ] Working calculation logic (standard arithmetic, proper order of operations)
+- [ ] Working calculation logic
 - [ ] Edit menu: Copy, Paste
 
 ### File Explorer
@@ -163,7 +169,7 @@
 - [ ] File menu: New Folder, Rename, Delete, Properties
 
 ### Run Dialog
-- [ ] Build `RunDialog.svelte` matching Win95 layout
+- [ ] Build `RunDialog.svelte` matching Win98 layout
 - [ ] Text input for app/command name
 - [ ] OK, Cancel, Browse buttons
 - [ ] App name → app launch (resolve from registry)
@@ -181,7 +187,6 @@
 - [ ] Legal move highlighting
 - [ ] Check/checkmate/stalemate detection and display
 - [ ] Game menu: New Game, Undo, Difficulty selector
-- [ ] AI can suggest lowering difficulty (ties into AI character system later)
 
 ### Axial
 - [ ] Design Axial state interface
@@ -192,16 +197,16 @@
 
 ### Solitaire
 - [ ] Implement Klondike solitaire state
-- [ ] Build card rendering (Win95 card face/back style)
+- [ ] Build card rendering (Win98 card face/back style)
 - [ ] Drag-and-drop card movement
 - [ ] Auto-flip tableau cards, auto-complete to foundation
-- [ ] Win animation (cascading bouncing cards — iconic)
+- [ ] Win animation (cascading bouncing cards)
 - [ ] Game menu: New Game, Undo
 - [ ] Score tracking
 
 ### Minesweeper
 - [ ] Implement minesweeper grid state
-- [ ] Build grid renderer (Win95 style: sunken revealed cells, raised unrevealed)
+- [ ] Build grid renderer (Win98 style: sunken revealed cells, raised unrevealed)
 - [ ] Left-click reveal, right-click flag, middle-click chord
 - [ ] Difficulty presets (Beginner 9x9/10, Intermediate 16x16/40, Expert 30x16/99)
 - [ ] Timer and mine counter (LED-style digits)
@@ -212,44 +217,22 @@
 
 - [ ] Implement `themeManager.svelte.ts` with theme data model
 - [ ] Define theme interface (wallpaper, sound scheme, accent colors)
-- [ ] Build default Win95 theme (teal `#008080`, standard sounds)
+- [ ] Build default Win98 theme (teal `#008080`, standard sounds)
 - [ ] Build at least one scene-linked theme (e.g., aquarium → underwater wallpaper)
 - [ ] Wire scene changes to theme switching (sceneStore → themeManager)
-- [ ] Build Display Properties dialog (accessible from desktop right-click → Properties)
-- [ ] Wallpaper tab: solid color picker, image selection, tile/center/stretch
-- [ ] Appearance tab: theme selection (Plus!-style theme picker)
+- [ ] Build Display Properties dialog
 - [ ] Session persistence for theme/wallpaper changes
 
 ## Phase 5: Polish
 
-### Boot Sequence
-- [ ] Build `BootSequence.svelte` — BIOS POST text → Win95 loading bar
-- [ ] Skippable on click/keypress
-- [ ] Startup sound on completion
-- [ ] Only shown on first visit
-
-### Sleep/Wake
-- [ ] Build `SleepWake.svelte` — screen brightens from black
-- [ ] Shown on return visits (session exists)
-- [ ] Restore previous desktop state
-
-### Additional Apps
-- [ ] Paint (canvas drawing tool — stretch goal)
-- [ ] Media Player (audio player chrome for ambient music)
-- [ ] Properties dialog for files (Name, Type, Size, Location, dates)
-
-### Additional Authenticity
-- [ ] Win95 cursors (default arrow, hand for links, hourglass for loading, resize cursors)
-- [ ] Solitaire win animation (cascading bouncing cards)
-- [ ] Screen saver (after idle timeout — starfield, 3D pipes, or maze)
-- [ ] Shut Down dialog with options (Shut down, Restart, Sleep)
-- [ ] "It is now safe to turn off your computer" screen
-- [ ] My Computer icon showing fake system info
-
-### More Themes
-- [ ] Dangerous Creatures theme
-- [ ] Inside your Computer theme
-- [ ] Additional scene-linked themes as 3D scenes are built
+- [ ] Boot sequence (BIOS POST → Win98 loading → desktop, skippable, first visit only)
+- [ ] Sleep/wake (return visits restore previous state)
+- [ ] Paint app (canvas drawing tool)
+- [ ] Media Player (audio player chrome)
+- [ ] Win98 cursors
+- [ ] Screen saver (starfield, 3D pipes, or maze)
+- [ ] Shut Down dialog
+- [ ] More Plus!-style themes
 
 ## Integration (Depends on 3D Scene Work)
 
