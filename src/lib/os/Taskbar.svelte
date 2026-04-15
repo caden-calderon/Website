@@ -64,7 +64,7 @@
 		display: flex;
 		align-items: center;
 		gap: 3px;
-		padding: 3px 3px;
+		padding: 4px 3px;
 		background: #c0c0c0;
 		border-top: 2px solid #dfdfdf;
 		z-index: 99999;
@@ -77,7 +77,7 @@
 		align-items: center;
 		gap: 4px;
 		padding: 2px 8px;
-		height: 28px;
+		height: 30px;
 		font-weight: bold;
 		font-size: 12px;
 		font-family: inherit;
@@ -99,7 +99,7 @@
 
 	.divider {
 		width: 2px;
-		height: 26px;
+		height: 28px;
 		border-left: 1px solid #808080;
 		border-right: 1px solid white;
 		flex-shrink: 0;
@@ -118,7 +118,7 @@
 		align-items: center;
 		gap: 4px;
 		padding: 2px 8px;
-		height: 26px;
+		height: 28px;
 		max-width: 170px;
 		min-width: 90px;
 		font-size: 11px;
@@ -151,7 +151,7 @@
 		display: flex;
 		align-items: center;
 		padding: 3px 10px;
-		height: 26px;
+		height: 28px;
 		border: 1px solid;
 		border-color: #808080 #dfdfdf #dfdfdf #808080;
 		flex-shrink: 0;

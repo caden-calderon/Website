@@ -196,23 +196,25 @@
 
 	.start-menu {
 		position: fixed;
-		bottom: 36px;
+		/* Overlap the taskbar slightly — the menu sits flush on the taskbar edge */
+		bottom: 39px;
 		left: 0;
 		display: flex;
 		flex-direction: row;
-		min-width: 240px;
+		min-width: 180px;
 		z-index: 100001;
 		padding: 0;
+		background: #c0c0c0;
 	}
 
 	/* Vertical banner */
 	.banner {
-		width: 28px;
+		width: 24px;
 		background: linear-gradient(to top, #000080, #1084d0);
 		display: flex;
 		align-items: flex-end;
 		justify-content: center;
-		padding-bottom: 8px;
+		padding-bottom: 6px;
 		flex-shrink: 0;
 	}
 
@@ -220,7 +222,7 @@
 		writing-mode: vertical-rl;
 		transform: rotate(180deg);
 		font-family: Arial, Helvetica, sans-serif;
-		font-size: 22px;
+		font-size: 20px;
 		font-weight: bold;
 		letter-spacing: 0.5px;
 	}
@@ -239,17 +241,18 @@
 		display: flex;
 		flex-direction: column;
 		flex: 1;
-		padding: 3px 0;
+		padding: 2px 0;
 	}
 
-	/* Top-level items — 32x32 icons, taller */
+	/* Menu items — black text by default, white only when hovered */
 	.menu-item {
 		display: flex;
 		align-items: center;
-		gap: 8px;
-		padding: 5px 24px 5px 8px;
+		gap: 6px;
+		padding: 4px 6px 4px 4px;
 		font-size: 11px;
 		font-family: 'Pixelated MS Sans Serif', 'MS Sans Serif', 'Microsoft Sans Serif', Tahoma, Arial, sans-serif;
+		color: #000000;
 		cursor: default;
 		white-space: nowrap;
 		position: relative;
@@ -257,7 +260,7 @@
 
 	.menu-item:hover:not(.disabled) {
 		background: #000080;
-		color: white;
+		color: #ffffff;
 	}
 
 	.menu-item.disabled {
@@ -271,9 +274,9 @@
 		flex-shrink: 0;
 	}
 
-	/* Submenu items — 16x16 icons, shorter */
+	/* Submenu items — 16x16 icons, shorter rows */
 	.sub-item {
-		padding: 3px 24px 3px 6px;
+		padding: 3px 6px 3px 4px;
 	}
 
 	.menu-icon-sm {
@@ -288,25 +291,30 @@
 	}
 
 	.arrow {
-		margin-left: auto;
-		font-size: 10px;
+		font-size: 8px;
+		margin-left: 8px;
+		/* Flush to the right edge */
+		position: absolute;
+		right: 6px;
 	}
 
 	.separator {
 		height: 0;
-		margin: 4px 4px;
+		margin: 3px 2px;
 		border-top: 1px solid #808080;
-		border-bottom: 1px solid white;
+		border-bottom: 1px solid #ffffff;
 	}
 
+	/* Submenus overlap their parent by 2px, matching Win98 */
 	.submenu {
 		position: absolute;
-		left: 100%;
+		left: calc(100% - 2px);
 		top: -3px;
-		min-width: 180px;
+		min-width: 170px;
 		display: flex;
 		flex-direction: column;
-		padding: 3px 0;
+		padding: 2px 0;
 		z-index: 100002;
+		background: #c0c0c0;
 	}
 </style>

@@ -110,15 +110,17 @@
 		min-width: 160px;
 		padding: 2px 0;
 		z-index: 110001;
+		background: #c0c0c0;
 	}
 
 	.menu-item {
 		display: flex;
 		align-items: center;
 		gap: 4px;
-		padding: 3px 20px 3px 4px;
+		padding: 3px 6px 3px 4px;
 		font-size: 11px;
-		font-family: 'Pixelated MS Sans Serif', Arial, sans-serif;
+		font-family: 'Pixelated MS Sans Serif', 'MS Sans Serif', 'Microsoft Sans Serif', Tahoma, Arial, sans-serif;
+		color: #000000;
 		cursor: default;
 		white-space: nowrap;
 		position: relative;
@@ -126,7 +128,7 @@
 
 	.menu-item:hover:not(.disabled) {
 		background: #000080;
-		color: white;
+		color: #ffffff;
 	}
 
 	.menu-item.disabled {
@@ -153,23 +155,25 @@
 	}
 
 	.arrow {
-		margin-left: auto;
-		font-size: 10px;
+		font-size: 8px;
+		position: absolute;
+		right: 6px;
 	}
 
 	.separator {
 		height: 0;
-		margin: 3px 4px;
+		margin: 3px 2px;
 		border-top: 1px solid #808080;
-		border-bottom: 1px solid white;
+		border-bottom: 1px solid #ffffff;
 	}
 
 	.submenu {
 		position: absolute;
-		left: 100%;
+		left: calc(100% - 2px);
 		top: -3px;
 		min-width: 140px;
 		padding: 2px 0;
 		z-index: 110002;
+		background: #c0c0c0;
 	}
 </style>
