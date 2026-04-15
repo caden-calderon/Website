@@ -1,4 +1,5 @@
 import type { AppDef, AppId } from './types.js';
+import { getIcon } from './icons.js';
 
 /**
  * Central registry of all launchable applications.
@@ -10,7 +11,7 @@ const APP_DEFS: AppDef[] = [
 	{
 		id: 'internet-explorer',
 		label: 'Internet Explorer',
-		icon: '/os-assets/icons/ie.png',
+		icon: getIcon('internet-explorer'),
 		defaultSize: { width: 640, height: 480 },
 		minSize: { width: 320, height: 240 },
 		component: () => import('./apps/Placeholder.svelte'),
@@ -19,7 +20,7 @@ const APP_DEFS: AppDef[] = [
 	{
 		id: 'file-explorer',
 		label: 'Explorer',
-		icon: '/os-assets/icons/explorer.png',
+		icon: getIcon('file-explorer'),
 		defaultSize: { width: 560, height: 400 },
 		minSize: { width: 280, height: 200 },
 		component: () => import('./apps/Placeholder.svelte'),
@@ -28,7 +29,7 @@ const APP_DEFS: AppDef[] = [
 	{
 		id: 'notepad',
 		label: 'Notepad',
-		icon: '/os-assets/icons/notepad.png',
+		icon: getIcon('notepad'),
 		defaultSize: { width: 480, height: 360 },
 		minSize: { width: 200, height: 150 },
 		component: () => import('./apps/Placeholder.svelte'),
@@ -37,7 +38,7 @@ const APP_DEFS: AppDef[] = [
 	{
 		id: 'calculator',
 		label: 'Calculator',
-		icon: '/os-assets/icons/calculator.png',
+		icon: getIcon('calculator'),
 		defaultSize: { width: 248, height: 292 },
 		minSize: { width: 248, height: 292 },
 		component: () => import('./apps/Placeholder.svelte'),
@@ -46,7 +47,7 @@ const APP_DEFS: AppDef[] = [
 	{
 		id: 'run-dialog',
 		label: 'Run',
-		icon: '/os-assets/icons/run.png',
+		icon: getIcon('run-dialog'),
 		defaultSize: { width: 360, height: 160 },
 		minSize: { width: 360, height: 160 },
 		component: () => import('./apps/Placeholder.svelte'),
@@ -55,7 +56,7 @@ const APP_DEFS: AppDef[] = [
 	{
 		id: 'chess',
 		label: 'Chess',
-		icon: '/os-assets/icons/chess.png',
+		icon: getIcon('chess'),
 		defaultSize: { width: 480, height: 520 },
 		minSize: { width: 320, height: 360 },
 		component: () => import('./apps/Placeholder.svelte'),
@@ -64,7 +65,7 @@ const APP_DEFS: AppDef[] = [
 	{
 		id: 'axial',
 		label: 'Axial',
-		icon: '/os-assets/icons/axial.png',
+		icon: getIcon('axial'),
 		defaultSize: { width: 480, height: 520 },
 		minSize: { width: 320, height: 360 },
 		component: () => import('./apps/Placeholder.svelte'),
@@ -73,7 +74,7 @@ const APP_DEFS: AppDef[] = [
 	{
 		id: 'solitaire',
 		label: 'Solitaire',
-		icon: '/os-assets/icons/solitaire.png',
+		icon: getIcon('solitaire'),
 		defaultSize: { width: 560, height: 420 },
 		minSize: { width: 400, height: 300 },
 		component: () => import('./apps/Placeholder.svelte'),
@@ -82,7 +83,7 @@ const APP_DEFS: AppDef[] = [
 	{
 		id: 'minesweeper',
 		label: 'Minesweeper',
-		icon: '/os-assets/icons/minesweeper.png',
+		icon: getIcon('minesweeper'),
 		defaultSize: { width: 280, height: 360 },
 		minSize: { width: 200, height: 260 },
 		component: () => import('./apps/Placeholder.svelte'),
@@ -91,7 +92,7 @@ const APP_DEFS: AppDef[] = [
 	{
 		id: 'point-engine',
 		label: 'Point Engine',
-		icon: '/os-assets/icons/point-engine.png',
+		icon: getIcon('point-engine'),
 		defaultSize: { width: 800, height: 600 },
 		minSize: { width: 480, height: 360 },
 		component: () => import('./apps/Placeholder.svelte'),

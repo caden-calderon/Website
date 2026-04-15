@@ -243,16 +243,7 @@
 </div>
 
 <style>
-	.window {
-		/* 98.css handles the visual chrome — we just handle layout */
-		box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #dfdfdf,
-			inset -2px -2px grey, inset 2px 2px #fff;
-	}
-
-	.window.inactive .title-bar {
-		background: linear-gradient(90deg, #808080 0%, #b5b5b5 100%);
-	}
-
+	/* 98.css handles the window chrome. We only add layout and behavior styles. */
 	.title-bar {
 		cursor: default;
 		flex-shrink: 0;

@@ -104,6 +104,19 @@ export interface DesktopTheme {
 }
 
 // ---------------------------------------------------------------------------
+// Context menu
+// ---------------------------------------------------------------------------
+
+export interface ContextMenuItem {
+	label: string;
+	icon?: string;
+	disabled?: boolean;
+	separator?: boolean;
+	action?: () => void;
+	children?: ContextMenuItem[];
+}
+
+// ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 

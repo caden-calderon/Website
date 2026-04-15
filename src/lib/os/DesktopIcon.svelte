@@ -14,7 +14,7 @@
 		appId: AppId;
 		selected?: boolean;
 		onopen: (appId: AppId) => void;
-		onselect: (appId: AppId) => void;
+		onselect: (label: string) => void;
 	} = $props();
 
 	let lastClickTime = 0;
@@ -26,7 +26,7 @@
 			onopen(appId);
 			lastClickTime = 0;
 		} else {
-			onselect(appId);
+			onselect(label);
 			lastClickTime = now;
 		}
 	}

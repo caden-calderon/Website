@@ -2,40 +2,80 @@
 	import DesktopIcon from './DesktopIcon.svelte';
 	import Window from './Window.svelte';
 	import Taskbar from './Taskbar.svelte';
+	import StartMenu from './StartMenu.svelte';
+	import ContextMenu from './ContextMenu.svelte';
 	import { windowManager } from './windowManager.svelte.js';
-	import { TASKBAR_HEIGHT, type AppId } from './types.js';
+	import { getIcon } from './icons.js';
+	import { TASKBAR_HEIGHT, type AppId, type ContextMenuItem } from './types.js';
 
 	// Desktop icon definitions (later these come from the virtual filesystem)
 	const desktopIcons: { label: string; icon: string; appId: AppId }[] = [
-		{ label: 'My Projects', icon: '/os-assets/icons/explorer.png', appId: 'file-explorer' },
-		{ label: 'Internet Explorer', icon: '/os-assets/icons/ie.png', appId: 'internet-explorer' },
-		{ label: 'Chess', icon: '/os-assets/icons/chess.png', appId: 'chess' },
-		{ label: 'Axial', icon: '/os-assets/icons/axial.png', appId: 'axial' },
-		{ label: 'Point Engine', icon: '/os-assets/icons/point-engine.png', appId: 'point-engine' },
-		{ label: 'Notepad', icon: '/os-assets/icons/notepad.png', appId: 'notepad' },
-		{ label: 'Minesweeper', icon: '/os-assets/icons/minesweeper.png', appId: 'minesweeper' },
-		{ label: 'Solitaire', icon: '/os-assets/icons/solitaire.png', appId: 'solitaire' },
-		{ label: 'Calculator', icon: '/os-assets/icons/calculator.png', appId: 'calculator' },
+		{ label: 'My Computer', icon: getIcon('my-computer'), appId: 'file-explorer' },
+		{ label: 'My Documents', icon: getIcon('my-documents'), appId: 'file-explorer' },
+		{ label: 'Internet Explorer', icon: getIcon('internet-explorer'), appId: 'internet-explorer' },
+		{ label: 'My Projects', icon: getIcon('file-explorer'), appId: 'file-explorer' },
+		{ label: 'Chess', icon: getIcon('chess'), appId: 'chess' },
+		{ label: 'Axial', icon: getIcon('axial'), appId: 'axial' },
+		{ label: 'Point Engine', icon: getIcon('point-engine'), appId: 'point-engine' },
+		{ label: 'Recycle Bin', icon: getIcon('recycle-bin'), appId: 'file-explorer' },
 	];
 
-	let selectedIcon = $state<AppId | null>(null);
+	let selectedIcon = $state<string | null>(null);
 	let startMenuOpen = $state(false);
+	let contextMenu = $state<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
+
+	// Desktop right-click menu items
+	const desktopContextItems: ContextMenuItem[] = [
+		{
+			label: 'Arrange Icons',
+			children: [
+				{ label: 'by Name', action: () => {} },
+				{ label: 'by Type', action: () => {} },
+				{ separator: true, label: '' },
+				{ label: 'Auto Arrange', action: () => {} },
+			],
+		},
+		{ label: 'Line up Icons', action: () => {} },
+		{ separator: true, label: '' },
+		{ label: 'Paste', disabled: true },
+		{ label: 'Paste Shortcut', disabled: true },
+		{ separator: true, label: '' },
+		{
+			label: 'New',
+			children: [
+				{ label: 'Folder', disabled: true },
+				{ label: 'Shortcut', disabled: true },
+				{ separator: true, label: '' },
+				{ label: 'Text Document', disabled: true },
+			],
+		},
+		{ separator: true, label: '' },
+		{ label: 'Properties', disabled: true },
+	];
 
 	function openApp(appId: AppId) {
 		windowManager.open(appId);
 		selectedIcon = null;
 	}
 
-	function selectIcon(appId: AppId) {
-		selectedIcon = appId;
+	function selectIcon(label: string) {
+		selectedIcon = label;
 	}
 
 	function desktopClick(e: MouseEvent) {
-		// Click on the desktop background deselects icons and closes start menu
+		// Click on the desktop background deselects icons and closes menus
 		if ((e.target as HTMLElement).classList.contains('desktop-area')) {
 			selectedIcon = null;
 			startMenuOpen = false;
+			contextMenu = null;
 		}
+	}
+
+	function desktopContextMenu(e: MouseEvent) {
+		if (!(e.target as HTMLElement).classList.contains('desktop-area')) return;
+		e.preventDefault();
+		contextMenu = { x: e.clientX, y: e.clientY, items: desktopContextItems };
+		startMenuOpen = false;
 	}
 
 	function toggleStartMenu() {
@@ -51,10 +91,10 @@
 				e.preventDefault();
 			}
 		}
-		// Escape closes start menu
-		if (e.key === 'Escape' && startMenuOpen) {
-			startMenuOpen = false;
-			e.preventDefault();
+		// Escape closes start menu and context menu
+		if (e.key === 'Escape') {
+			if (contextMenu) { contextMenu = null; e.preventDefault(); return; }
+			if (startMenuOpen) { startMenuOpen = false; e.preventDefault(); return; }
 		}
 	}
 
@@ -65,16 +105,16 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="desktop" onclick={desktopClick}>
+<div class="desktop" onclick={desktopClick} oncontextmenu={desktopContextMenu}>
 	<!-- Icon grid -->
 	<div class="desktop-area" style="padding-bottom: {TASKBAR_HEIGHT}px;">
 		<div class="icon-grid">
-			{#each desktopIcons as icon (icon.appId)}
+			{#each desktopIcons as icon, i (icon.label)}
 				<DesktopIcon
 					label={icon.label}
 					icon={icon.icon}
 					appId={icon.appId}
-					selected={selectedIcon === icon.appId}
+					selected={selectedIcon === icon.label}
 					onopen={openApp}
 					onselect={selectIcon}
 				/>
@@ -87,38 +127,19 @@
 		<Window windowState={win} />
 	{/each}
 
-	<!-- Start menu (placeholder — will be a full component later) -->
+	<!-- Start menu -->
 	{#if startMenuOpen}
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="start-menu-backdrop" onclick={() => (startMenuOpen = false)}>
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div class="window start-menu" onclick={(e) => e.stopPropagation()}>
-				<div class="start-menu-banner">
-					<span class="banner-text">Windows<span class="banner-95">95</span></span>
-				</div>
-				<div class="start-menu-items">
-					<button class="start-menu-item" onclick={() => { openApp('internet-explorer'); startMenuOpen = false; }} type="button">
-						Programs
-					</button>
-					<button class="start-menu-item" type="button" disabled>
-						Settings
-					</button>
-					<button class="start-menu-item" type="button" disabled>
-						Find
-					</button>
-					<button class="start-menu-item" type="button" disabled>
-						Help
-					</button>
-					<button class="start-menu-item" onclick={() => { openApp('run-dialog'); startMenuOpen = false; }} type="button">
-						Run...
-					</button>
-					<div class="start-menu-separator"></div>
-					<button class="start-menu-item" type="button" disabled>
-						Shut Down...
-					</button>
-				</div>
-			</div>
-		</div>
+		<StartMenu onclose={() => (startMenuOpen = false)} />
+	{/if}
+
+	<!-- Context menu -->
+	{#if contextMenu}
+		<ContextMenu
+			x={contextMenu.x}
+			y={contextMenu.y}
+			items={contextMenu.items}
+			onclose={() => (contextMenu = null)}
+		/>
 	{/if}
 
 	<!-- Taskbar -->
@@ -148,83 +169,4 @@
 		height: 100%;
 	}
 
-	/* Start menu */
-	.start-menu-backdrop {
-		position: fixed;
-		inset: 0;
-		z-index: 100000;
-	}
-
-	.start-menu {
-		position: fixed;
-		bottom: 30px;
-		left: 0;
-		display: flex;
-		flex-direction: row;
-		min-width: 180px;
-		z-index: 100001;
-	}
-
-	.start-menu-banner {
-		width: 24px;
-		background: linear-gradient(to top, #000080, #1084d0);
-		display: flex;
-		align-items: flex-end;
-		justify-content: center;
-		padding-bottom: 8px;
-		flex-shrink: 0;
-	}
-
-	.banner-text {
-		color: white;
-		font-weight: bold;
-		font-size: 16px;
-		writing-mode: vertical-rl;
-		transform: rotate(180deg);
-		letter-spacing: 1px;
-		font-family: Arial, sans-serif;
-	}
-
-	.banner-95 {
-		font-weight: 900;
-		color: #c0c0c0;
-	}
-
-	.start-menu-items {
-		display: flex;
-		flex-direction: column;
-		flex: 1;
-		padding: 2px 0;
-	}
-
-	.start-menu-item {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		padding: 4px 24px 4px 8px;
-		font-size: 11px;
-		font-family: 'Pixelated MS Sans Serif', Arial, sans-serif;
-		text-align: left;
-		border: none;
-		background: transparent;
-		width: 100%;
-		cursor: default;
-		box-shadow: none;
-	}
-
-	.start-menu-item:hover:not(:disabled) {
-		background: #000080;
-		color: white;
-	}
-
-	.start-menu-item:disabled {
-		color: #808080;
-	}
-
-	.start-menu-separator {
-		height: 1px;
-		margin: 2px 4px;
-		border-top: 1px solid #808080;
-		border-bottom: 1px solid white;
-	}
 </style>

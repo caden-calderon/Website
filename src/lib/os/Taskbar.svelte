@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { windowManager } from './windowManager.svelte.js';
+	import { getIcon } from './icons.js';
 	import { TASKBAR_HEIGHT } from './types.js';
+
+	const windowsFlag = getIcon('windows-flag');
 
 	let { onStartClick }: { onStartClick: () => void } = $props();
 
@@ -29,7 +32,7 @@
 <div class="taskbar" style="height: {TASKBAR_HEIGHT}px;">
 	<!-- Start button -->
 	<button class="start-button" onclick={onStartClick} type="button">
-		<span class="start-icon">🪟</span>
+		<img src={windowsFlag} alt="" width="16" height="16" class="start-icon" draggable="false" />
 		<span class="start-text">Start</span>
 	</button>
 
@@ -46,6 +49,7 @@
 				type="button"
 				title={entry.title}
 			>
+				<img src={entry.icon} alt="" width="16" height="16" class="entry-icon" draggable="false" />
 				<span class="entry-title">{entry.title}</span>
 			</button>
 		{/each}
@@ -90,8 +94,10 @@
 	}
 
 	.start-icon {
-		font-size: 14px;
-		line-height: 1;
+		width: 16px;
+		height: 16px;
+		image-rendering: pixelated;
+		flex-shrink: 0;
 	}
 
 	.start-text {
@@ -136,6 +142,13 @@
 			inset -2px -2px #fff, inset 2px 2px grey;
 		background: repeating-conic-gradient(silver 0% 25%, white 0% 50%) 50% / 2px 2px;
 		font-weight: bold;
+	}
+
+	.entry-icon {
+		width: 16px;
+		height: 16px;
+		image-rendering: pixelated;
+		flex-shrink: 0;
 	}
 
 	.entry-title {
