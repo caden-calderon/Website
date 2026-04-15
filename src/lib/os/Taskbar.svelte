@@ -7,7 +7,6 @@
 
 	let { onStartClick }: { onStartClick: () => void } = $props();
 
-	// Live clock
 	let timeString = $state('');
 
 	function updateClock() {
@@ -19,7 +18,6 @@
 		});
 	}
 
-	// Update clock every second
 	$effect(() => {
 		updateClock();
 		const interval = setInterval(updateClock, 1000);
@@ -30,16 +28,13 @@
 </script>
 
 <div class="taskbar" style="height: {TASKBAR_HEIGHT}px;">
-	<!-- Start button -->
 	<button class="start-button" onclick={onStartClick} type="button">
-		<img src={windowsFlag} alt="" width="16" height="16" class="start-icon" draggable="false" />
+		<img src={windowsFlag} alt="" width="20" height="20" class="start-icon" draggable="false" />
 		<span class="start-text">Start</span>
 	</button>
 
-	<!-- Divider -->
 	<div class="divider"></div>
 
-	<!-- Running windows -->
 	<div class="window-list">
 		{#each entries as entry (entry.windowId)}
 			<button
@@ -55,7 +50,6 @@
 		{/each}
 	</div>
 
-	<!-- System tray -->
 	<div class="system-tray">
 		<span class="clock">{timeString}</span>
 	</div>
@@ -69,13 +63,12 @@
 		right: 0;
 		display: flex;
 		align-items: center;
-		gap: 2px;
-		padding: 2px 2px;
-		background: silver;
-		border-top: 1px solid #dfdfdf;
-		box-shadow: inset 0 1px 0 white;
+		gap: 3px;
+		padding: 3px 3px;
+		background: #c0c0c0;
+		border-top: 2px solid #dfdfdf;
 		z-index: 99999;
-		font-family: 'Pixelated MS Sans Serif', Arial, sans-serif;
+		font-family: 'Pixelated MS Sans Serif', 'MS Sans Serif', 'Microsoft Sans Serif', Tahoma, Arial, sans-serif;
 		font-size: 11px;
 	}
 
@@ -83,19 +76,19 @@
 		display: flex;
 		align-items: center;
 		gap: 4px;
-		padding: 2px 6px;
-		height: 22px;
+		padding: 2px 8px;
+		height: 28px;
 		font-weight: bold;
-		font-size: 11px;
+		font-size: 12px;
 		font-family: inherit;
 		cursor: default;
 		flex-shrink: 0;
-		min-width: 54px;
+		min-width: 64px;
 	}
 
 	.start-icon {
-		width: 16px;
-		height: 16px;
+		width: 20px;
+		height: 20px;
 		image-rendering: pixelated;
 		flex-shrink: 0;
 	}
@@ -106,7 +99,7 @@
 
 	.divider {
 		width: 2px;
-		height: 22px;
+		height: 26px;
 		border-left: 1px solid #808080;
 		border-right: 1px solid white;
 		flex-shrink: 0;
@@ -114,7 +107,7 @@
 
 	.window-list {
 		display: flex;
-		gap: 2px;
+		gap: 3px;
 		flex: 1;
 		overflow: hidden;
 		min-width: 0;
@@ -125,19 +118,16 @@
 		align-items: center;
 		gap: 4px;
 		padding: 2px 8px;
-		height: 22px;
-		max-width: 160px;
-		min-width: 80px;
+		height: 26px;
+		max-width: 170px;
+		min-width: 90px;
 		font-size: 11px;
 		font-family: inherit;
 		cursor: default;
 		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
 	}
 
 	.window-entry.active {
-		/* 98.css pressed/active button style */
 		box-shadow: inset -1px -1px #dfdfdf, inset 1px 1px #0a0a0a,
 			inset -2px -2px #fff, inset 2px 2px grey;
 		background: repeating-conic-gradient(silver 0% 25%, white 0% 50%) 50% / 2px 2px;
@@ -160,10 +150,10 @@
 	.system-tray {
 		display: flex;
 		align-items: center;
-		padding: 2px 8px;
-		height: 22px;
+		padding: 3px 10px;
+		height: 26px;
 		border: 1px solid;
-		border-color: #808080 white white #808080;
+		border-color: #808080 #dfdfdf #dfdfdf #808080;
 		flex-shrink: 0;
 	}
 

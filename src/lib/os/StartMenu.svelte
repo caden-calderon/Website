@@ -5,8 +5,8 @@
 
 	let { onclose }: { onclose: () => void } = $props();
 
-	// Which submenu is currently expanded (by item label)
 	let expandedSubmenu = $state<string | null>(null);
+	let expandedNested = $state<string | null>(null);
 
 	interface MenuItem {
 		label: string;
@@ -40,18 +40,55 @@
 						{ label: 'Minesweeper', icon: getIcon('minesweeper'), appId: 'minesweeper' },
 					],
 				},
+				{
+					label: 'Internet Explorer',
+					icon: getIcon('internet-explorer'),
+					children: [
+						{ label: 'Internet Explorer', icon: getIcon('internet-explorer'), appId: 'internet-explorer' },
+					],
+				},
 				{ separator: true, label: '' },
-				{ label: 'Internet Explorer', icon: getIcon('internet-explorer'), appId: 'internet-explorer' },
-				{ label: 'My Projects', icon: getIcon('file-explorer'), appId: 'file-explorer' },
 				{ label: 'Point Engine', icon: getIcon('point-engine'), appId: 'point-engine' },
+				{ label: 'MS-DOS Prompt', icon: getIcon('my-computer'), disabled: true },
+				{ label: 'Windows Explorer', icon: getIcon('file-explorer'), appId: 'file-explorer' },
 			],
 		},
-		{ label: 'Settings', icon: getIcon('my-computer'), disabled: true },
-		{ label: 'Find', icon: getIcon('file-explorer'), disabled: true },
-		{ label: 'Help', icon: getIcon('notepad'), disabled: true },
+		{
+			label: 'Favorites',
+			icon: getIcon('favorites'),
+			children: [
+				{ label: 'My Projects', icon: getIcon('file-explorer'), appId: 'file-explorer' },
+			],
+		},
+		{
+			label: 'Documents',
+			icon: getIcon('documents'),
+			children: [
+				{ label: 'My Documents', icon: getIcon('my-documents'), appId: 'file-explorer' },
+			],
+		},
+		{
+			label: 'Settings',
+			icon: getIcon('settings'),
+			children: [
+				{ label: 'Control Panel', icon: getIcon('settings'), disabled: true },
+				{ label: 'Taskbar & Start Menu...', icon: getIcon('settings'), disabled: true },
+			],
+		},
+		{
+			label: 'Find',
+			icon: getIcon('find'),
+			children: [
+				{ label: 'Files or Folders...', icon: getIcon('find'), disabled: true },
+				{ label: 'On the Internet...', icon: getIcon('internet-explorer'), disabled: true },
+			],
+		},
+		{ label: 'Help', icon: getIcon('help') },
 		{ label: 'Run...', icon: getIcon('run-dialog'), appId: 'run-dialog' },
 		{ separator: true, label: '' },
-		{ label: 'Shut Down...', icon: getIcon('my-computer'), disabled: true },
+		{ label: 'Log Off...', icon: getIcon('shutdown'), disabled: true },
+		{ separator: true, label: '' },
+		{ label: 'Shut Down...', icon: getIcon('shutdown'), disabled: true },
 	];
 
 	function handleItemClick(item: MenuItem) {
@@ -61,30 +98,16 @@
 		}
 		onclose();
 	}
-
-	function handleSubmenuEnter(label: string) {
-		expandedSubmenu = label;
-	}
-
-	function handleSubmenuLeave() {
-		// Delay so user can move to submenu
-		setTimeout(() => {
-			// Only clear if not hovering a child submenu
-		}, 100);
-	}
-
-	// Track nested submenu expansion
-	let expandedNested = $state<string | null>(null);
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
+<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 <div class="start-menu-backdrop" onclick={onclose}>
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 	<div class="start-menu window" onclick={(e) => e.stopPropagation()}>
-		<!-- Vertical Windows 95 banner -->
+		<!-- Vertical Windows 98 banner -->
 		<div class="banner">
 			<span class="banner-text">
-				Windows<span class="banner-95">95</span>
+				<span class="banner-windows">Windows</span><span class="banner-ver">98</span>
 			</span>
 		</div>
 
@@ -98,21 +121,14 @@
 					<div
 						class="menu-item"
 						class:disabled={item.disabled}
-						class:has-children={!!item.children}
 						onclick={() => handleItemClick(item)}
 						onpointerenter={() => {
 							if (item.children) expandedSubmenu = item.label;
 							else expandedSubmenu = null;
+							expandedNested = null;
 						}}
 					>
-						<img
-							src={item.icon}
-							alt=""
-							width="16"
-							height="16"
-							class="menu-icon"
-							draggable="false"
-						/>
+						<img src={item.icon} alt="" width="32" height="32" class="menu-icon" draggable="false" />
 						<span class="menu-label">{item.label}</span>
 						{#if item.children}
 							<span class="arrow">▸</span>
@@ -128,23 +144,15 @@
 									{:else}
 										<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 										<div
-											class="menu-item"
+											class="menu-item sub-item"
 											class:disabled={child.disabled}
-											class:has-children={!!child.children}
 											onclick={() => handleItemClick(child)}
 											onpointerenter={() => {
 												if (child.children) expandedNested = child.label;
 												else expandedNested = null;
 											}}
 										>
-											<img
-												src={child.icon}
-												alt=""
-												width="16"
-												height="16"
-												class="menu-icon"
-												draggable="false"
-											/>
+											<img src={child.icon} alt="" width="16" height="16" class="menu-icon-sm" draggable="false" />
 											<span class="menu-label">{child.label}</span>
 											{#if child.children}
 												<span class="arrow">▸</span>
@@ -157,18 +165,11 @@
 													{#each child.children as nested}
 														<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 														<div
-															class="menu-item"
+															class="menu-item sub-item"
 															class:disabled={nested.disabled}
 															onclick={() => handleItemClick(nested)}
 														>
-															<img
-																src={nested.icon}
-																alt=""
-																width="16"
-																height="16"
-																class="menu-icon"
-																draggable="false"
-															/>
+															<img src={nested.icon} alt="" width="16" height="16" class="menu-icon-sm" draggable="false" />
 															<span class="menu-label">{nested.label}</span>
 														</div>
 													{/each}
@@ -195,54 +196,60 @@
 
 	.start-menu {
 		position: fixed;
-		bottom: 30px;
+		bottom: 36px;
 		left: 0;
 		display: flex;
 		flex-direction: row;
-		min-width: 200px;
+		min-width: 240px;
 		z-index: 100001;
 		padding: 0;
 	}
 
+	/* Vertical banner */
 	.banner {
-		width: 22px;
+		width: 28px;
 		background: linear-gradient(to top, #000080, #1084d0);
 		display: flex;
 		align-items: flex-end;
 		justify-content: center;
-		padding-bottom: 6px;
+		padding-bottom: 8px;
 		flex-shrink: 0;
 	}
 
 	.banner-text {
-		color: white;
-		font-weight: bold;
-		font-size: 18px;
 		writing-mode: vertical-rl;
 		transform: rotate(180deg);
-		letter-spacing: 0.5px;
 		font-family: Arial, Helvetica, sans-serif;
+		font-size: 22px;
+		font-weight: bold;
+		letter-spacing: 0.5px;
 	}
 
-	.banner-95 {
+	.banner-windows {
+		color: white;
+	}
+
+	.banner-ver {
 		font-weight: 900;
 		color: #c0c0c0;
 	}
 
+	/* Menu body */
 	.menu-body {
 		display: flex;
 		flex-direction: column;
 		flex: 1;
-		padding: 2px 0;
+		padding: 3px 0;
 	}
 
+	/* Top-level items — 32x32 icons, taller */
 	.menu-item {
 		display: flex;
 		align-items: center;
-		gap: 6px;
-		padding: 4px 20px 4px 6px;
+		gap: 8px;
+		padding: 5px 24px 5px 8px;
 		font-size: 11px;
-		font-family: 'Pixelated MS Sans Serif', Arial, sans-serif;
+		font-family: 'Pixelated MS Sans Serif', 'MS Sans Serif', 'Microsoft Sans Serif', Tahoma, Arial, sans-serif;
 		cursor: default;
 		white-space: nowrap;
 		position: relative;
@@ -258,6 +265,18 @@
 	}
 
 	.menu-icon {
+		width: 32px;
+		height: 32px;
+		image-rendering: pixelated;
+		flex-shrink: 0;
+	}
+
+	/* Submenu items — 16x16 icons, shorter */
+	.sub-item {
+		padding: 3px 24px 3px 6px;
+	}
+
+	.menu-icon-sm {
 		width: 16px;
 		height: 16px;
 		image-rendering: pixelated;
@@ -275,7 +294,7 @@
 
 	.separator {
 		height: 0;
-		margin: 3px 4px;
+		margin: 4px 4px;
 		border-top: 1px solid #808080;
 		border-bottom: 1px solid white;
 	}
@@ -284,10 +303,10 @@
 		position: absolute;
 		left: 100%;
 		top: -3px;
-		min-width: 160px;
+		min-width: 180px;
 		display: flex;
 		flex-direction: column;
-		padding: 2px 0;
+		padding: 3px 0;
 		z-index: 100002;
 	}
 </style>

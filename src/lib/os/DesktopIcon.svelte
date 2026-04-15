@@ -63,9 +63,9 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 4px;
-		width: 70px;
-		padding: 4px 2px;
+		gap: 2px;
+		width: 75px;
+		padding: 6px 4px 4px;
 		border: 1px solid transparent;
 		background: transparent;
 		cursor: default;
@@ -84,15 +84,16 @@
 	.icon-label {
 		color: white;
 		font-size: 11px;
-		font-family: 'Pixelated MS Sans Serif', Arial, sans-serif;
+		font-family: 'Pixelated MS Sans Serif', 'MS Sans Serif', 'Microsoft Sans Serif', Tahoma, Arial, sans-serif;
 		text-align: center;
-		line-height: 1.2;
+		line-height: 1.3;
 		word-break: break-word;
+		max-width: 68px;
 		text-shadow:
-			1px 1px 1px black,
-			-1px -1px 1px black,
-			1px -1px 1px black,
-			-1px 1px 1px black;
+			1px 0 1px black,
+			-1px 0 1px black,
+			0 1px 1px black,
+			0 -1px 1px black;
 	}
 
 	img {

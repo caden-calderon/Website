@@ -21,7 +21,7 @@
 		background: #008080;
 		position: fixed;
 		inset: 0;
-		font-family: 'Pixelated MS Sans Serif', Arial, sans-serif;
+		font-family: 'Pixelated MS Sans Serif', 'MS Sans Serif', 'Microsoft Sans Serif', Tahoma, Arial, sans-serif;
 		font-size: 11px;
 		user-select: none;
 		-webkit-user-select: none;
