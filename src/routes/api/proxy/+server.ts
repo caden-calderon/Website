@@ -13,7 +13,7 @@ import type { RequestHandler } from './$types';
 const PRIVATE_NET = /^(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|0\.|169\.254\.)/;
 const BLOCKED_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '[::1]']);
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ url, request }) => {
 	const target = url.searchParams.get('url');
 	if (!target) throw error(400, 'Missing url parameter');
 
@@ -32,12 +32,16 @@ export const GET: RequestHandler = async ({ url }) => {
 		throw error(403, 'Cannot proxy private network addresses');
 	}
 
+	// Forward the client's Accept header so API endpoints return the right
+	// content type (e.g., GitHub returns JSON when Accept includes json)
+	const clientAccept = request.headers.get('accept') || 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
+
 	try {
 		const resp = await fetch(target, {
 			headers: {
 				'User-Agent':
 					'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-				Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+				Accept: clientAccept,
 				'Accept-Language': 'en-US,en;q=0.5',
 			},
 			redirect: 'follow',

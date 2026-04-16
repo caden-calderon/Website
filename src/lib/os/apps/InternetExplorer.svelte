@@ -152,11 +152,26 @@
 
 	// ── Navigation ────────────────────────────────────────────────────────
 
+	/** Detect if input looks like a URL or a search query. */
+	function isLikelyUrl(input: string): boolean {
+		if (input.includes('://')) return true;
+		if (input.startsWith('/')) return true;
+		if (input.startsWith(DOMAIN)) return true;
+		// Has a dot and no spaces → probably a domain (github.com, apple.com)
+		if (input.includes('.') && !input.includes(' ')) return true;
+		return false;
+	}
+
 	function normalizeUrl(url: string): string {
-		if (url.startsWith('/')) return `http://${DOMAIN}${url}`;
-		if (url.startsWith(DOMAIN)) return `http://${url}`;
-		if (!url.includes('://')) return `http://${url}`;
-		return url;
+		const trimmed = url.trim();
+		if (!trimmed) return HOME_URL;
+		if (trimmed.startsWith('/')) return `http://${DOMAIN}${trimmed}`;
+		if (trimmed.startsWith(DOMAIN)) return `http://${trimmed}`;
+		if (trimmed.includes('://')) return trimmed;
+		// Looks like a domain → add protocol
+		if (isLikelyUrl(trimmed)) return `http://${trimmed}`;
+		// Not a URL → search Google
+		return `https://www.google.com/search?q=${encodeURIComponent(trimmed)}`;
 	}
 
 	let loadTimer: ReturnType<typeof setTimeout> | null = null;
