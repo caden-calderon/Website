@@ -2,7 +2,7 @@
 
 ## Date
 
-2026-04-15
+2026-04-16
 
 ## Purpose
 
@@ -11,12 +11,21 @@ Build a Windows 95/98 desktop OS as the 2D interface for the Chromatic portfolio
 ## Current Position
 
 - Phase 1 OS shell is functional: Desktop, Window manager, Taskbar, Start menu, context menus, icons
-- **Phase 2 started**: Internet Explorer 4 is the first real app — fully functional with IE4 chrome
+- **Phase 2 in progress**: Internet Explorer 4 with real web browsing via server-side proxy
 - Visual accuracy pass completed: exact Win98 colors, proper font weight, viewport-relative icons
 - 98.css installed with color overrides applied to fix its inaccurate defaults
 - Route layout groups working: `(main)/` for Tailwind routes, `(os)/` for 98.css routes
 - All existing routes (`/`, `/capture-control`) unchanged and functional
 - `pnpm check` = 0 errors, `pnpm test` = 126 tests pass
+
+## Active Work
+
+**Browser refinement in progress** — IE4 opens external sites via server-side proxy at `/api/proxy`. Most sites work (Wikipedia, Hacker News, archive.org, personal blogs). Known issues:
+- Google search triggers CAPTCHA ("unusual traffic") — proxy IP flagged as bot
+- GitHub repo pages load but commit info / deferred content still shows "Cannot retrieve latest commit"
+- Cookie jar is implemented but effectiveness unverified from user observation
+
+**Visual direction pending** — user wants a blend of 90s web + early-2000s + webcore + Nintendo Wii UI + tech portfolio. Current styling is early-2000s gradient-heavy sections with Mii avatar. Needs more Wii-influence (softer rounded shapes, lighter palette, playful touches) and webcore personality (decorative dividers, sparkle motifs, more expressive).
 
 ## What's Built
 
@@ -98,15 +107,44 @@ src/routes/
 - 8 toolbar buttons: Back, Forward, Stop, Refresh, Home, Search, Favorites, History
 - Cool-button CSS: flat default, raised 1px border on hover, sunken on active
 - Editable address bar with page icon and Enter-to-navigate
+- **Search queries**: typing "apple" or "how to cook" searches Google; "github.com" navigates
 - Animated throbber (pulsing globe during load, static when idle)
 - Internal URL routing: `http://chromatic.dev/` domain → content component mapping
+- **External browsing**: any URL loads through server-side proxy in iframe
+- **Favorites dropdown**: working star button with bookmarks (GitHub, Wikipedia, HN, etc.)
 - Back/Forward navigation with full history stacks
 - Simulated loading delay (200-500ms) with status text and throbber animation
 - Click interception on content area: all `<a>` tags route through the IE navigator
 - Window title updates dynamically: "Page Title - Microsoft Internet Explorer"
 - `windowManager.updateTitle()` added to enable this
-- Status bar: "Opening page..." during load, "Done" when idle, "Internet" zone indicator
+- Status bar: "Opening page..." during load, "Done" when idle, zone switches Internet/Local intranet
+- Dismissable info strip on external pages with "Open in new tab" option
 - Can open via desktop icon, Start menu, or programmatically with a URL prop
+
+### Web Proxy (`src/routes/api/proxy/+server.ts`)
+- Server-side proxy fetches external pages, strips CSP/X-Frame-Options/CORP headers
+- Injects `<base>` tag for correct relative-URL resolution (images, CSS, JS load from original site)
+- **Server-side link rewriting**: all `<a href>`, `<form action>`, `<include-fragment src>`, `<turbo-frame src>` are rewritten at HTML parse time to route through the proxy. Uses **full absolute URLs** (e.g. `http://localhost:5178/api/proxy?url=...`) — critical because the `<base>` tag would otherwise make relative `/api/proxy` paths resolve against the remote origin
+- Injects navigation interceptor script: click capture, pushState/replaceState, fetch/XHR wrapping (backup for dynamically generated content)
+- Forwards client Accept header so API endpoints return correct content type (JSON vs HTML)
+- Rewrites localhost-origin URLs back to remote origin (fixes SPAs using `window.location`)
+- Blocks service worker registration in proxied pages
+- postMessage to parent IE shell syncs address bar with real URL
+- OPTIONS handler for CORS preflight (needed because fetch wrapper sets custom headers)
+- CORS `Access-Control-Allow-Origin: *` on all responses
+- COEP: consistent `credentialless` across all routes — proxy iframe is same-origin so no blocking
+
+### Cookie Jar (`src/lib/server/cookieJar.ts`)
+- In-memory singleton Cookie jar shared across all proxy users (acceptable for portfolio)
+- Captures `Set-Cookie` from upstream responses, sends stored cookies on subsequent requests
+- Handles domain matching (exact + parent), path prefix, expiry, secure flag, Max-Age precedence
+- Validates cookie domain against request hostname to prevent cross-domain injection
+- `redirect: 'follow'` in fetch loses intermediate 3xx Set-Cookie headers — noted as future enhancement
+
+### Known Browser Limitations
+- Google search triggers CAPTCHA — server IP flagged. Possible solutions: render CAPTCHA in iframe for user to solve, use custom search results page via API, or use a different search engine backend
+- GitHub commit info (`tree-commit-info` endpoint) returns data in direct curl tests but doesn't always load in browser — may be client-side JS authentication flow that depends on session cookies set via `document.cookie` (not captured by our server-side jar)
+- Authenticated site features won't work — `credentialless` COEP strips cookies from client-side cross-origin sub-resource requests
 
 ### Portfolio Content Pages (`src/lib/portfolio/`)
 - `types.ts` — `PortfolioProject` interface with appId for OS integration
@@ -120,14 +158,21 @@ src/routes/
 
 ## What's Next
 
-Priority order:
-1. ~~Internet Explorer 4 browser — the portfolio navigation surface~~ ✓
-2. ~~Portfolio content pages~~ ✓
-3. Notepad — simple text editor
-4. Calculator — Win98 calculator
-5. File Explorer — two-pane folder/file browser (needs virtual filesystem)
+**Immediate (browser refinement)**:
+1. Solve Google CAPTCHA — user suggested allowing CAPTCHA passthrough in the iframe
+2. Debug why cookie jar isn't helping GitHub commit info (verify cookies are stored/sent, check Network tab in browser)
+3. Discuss visual direction for portfolio pages — more Wii/webcore, less corporate early-2000s
+
+**Then (Phase 2 continuation)**:
+- Notepad — simple text editor
+- Calculator — Win98 calculator
+- File Explorer — two-pane folder/file browser (needs virtual filesystem)
 
 See `tasks.md` for the full checklist.
+
+## Handoff Prompt
+
+See `handoff-prompt.md` in this directory for the prompt to feed Claude after context clear.
 
 ## Read These First
 
