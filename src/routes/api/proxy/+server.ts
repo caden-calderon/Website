@@ -14,6 +14,19 @@ import { cookieJar } from '$lib/server/cookieJar.js';
 const PRIVATE_NET = /^(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|0\.|169\.254\.)/;
 const BLOCKED_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '[::1]']);
 
+/** Handle CORS preflight requests from the fetch/XHR wrapper. */
+export const OPTIONS: RequestHandler = async () => {
+	return new Response(null, {
+		status: 204,
+		headers: {
+			'Access-Control-Allow-Origin': '*',
+			'Access-Control-Allow-Methods': 'GET, OPTIONS',
+			'Access-Control-Allow-Headers': '*',
+			'Access-Control-Max-Age': '86400',
+		},
+	});
+};
+
 export const GET: RequestHandler = async ({ url, request }) => {
 	const target = url.searchParams.get('url');
 	if (!target) throw error(400, 'Missing url parameter');
@@ -69,15 +82,19 @@ export const GET: RequestHandler = async ({ url, request }) => {
 			});
 		}
 
-		// ── HTML: inject scripts + rewrite deferred-load elements ────
+		// ── HTML: inject scripts + rewrite URLs server-side ───────────
 		let html = await resp.text();
 		const final = new URL(finalUrl);
-		html = injectHead(html, final);
+		html = rewriteLinks(html, final.origin);
 		html = rewriteDeferredSrc(html, final.origin);
+		html = injectHead(html, final);
 
 		return new Response(html, {
 			status: resp.status,
-			headers: { 'content-type': 'text/html; charset=utf-8' },
+			headers: {
+				'content-type': 'text/html; charset=utf-8',
+				'Access-Control-Allow-Origin': '*',
+			},
 		});
 	} catch (e) {
 		if ('status' in (e as object)) throw e;
@@ -95,6 +112,35 @@ function safeHeaders(source: Headers, contentType: string): Record<string, strin
 	// Allow cross-origin access so the iframe can read these resources
 	out['access-control-allow-origin'] = '*';
 	return out;
+}
+
+/**
+ * Rewrite <a> href and <form> action attributes so navigation goes through
+ * the proxy without relying on client-side JavaScript interception.
+ * This is the primary defense against X-Frame-Options errors — if JS fails
+ * to intercept a click, the link still points to our proxy, not the
+ * original site (which would block framing).
+ */
+function rewriteLinks(html: string, origin: string): string {
+	const esc = origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	const proxy = (absUrl: string) => `/api/proxy?url=${encodeURIComponent(absUrl)}`;
+
+	// 1. Rewrite <a href="/path"> (absolute paths)
+	html = html.replace(
+		/(<a\b[^>]*?\b)href="(\/[^"#][^"]*?)"/gi,
+		(_, before, path) => `${before}href="${proxy(origin + path.replace(/&amp;/g, '&'))}"`,
+	);
+	// 2. Rewrite <a href="https://github.com/..."> (full same-origin URLs)
+	html = html.replace(
+		new RegExp(`(<a\\b[^>]*?\\b)href="${esc}(/[^"]*?)"`, 'gi'),
+		(_, before, path) => `${before}href="${proxy(origin + path.replace(/&amp;/g, '&'))}"`,
+	);
+	// 3. Rewrite <form action="/path">
+	html = html.replace(
+		/(<form\b[^>]*?\b)action="(\/[^"]+)"/gi,
+		(_, before, path) => `${before}action="${proxy(origin + path.replace(/&amp;/g, '&'))}"`,
+	);
+	return html;
 }
 
 /**
