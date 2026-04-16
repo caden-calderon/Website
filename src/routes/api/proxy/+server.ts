@@ -85,9 +85,12 @@ export const GET: RequestHandler = async ({ url, request }) => {
 		// ── HTML: inject scripts + rewrite URLs server-side ───────────
 		let html = await resp.text();
 		const final = new URL(finalUrl);
-		html = rewriteLinks(html, final.origin);
-		html = rewriteDeferredSrc(html, final.origin);
-		html = injectHead(html, final);
+		// proxyBase is our own origin — used to build full proxy URLs that
+		// the <base> tag won't interfere with
+		const proxyBase = url.origin;
+		html = rewriteLinks(html, final.origin, proxyBase);
+		html = rewriteDeferredSrc(html, final.origin, proxyBase);
+		html = injectHead(html, final, proxyBase);
 
 		return new Response(html, {
 			status: resp.status,
@@ -121,9 +124,11 @@ function safeHeaders(source: Headers, contentType: string): Record<string, strin
  * to intercept a click, the link still points to our proxy, not the
  * original site (which would block framing).
  */
-function rewriteLinks(html: string, origin: string): string {
+function rewriteLinks(html: string, origin: string, proxyBase: string): string {
 	const esc = origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-	const proxy = (absUrl: string) => `/api/proxy?url=${encodeURIComponent(absUrl)}`;
+	// Use FULL proxy URLs (with our origin) so the <base> tag can't
+	// resolve them against the remote site.
+	const proxy = (absUrl: string) => `${proxyBase}/api/proxy?url=${encodeURIComponent(absUrl)}`;
 
 	// 1. Rewrite <a href="/path"> (absolute paths)
 	html = html.replace(
@@ -155,7 +160,7 @@ function rewriteLinks(html: string, origin: string): string {
  * All intercepted navigations are redirected through the proxy and
  * postMessage'd to the parent IE shell so the address bar stays in sync.
  */
-function injectHead(html: string, pageUrl: URL): string {
+function injectHead(html: string, pageUrl: URL, proxyBase: string): string {
 	const origin = pageUrl.origin;
 	const base = origin + pageUrl.pathname;
 	const proto = pageUrl.protocol;
@@ -171,7 +176,7 @@ function injectHead(html: string, pageUrl: URL): string {
 	const script = `<base href="${base}">
 <script>
 (function(){
-var P='/api/proxy?url=',O='${origin}',B='${base}',Pr='${proto}',L=window.location.origin;
+var P='${proxyBase}/api/proxy?url=',O='${origin}',B='${base}',Pr='${proto}',L=window.location.origin;
 var thisPage='${href}';
 function R(h){
 if(!h||h[0]==='#')return null;
@@ -230,16 +235,14 @@ return{register:function(){return Promise.resolve()},ready:Promise.resolve(),con
  * through our proxy. GitHub uses <include-fragment> and <turbo-frame>
  * to lazily load commit info, contributor lists, etc.
  */
-function rewriteDeferredSrc(html: string, origin: string): string {
-	// Rewrite src="/..." on <include-fragment> and <turbo-frame> elements
-	// so GitHub's deferred content loads through our proxy.
+function rewriteDeferredSrc(html: string, origin: string, proxyBase: string): string {
+	// Rewrite src="/..." on <include-fragment> and <turbo-frame>.
+	// Uses full proxy URL so <base> tag won't interfere.
 	return html.replace(
 		/(<(?:include-fragment|turbo-frame)\b[^>]*?\b)src="(\/[^"]+)"/gi,
 		(_, before, path) => {
-			// Decode &amp; back to & before encoding the full URL
 			const cleanPath = path.replace(/&amp;/g, '&');
-			const proxied = `/api/proxy?url=${encodeURIComponent(origin + cleanPath)}`;
-			return `${before}src="${proxied}"`;
+			return `${before}src="${proxyBase}/api/proxy?url=${encodeURIComponent(origin + cleanPath)}"`;
 		},
 	);
 }
