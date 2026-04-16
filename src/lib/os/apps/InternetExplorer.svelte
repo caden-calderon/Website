@@ -172,8 +172,8 @@
 		if (trimmed.includes('://')) return trimmed;
 		// Looks like a domain → add protocol
 		if (isLikelyUrl(trimmed)) return `http://${trimmed}`;
-		// Not a URL → search DuckDuckGo (Google blocks proxied requests with CAPTCHAs)
-		return `https://html.duckduckgo.com/html/?q=${encodeURIComponent(trimmed)}`;
+		// Not a URL → search Google
+		return `https://www.google.com/search?q=${encodeURIComponent(trimmed)}`;
 	}
 
 	let loadTimer: ReturnType<typeof setTimeout> | null = null;
