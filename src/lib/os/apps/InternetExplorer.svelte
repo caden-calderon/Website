@@ -58,6 +58,8 @@
 	let favoritesOpen = $state(false);
 	let iframeRef = $state<HTMLIFrameElement | null>(null);
 	let infoDismissed = $state(false);
+	/** Separate from currentUrl — only changes on explicit user navigation, not in-iframe clicks. */
+	let iframeSrc = $state('');
 
 	// ── Route resolution ──────────────────────────────────────────────────
 
@@ -170,8 +172,8 @@
 		if (trimmed.includes('://')) return trimmed;
 		// Looks like a domain → add protocol
 		if (isLikelyUrl(trimmed)) return `http://${trimmed}`;
-		// Not a URL → search Google
-		return `https://www.google.com/search?q=${encodeURIComponent(trimmed)}`;
+		// Not a URL → search DuckDuckGo (Google blocks proxied requests with CAPTCHAs)
+		return `https://html.duckduckgo.com/html/?q=${encodeURIComponent(trimmed)}`;
 	}
 
 	let loadTimer: ReturnType<typeof setTimeout> | null = null;
@@ -201,6 +203,10 @@
 		historyStack = [...historyStack, currentUrl];
 		forwardStack = [];
 		infoDismissed = false;
+		// Set iframe src for external pages (drives the actual iframe load)
+		if (resolveRoute(url).page === 'external') {
+			iframeSrc = proxyUrl(url);
+		}
 		simulateLoad(url, () => {
 			currentUrl = url;
 			updateWindowTitle(url);
@@ -212,6 +218,9 @@
 		const prev = historyStack.at(-1)!;
 		historyStack = historyStack.slice(0, -1);
 		forwardStack = [...forwardStack, currentUrl];
+		if (resolveRoute(prev).page === 'external') {
+			iframeSrc = proxyUrl(prev);
+		}
 		simulateLoad(prev, () => {
 			currentUrl = prev;
 			updateWindowTitle(prev);
@@ -223,6 +232,9 @@
 		const next = forwardStack.at(-1)!;
 		forwardStack = forwardStack.slice(0, -1);
 		historyStack = [...historyStack, currentUrl];
+		if (resolveRoute(next).page === 'external') {
+			iframeSrc = proxyUrl(next);
+		}
 		simulateLoad(next, () => {
 			currentUrl = next;
 			updateWindowTitle(next);
@@ -231,12 +243,13 @@
 
 	function refresh() {
 		if (route.page === 'external' && iframeRef) {
-			// Force iframe reload by resetting src
 			loading = true;
 			statusText = `Opening page ${currentUrl}...`;
-			const src = iframeRef.src;
-			iframeRef.src = '';
-			iframeRef.src = src;
+			// Force reload by toggling src
+			iframeSrc = '';
+			requestAnimationFrame(() => {
+				iframeSrc = proxyUrl(currentUrl);
+			});
 		} else {
 			simulateLoad(currentUrl, () => {});
 		}
@@ -306,17 +319,20 @@
 		return `/api/proxy?url=${encodeURIComponent(externalUrl)}`;
 	}
 
-	/** Handle postMessage from proxied pages (address bar sync). */
+	/** Handle postMessage from proxied pages (address bar + history sync). */
 	function onProxyMessage(e: MessageEvent) {
 		if (e.data?.type === 'ie-nav' && typeof e.data.url === 'string') {
 			const realUrl = e.data.url;
 			if (realUrl !== currentUrl) {
-				// In-iframe navigation: update address bar and title
+				// In-iframe navigation: push old URL to history so Back works
+				historyStack = [...historyStack, currentUrl];
+				forwardStack = [];
 				addressValue = realUrl;
 				currentUrl = realUrl;
 				updateWindowTitle(realUrl);
 				loading = false;
 				statusText = 'Done';
+				// DON'T update iframeSrc — the iframe already navigated there
 			}
 		}
 	}
@@ -493,7 +509,7 @@
 		{/if}
 		<iframe
 			bind:this={iframeRef}
-			src={proxyUrl(route.params.url)}
+			src={iframeSrc}
 			class="ie-iframe"
 			title="Web page"
 			onload={onIframeLoad}

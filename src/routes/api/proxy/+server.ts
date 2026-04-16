@@ -69,10 +69,11 @@ export const GET: RequestHandler = async ({ url, request }) => {
 			});
 		}
 
-		// ── HTML: inject <base> + full navigation interceptor ─────────
+		// ── HTML: inject scripts + rewrite deferred-load elements ────
 		let html = await resp.text();
 		const final = new URL(finalUrl);
 		html = injectHead(html, final);
+		html = rewriteDeferredSrc(html, final.origin);
 
 		return new Response(html, {
 			status: resp.status,
@@ -176,4 +177,23 @@ return{register:function(){return Promise.resolve()},ready:Promise.resolve(),con
 	const m = html.match(/<head[^>]*>/i);
 	if (m) return html.replace(m[0], m[0] + script);
 	return script + html;
+}
+
+/**
+ * Rewrite src attributes on deferred-loading elements so they go
+ * through our proxy. GitHub uses <include-fragment> and <turbo-frame>
+ * to lazily load commit info, contributor lists, etc.
+ */
+function rewriteDeferredSrc(html: string, origin: string): string {
+	// Rewrite src="/..." on <include-fragment> and <turbo-frame> elements
+	// so GitHub's deferred content loads through our proxy.
+	return html.replace(
+		/(<(?:include-fragment|turbo-frame)\b[^>]*?\b)src="(\/[^"]+)"/gi,
+		(_, before, path) => {
+			// Decode &amp; back to & before encoding the full URL
+			const cleanPath = path.replace(/&amp;/g, '&');
+			const proxied = `/api/proxy?url=${encodeURIComponent(origin + cleanPath)}`;
+			return `${before}src="${proxied}"`;
+		},
+	);
 }
