@@ -9,6 +9,7 @@
  */
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { cookieJar } from '$lib/server/cookieJar.js';
 
 const PRIVATE_NET = /^(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|0\.|169\.254\.)/;
 const BLOCKED_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '[::1]']);
@@ -36,6 +37,9 @@ export const GET: RequestHandler = async ({ url, request }) => {
 	// content type (e.g., GitHub returns JSON when Accept includes json)
 	const clientAccept = request.headers.get('accept') || 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
 
+	// Attach stored cookies for this domain
+	const storedCookies = cookieJar.getCookieHeader(parsed);
+
 	try {
 		const resp = await fetch(target, {
 			headers: {
@@ -43,11 +47,18 @@ export const GET: RequestHandler = async ({ url, request }) => {
 					'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
 				Accept: clientAccept,
 				'Accept-Language': 'en-US,en;q=0.5',
+				...(storedCookies ? { Cookie: storedCookies } : {}),
 			},
 			redirect: 'follow',
+			// NOTE: redirect:'follow' loses Set-Cookie from intermediate 3xx
+			// responses. If this becomes a problem, switch to manual redirect
+			// loop. For now, most important cookies are set on the final 200.
 		});
 
+		// Capture cookies the upstream server set
 		const finalUrl = resp.url || target;
+		cookieJar.setCookiesFromResponse(resp.headers, new URL(finalUrl));
+
 		const contentType = resp.headers.get('content-type') || '';
 
 		if (!contentType.includes('text/html')) {
