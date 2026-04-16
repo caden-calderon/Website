@@ -23,6 +23,51 @@ Technical map for the Windows 95 desktop OS that serves as the 2D interface of t
         └── SystemTray (clock, volume, theme indicator)
 ```
 
+## Browser Proxy Subsystem
+
+The IE4 browser is no longer just a Svelte component plus one monolithic route. The external-web path is split into small server modules with distinct responsibilities:
+
+```
+src/routes/api/proxy/+server.ts         ← request orchestration, response shaping
+src/lib/server/proxy/upstream.ts        ← upstream fetch, redirect loop, timeout, SSRF guard
+src/lib/server/proxy/sessionStore.ts    ← per-session proxy cookie jars
+src/lib/server/proxy/html.ts            ← HTML rewrite/injection helpers
+src/lib/server/cookieJar.ts             ← RFC-ish cookie parsing/matching logic
+```
+
+### Responsibilities
+
+- `+server.ts` validates the target URL, selects the session jar, delegates upstream fetches, and decides whether to stream the upstream response or inject the browser shim into HTML documents.
+- `upstream.ts` owns transport behavior: forwarding method/body/headers, preserving redirect cookies across 3xx hops, applying a request timeout, and rejecting hostnames that resolve to private IP space.
+- `sessionStore.ts` scopes cookie state to a browser session via an HttpOnly cookie rather than a process-global singleton.
+- `html.ts` owns document-vs-fragment detection, server-side link rewriting, deferred-fragment rewriting, `<base>` injection, and the runtime navigation shim used inside proxied pages.
+- `cookieJar.ts` is intentionally generic and reusable; it does not know about SvelteKit, sessions, or proxy routes.
+
+### Session Model
+
+- Proxy session state is server-side only.
+- The browser receives an opaque session ID cookie for `/api/proxy`.
+- Each proxy session gets its own in-memory `CookieJar`.
+- Sessions are evicted on TTL / capacity pressure.
+
+This is still not durable multi-instance storage. It is acceptable for the current single-node portfolio deployment, but it is intentionally a step short of Redis/database-backed session infrastructure.
+
+### Redirect Policy
+
+- Upstream redirects are handled manually, not with `redirect: 'follow'`.
+- Intermediate `Set-Cookie` headers are captured before following the next hop.
+- `303` always switches to `GET`.
+- `301`/`302` switch `POST` to `GET`, matching common browser behavior.
+- Redirect count is capped to prevent loops.
+
+### HTML Injection Policy
+
+- Only full document navigations receive the injected browser shim.
+- HTML fragments fetched through `include-fragment`, `turbo-frame`, or XHR/fetch are passed through as fragments.
+- The injected `<base>` uses the full final URL, including query params.
+- Rewritten links use full proxy URLs so remote `<base>` tags cannot redirect `/api/proxy` back onto the remote origin.
+- The runtime shim also intercepts `location.assign` / `location.replace`, form submissions, and client-side `document.cookie` writes so JS-driven search/challenge flows can stay inside the proxy session.
+
 ## CSS Scoping: 98.css and Tailwind Coexistence
 
 The project currently uses Tailwind CSS 4.2 for the existing demo and capture-control routes. The OS desktop uses 98.css. These must not conflict.
@@ -95,6 +140,11 @@ Default window sizes may exceed mobile viewport. The window manager clamps:
 - Max width: `window.innerWidth`
 - Max height: `window.innerHeight - TASKBAR_HEIGHT`
 - New windows on small screens open maximized by default (below a viewport width threshold, e.g., 640px)
+
+### Current interaction notes
+
+- Desktop deselection/context-menu behavior is background-oriented, not `desktop-area`-class-target-oriented. Empty-space clicks now work even when the click lands inside the icon-grid container.
+- Left/top resize anchors are clamped back into the viewport after resize calculations so windows cannot drift permanently off-screen during edge resizes.
 
 ## Virtual Filesystem
 

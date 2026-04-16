@@ -12,18 +12,21 @@ Build a Windows 95/98 desktop OS as the 2D interface for the Chromatic portfolio
 
 - Phase 1 OS shell is functional: Desktop, Window manager, Taskbar, Start menu, context menus, icons
 - **Phase 2 in progress**: Internet Explorer 4 with real web browsing via server-side proxy
+- Browser hardening pass completed: proxy split into dedicated server modules, per-session cookie jars, manual redirect handling, non-GET upstream support, SSRF/timeout guards, fragment-aware HTML injection, and JS-cookie/nav interception for proxied pages
+- **Resize-lag mitigation reverted**: dynamic resize was already smooth for every site except GitHub. Both the previous `display:none`-during-resize hack and a tried size-pin replacement were removed — they didn't fix GitHub's resize lag and they made the general case worse (jank on display:none, complexity for size-pin). Back to the simple `flex:1; width:100%` iframe.
+- **GitHub profile-page duplication fixed**: GitHub's profile page contains an `<include-fragment>` whose `src` is a Rails-style URL (`/<user>?action=show&controller=profiles&tab=contributions`). Without `X-PJAX: true` (or `X-Requested-With: XMLHttpRequest`), GitHub serves the **full HTML page** for that URL. `include-fragment-element` then inserts the entire page into the placeholder, and the user sees the profile rendered twice — which is also the source of the perceived "GitHub is laggy to use and to resize" feeling. The proxy's upstream now forwards `X-PJAX: true` + `X-Requested-With: XMLHttpRequest` whenever the incoming request's `sec-fetch-dest` is anything other than `document`/`iframe`/`frame`. Other sites ignore those headers; GitHub's PJAX-aware endpoint returns the proper 12 KB / 238 KB fragment.
 - Visual accuracy pass completed: exact Win98 colors, proper font weight, viewport-relative icons
 - 98.css installed with color overrides applied to fix its inaccurate defaults
 - Route layout groups working: `(main)/` for Tailwind routes, `(os)/` for 98.css routes
 - All existing routes (`/`, `/capture-control`) unchanged and functional
-- `pnpm check` = 0 errors, `pnpm test` = 126 tests pass
+- `pnpm check` = 0 errors, `pnpm test` = 139 tests pass
 
 ## Active Work
 
-**Browser refinement in progress** — IE4 opens external sites via server-side proxy at `/api/proxy`. Most sites work (Wikipedia, Hacker News, archive.org, personal blogs). Known issues:
+**Browser verification / remaining browser risk** — IE4 opens external sites via server-side proxy at `/api/proxy`. Most sites work (Wikipedia, Hacker News, archive.org, personal blogs). Highest-priority remaining issues:
 - Google search triggers CAPTCHA ("unusual traffic") — proxy IP flagged as bot
-- GitHub repo pages load but commit info / deferred content still shows "Cannot retrieve latest commit"
-- Cookie jar is implemented but effectiveness unverified from user observation
+- GitHub repo deferred content path was fixed at the proxy layer, but still needs real browser verification against the live site
+- Global `COEP: credentialless` remains a product-level tradeoff; it keeps the ML worker path working but may be broader than the browser route really needs
 
 **Visual direction pending** — user wants a blend of 90s web + early-2000s + webcore + Nintendo Wii UI + tech portfolio. Current styling is early-2000s gradient-heavy sections with Mii avatar. Needs more Wii-influence (softer rounded shapes, lighter palette, playful touches) and webcore personality (decorative dividers, sparkle motifs, more expressive).
 
@@ -120,31 +123,34 @@ src/routes/
 - Status bar: "Opening page..." during load, "Done" when idle, zone switches Internet/Local intranet
 - Dismissable info strip on external pages with "Open in new tab" option
 - Can open via desktop icon, Start menu, or programmatically with a URL prop
+- `postMessage` sync from proxied pages is source-checked so unrelated windows cannot spoof the address bar
+- Iframe-escape recovery: if a proxied page navigates the iframe outside `/api/proxy` (cross-origin or same-origin non-proxy URL), the IE shell detects it on `iframe.onload`, shows a small recovery info strip, and reloads the last known proxied URL
 
 ### Web Proxy (`src/routes/api/proxy/+server.ts`)
-- Server-side proxy fetches external pages, strips CSP/X-Frame-Options/CORP headers
-- Injects `<base>` tag for correct relative-URL resolution (images, CSS, JS load from original site)
-- **Server-side link rewriting**: all `<a href>`, `<form action>`, `<include-fragment src>`, `<turbo-frame src>` are rewritten at HTML parse time to route through the proxy. Uses **full absolute URLs** (e.g. `http://localhost:5178/api/proxy?url=...`) — critical because the `<base>` tag would otherwise make relative `/api/proxy` paths resolve against the remote origin
-- Injects navigation interceptor script: click capture, pushState/replaceState, fetch/XHR wrapping (backup for dynamically generated content)
-- Forwards client Accept header so API endpoints return correct content type (JSON vs HTML)
-- Rewrites localhost-origin URLs back to remote origin (fixes SPAs using `window.location`)
-- Blocks service worker registration in proxied pages
-- postMessage to parent IE shell syncs address bar with real URL
-- OPTIONS handler for CORS preflight (needed because fetch wrapper sets custom headers)
-- CORS `Access-Control-Allow-Origin: *` on all responses
-- COEP: consistent `credentialless` across all routes — proxy iframe is same-origin so no blocking
+- Route is now a thin orchestrator over `src/lib/server/proxy/{html,sessionStore,upstream}.ts`
+- Per-session upstream cookie jars keyed by an HttpOnly proxy-session cookie instead of a shared process-global singleton
+- Manual redirect loop preserves intermediate `Set-Cookie` headers and handles 301/302/303 method transitions correctly
+- Supports `GET`, `HEAD`, `POST`, `PUT`, `PATCH`, and `DELETE` upstream requests so real form flows can pass through the proxy
+- HTML injection now distinguishes full documents from fragment requests; deferred HTML fragments are no longer treated as standalone pages
+- Injects `<base>` tag using the full final URL, including query params, for correct relative and query-relative navigation
+- **Server-side link rewriting**: `<a href>`, `<form action>`, `<include-fragment src>`, and `<turbo-frame src>` are rewritten to full proxy URLs so the remote `<base>` tag cannot break them
+- Injects navigation interceptor script: click capture, `location.assign`/`replace`, GET/POST form submit handling, pushState/replaceState, fetch/XHR wrapping, service-worker blocking, non-HttpOnly cookie sync back to the proxy session, and parent address-bar sync
+- Upstream fetches are guarded with hostname-to-IP validation against private-network SSRF and a 15s timeout
+- CORS `Access-Control-Allow-Origin: *` on all proxy responses
+- Proxy helper logic now has direct server tests for HTML-shell decisions, redirect cookies, and POST redirect behavior
 
 ### Cookie Jar (`src/lib/server/cookieJar.ts`)
-- In-memory singleton Cookie jar shared across all proxy users (acceptable for portfolio)
-- Captures `Set-Cookie` from upstream responses, sends stored cookies on subsequent requests
-- Handles domain matching (exact + parent), path prefix, expiry, secure flag, Max-Age precedence
+- Cookie jar is now scoped per proxy session instead of shared across all users
+- Captures `Set-Cookie` from upstream responses and sends stored cookies on subsequent requests in the same proxy session
+- Handles host-only cookies, domain matching, RFC default-path derivation, path-boundary matching, expiry, secure flag, and Max-Age precedence
 - Validates cookie domain against request hostname to prevent cross-domain injection
-- `redirect: 'follow'` in fetch loses intermediate 3xx Set-Cookie headers — noted as future enhancement
 
 ### Known Browser Limitations
-- Google search triggers CAPTCHA — server IP flagged. Possible solutions: render CAPTCHA in iframe for user to solve, use custom search results page via API, or use a different search engine backend
-- GitHub commit info (`tree-commit-info` endpoint) returns data in direct curl tests but doesn't always load in browser — may be client-side JS authentication flow that depends on session cookies set via `document.cookie` (not captured by our server-side jar)
-- Authenticated site features won't work — `credentialless` COEP strips cookies from client-side cross-origin sub-resource requests
+- Google search still depends on Google’s current bot / IP reputation scoring. The proxy now carries JS-driven challenge flows more cleanly, but it cannot guarantee the server IP will avoid `sorry` / CAPTCHA responses.
+- GitHub’s older `tree-commit-info` path appears to have been replaced on the current live site; deferred fragments still need browser-level spot checks as GitHub keeps changing its repo UI.
+- ~~GitHub specifically feels laggy to use and to resize~~ — root cause was the include-fragment full-page-injection bug above; once `X-PJAX: true` is forwarded on fragment requests, the duplicated render goes away and the page weight drops by roughly 200 KB (one fewer copy of the entire profile inside itself). Repo pages were never affected because their fragment URLs already serve real fragments without `X-PJAX`.
+- Authenticated or bot-sensitive sites remain fragile; the proxy is still intentionally lightweight and not a full browser engine
+- `credentialless` COEP is still global, which may be a worse tradeoff than route-scoped isolation once the browser work settles
 
 ### Portfolio Content Pages (`src/lib/portfolio/`)
 - `types.ts` — `PortfolioProject` interface with appId for OS integration
@@ -158,10 +164,16 @@ src/routes/
 
 ## What's Next
 
-**Immediate (browser refinement)**:
-1. Solve Google CAPTCHA — user suggested allowing CAPTCHA passthrough in the iframe
-2. Debug why cookie jar isn't helping GitHub commit info (verify cookies are stored/sent, check Network tab in browser)
-3. Discuss visual direction for portfolio pages — more Wii/webcore, less corporate early-2000s
+**Immediate (browser verification / policy decisions)**:
+1. Verify Google’s current `sorry` / CAPTCHA flows in an actual browser session now that JS cookie sync and location/form interception are in place
+2. Verify GitHub repo pages in an actual browser session and confirm current deferred fragments still behave through the proxy
+3. Decide whether `COEP: credentialless` should stay global or move to route-scoped isolation for only the ML-heavy surfaces
+4. Discuss visual direction for portfolio pages — more Wii/webcore, less corporate early-2000s
+
+**Open questions / nice-to-haves**:
+- Win95-style "outline only while resizing" remains an interesting authenticity touch (not a perf fix anymore). Medium effort.
+- Throttle window size updates to ~30 Hz during resize. Cheap; only matters if any other heavy site shows up in practice.
+- The proxy shim is still inlined per page. Marginal win to externalize + cache.
 
 **Then (Phase 2 continuation)**:
 - Notepad — simple text editor

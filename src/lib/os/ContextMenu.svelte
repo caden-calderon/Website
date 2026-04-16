@@ -21,9 +21,32 @@
 		onclose();
 	}
 
+	function handleItemKeydown(event: KeyboardEvent, item: ContextMenuItem) {
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			handleClick(item);
+			return;
+		}
+		if (event.key === 'ArrowRight' && item.children) {
+			expandedChild = item.label;
+			event.preventDefault();
+			return;
+		}
+		if (event.key === 'Escape') {
+			onclose();
+		}
+	}
+
+	function handleBackdropKeydown(event: KeyboardEvent) {
+		if (event.key === 'Escape') {
+			event.preventDefault();
+			onclose();
+		}
+	}
+
 	// Clamp position so menu doesn't go off-screen
 	const menuWidth = 160;
-	const menuHeight = items.length * 22 + 8;
+	const menuHeight = $derived(items.length * 22 + 8);
 	const clampedX = $derived(
 		typeof window !== 'undefined'
 			? Math.min(x, window.innerWidth - menuWidth)
@@ -37,12 +60,14 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-<div class="context-backdrop" onclick={onclose}>
+<div class="context-backdrop" onclick={onclose} onkeydown={handleBackdropKeydown} tabindex="-1">
 	<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 	<div
 		class="context-menu window"
 		style="left: {clampedX}px; top: {clampedY}px;"
 		onclick={(e) => e.stopPropagation()}
+		onkeydown={handleBackdropKeydown}
+		tabindex="-1"
 	>
 		{#each items as item}
 			{#if item.separator}
@@ -53,10 +78,13 @@
 					class="menu-item"
 					class:disabled={item.disabled}
 					onclick={() => handleClick(item)}
+					onkeydown={(event) => handleItemKeydown(event, item)}
 					onpointerenter={() => {
 						if (item.children) expandedChild = item.label;
 						else expandedChild = null;
 					}}
+					tabindex={item.disabled ? -1 : 0}
+					role="button"
 				>
 					<span class="item-icon">
 						{#if item.icon}
@@ -70,7 +98,12 @@
 
 					{#if item.children && expandedChild === item.label}
 						<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-						<div class="submenu window" onclick={(e) => e.stopPropagation()}>
+						<div
+							class="submenu window"
+							onclick={(e) => e.stopPropagation()}
+							onkeydown={handleBackdropKeydown}
+							tabindex="-1"
+						>
 							{#each item.children as child}
 								{#if child.separator}
 									<div class="separator"></div>
@@ -80,6 +113,9 @@
 										class="menu-item"
 										class:disabled={child.disabled}
 										onclick={() => handleClick(child)}
+										onkeydown={(event) => handleItemKeydown(event, child)}
+										tabindex={child.disabled ? -1 : 0}
+										role="button"
 									>
 										<span class="item-icon">
 											{#if child.icon}

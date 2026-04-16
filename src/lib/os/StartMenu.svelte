@@ -98,12 +98,42 @@
 		}
 		onclose();
 	}
+
+	function handleItemKeydown(event: KeyboardEvent, item: MenuItem, level: 'root' | 'nested') {
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			handleItemClick(item);
+			return;
+		}
+		if (event.key === 'ArrowRight' && item.children) {
+			if (level === 'root') expandedSubmenu = item.label;
+			else expandedNested = item.label;
+			event.preventDefault();
+			return;
+		}
+		if (event.key === 'Escape') {
+			event.preventDefault();
+			onclose();
+		}
+	}
+
+	function handleBackdropKeydown(event: KeyboardEvent) {
+		if (event.key === 'Escape') {
+			event.preventDefault();
+			onclose();
+		}
+	}
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-<div class="start-menu-backdrop" onclick={onclose}>
+<div class="start-menu-backdrop" onclick={onclose} onkeydown={handleBackdropKeydown} tabindex="-1">
 	<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-	<div class="start-menu window" onclick={(e) => e.stopPropagation()}>
+	<div
+		class="start-menu window"
+		onclick={(e) => e.stopPropagation()}
+		onkeydown={handleBackdropKeydown}
+		tabindex="-1"
+	>
 		<!-- Vertical Windows 98 banner -->
 		<div class="banner">
 			<span class="banner-text">
@@ -122,11 +152,14 @@
 						class="menu-item"
 						class:disabled={item.disabled}
 						onclick={() => handleItemClick(item)}
+						onkeydown={(event) => handleItemKeydown(event, item, 'root')}
 						onpointerenter={() => {
 							if (item.children) expandedSubmenu = item.label;
 							else expandedSubmenu = null;
 							expandedNested = null;
 						}}
+						tabindex={item.disabled ? -1 : 0}
+						role="button"
 					>
 						<img src={item.icon} alt="" width="32" height="32" class="menu-icon" draggable="false" />
 						<span class="menu-label">{item.label}</span>
@@ -137,7 +170,12 @@
 						<!-- Submenu flyout -->
 						{#if item.children && expandedSubmenu === item.label}
 							<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-							<div class="submenu window" onclick={(e) => e.stopPropagation()}>
+							<div
+								class="submenu window"
+								onclick={(e) => e.stopPropagation()}
+								onkeydown={handleBackdropKeydown}
+								tabindex="-1"
+							>
 								{#each item.children as child}
 									{#if child.separator}
 										<div class="separator"></div>
@@ -147,10 +185,13 @@
 											class="menu-item sub-item"
 											class:disabled={child.disabled}
 											onclick={() => handleItemClick(child)}
+											onkeydown={(event) => handleItemKeydown(event, child, 'nested')}
 											onpointerenter={() => {
 												if (child.children) expandedNested = child.label;
 												else expandedNested = null;
 											}}
+											tabindex={child.disabled ? -1 : 0}
+											role="button"
 										>
 											<img src={child.icon} alt="" width="16" height="16" class="menu-icon-sm" draggable="false" />
 											<span class="menu-label">{child.label}</span>
@@ -161,13 +202,21 @@
 											<!-- Nested submenu -->
 											{#if child.children && expandedNested === child.label}
 												<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-												<div class="submenu window" onclick={(e) => e.stopPropagation()}>
+												<div
+													class="submenu window"
+													onclick={(e) => e.stopPropagation()}
+													onkeydown={handleBackdropKeydown}
+													tabindex="-1"
+												>
 													{#each child.children as nested}
 														<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 														<div
 															class="menu-item sub-item"
 															class:disabled={nested.disabled}
 															onclick={() => handleItemClick(nested)}
+															onkeydown={(event) => handleItemKeydown(event, nested, 'nested')}
+															tabindex={nested.disabled ? -1 : 0}
+															role="button"
 														>
 															<img src={nested.icon} alt="" width="16" height="16" class="menu-icon-sm" draggable="false" />
 															<span class="menu-label">{nested.label}</span>

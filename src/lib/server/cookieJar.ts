@@ -1,13 +1,10 @@
 /**
- * In-memory cookie jar for the web proxy.
+ * In-memory cookie jar for a single proxy session.
  *
- * Stores cookies set by upstream servers and sends them back on subsequent
- * requests to the same domain. This lets sites like GitHub maintain session
- * state (CSRF tokens, tracking cookies) across proxied page loads, which
- * is necessary for their API calls (commit info, user data) to work.
- *
- * The jar is shared across all proxy users — acceptable for a portfolio
- * site. Cookies never leave the server; they're not forwarded to the client.
+ * Stores cookies set by upstream servers and replays them on subsequent
+ * proxied requests. The jar can also accept client-side cookie writes from
+ * injected proxy pages so JavaScript-driven bot challenges and search flows
+ * keep working across navigations.
  */
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -16,6 +13,7 @@ interface StoredCookie {
 	name: string;
 	value: string;
 	domain: string;
+	hostOnly: boolean;
 	path: string;
 	expires: number; // epoch ms, Infinity = session cookie
 	secure: boolean;
@@ -26,7 +24,7 @@ interface StoredCookie {
 
 const MAX_COOKIES = 2000;
 
-class CookieJar {
+export class CookieJar {
 	/** Cookies keyed by effective domain (lowercase). */
 	private store = new Map<string, StoredCookie[]>();
 	private count = 0;
@@ -37,16 +35,36 @@ class CookieJar {
 		if (!setCookies || setCookies.length === 0) return;
 
 		for (const raw of setCookies) {
-			const cookie = parseCookie(raw, requestUrl);
-			if (!cookie) continue;
-			this.upsert(cookie);
+			this.setCookie(raw, requestUrl);
 		}
+	}
+
+	/** Capture a single cookie string relative to a request URL. */
+	setCookie(rawCookie: string, requestUrl: URL, fromClient = false): void {
+		const cookie = parseCookie(rawCookie, requestUrl, fromClient);
+		if (!cookie) return;
+		this.upsert(cookie);
 	}
 
 	/** Build a Cookie header value for an upstream request, or null. */
 	getCookieHeader(requestUrl: URL): string | null {
+		const matches = this.matchingCookies(requestUrl, true);
+		if (matches.length === 0) return null;
+		return matches.map((c) => `${c.name}=${c.value}`).join('; ');
+	}
+
+	/** Build a document.cookie-style string for non-HttpOnly cookies, or null. */
+	getDocumentCookieHeader(requestUrl: URL): string | null {
+		const matches = this.matchingCookies(requestUrl, false);
+		if (matches.length === 0) return null;
+		return matches.map((c) => `${c.name}=${c.value}`).join('; ');
+	}
+
+	// ── Internal ──────────────────────────────────────────────────────
+
+	private matchingCookies(requestUrl: URL, includeHttpOnly: boolean): StoredCookie[] {
 		const hostname = requestUrl.hostname.toLowerCase();
-		const path = requestUrl.pathname;
+		const path = requestUrl.pathname || '/';
 		const isSecure = requestUrl.protocol === 'https:';
 		const now = Date.now();
 
@@ -56,21 +74,18 @@ class CookieJar {
 			if (!domainMatches(domain, hostname)) continue;
 
 			for (const c of cookies) {
-				if (c.expires < now) continue; // expired
+				if (c.expires < now) continue;
+				if (c.hostOnly && c.domain !== hostname) continue;
 				if (c.secure && !isSecure) continue;
-				if (!path.startsWith(c.path)) continue;
+				if (!includeHttpOnly && c.httpOnly) continue;
+				if (!pathMatches(path, c.path)) continue;
 				matches.push(c);
 			}
 		}
 
-		if (matches.length === 0) return null;
-
-		// Longer paths first (more specific cookies take priority)
 		matches.sort((a, b) => b.path.length - a.path.length);
-		return matches.map((c) => `${c.name}=${c.value}`).join('; ');
+		return matches;
 	}
-
-	// ── Internal ──────────────────────────────────────────────────────
 
 	private upsert(cookie: StoredCookie): void {
 		const key = cookie.domain;
@@ -109,7 +124,7 @@ class CookieJar {
 
 // ─── Cookie parsing ───────────────────────────────────────────────────────
 
-function parseCookie(raw: string, requestUrl: URL): StoredCookie | null {
+function parseCookie(raw: string, requestUrl: URL, fromClient = false): StoredCookie | null {
 	const parts = raw.split(';').map((s) => s.trim());
 	if (parts.length === 0) return null;
 
@@ -120,7 +135,7 @@ function parseCookie(raw: string, requestUrl: URL): StoredCookie | null {
 	const value = parts[0].slice(eqIdx + 1).trim();
 
 	let domain = requestUrl.hostname.toLowerCase();
-	let path = '/';
+	let path = defaultPath(requestUrl.pathname);
 	let expires = Infinity;
 	let secure = false;
 	let httpOnly = false;
@@ -158,7 +173,7 @@ function parseCookie(raw: string, requestUrl: URL): StoredCookie | null {
 				secure = true;
 				break;
 			case 'httponly':
-				httpOnly = true;
+				httpOnly = !fromClient;
 				break;
 		}
 	}
@@ -169,7 +184,16 @@ function parseCookie(raw: string, requestUrl: URL): StoredCookie | null {
 		return null; // reject cross-domain cookie injection
 	}
 
-	return { name, value, domain, path, expires, secure, httpOnly };
+	return {
+		name,
+		value,
+		domain,
+		hostOnly: !domainFromAttr,
+		path,
+		expires,
+		secure,
+		httpOnly,
+	};
 }
 
 // ─── Domain matching ──────────────────────────────────────────────────────
@@ -182,6 +206,18 @@ function domainMatches(cookieDomain: string, hostname: string): boolean {
 	return false;
 }
 
-// ─── Singleton export ─────────────────────────────────────────────────────
+function defaultPath(requestPath: string): string {
+	if (!requestPath || !requestPath.startsWith('/')) return '/';
+	if (requestPath === '/') return '/';
 
-export const cookieJar = new CookieJar();
+	const lastSlash = requestPath.lastIndexOf('/');
+	if (lastSlash <= 0) return '/';
+	return requestPath.slice(0, lastSlash);
+}
+
+function pathMatches(requestPath: string, cookiePath: string): boolean {
+	if (requestPath === cookiePath) return true;
+	if (!requestPath.startsWith(cookiePath)) return false;
+	if (cookiePath.endsWith('/')) return true;
+	return requestPath.charAt(cookiePath.length) === '/';
+}

@@ -11,11 +11,17 @@
 	import { windowManager } from '$lib/os/windowManager.svelte.js';
 	import type { AppId } from '$lib/os/types.js';
 	import { getProject } from '$lib/portfolio/projects.js';
+	import { inspectFrameLocation } from './internetExplorerFrame.js';
 	import HomePage from '$lib/portfolio/HomePage.svelte';
 	import ProjectList from '$lib/portfolio/ProjectList.svelte';
 	import ProjectDetail from '$lib/portfolio/ProjectDetail.svelte';
 	import AboutPage from '$lib/portfolio/AboutPage.svelte';
 	import ErrorPage from '$lib/portfolio/ErrorPage.svelte';
+
+	// ── Constants ─────────────────────────────────────────────────────────
+
+	const HOME_URL = 'http://chromatic.dev/';
+	const DOMAIN = 'chromatic.dev';
 
 	let {
 		windowId = '',
@@ -26,13 +32,6 @@
 		title?: string;
 		url?: string;
 	} = $props();
-
-	// ── Constants ─────────────────────────────────────────────────────────
-
-	const HOME_URL = 'http://chromatic.dev/';
-	const DOMAIN = 'chromatic.dev';
-	// Intentional: capture initial prop value — the browser manages its own URL state after mount.
-	const startUrl = initialUrl || HOME_URL; // eslint-disable-line
 
 	// ── Favorites ─────────────────────────────────────────────────────────
 
@@ -49,17 +48,27 @@
 
 	// ── Browser state ─────────────────────────────────────────────────────
 
-	let currentUrl = $state(startUrl);
+	let currentUrl = $state(HOME_URL);
 	let historyStack = $state<string[]>([]);
 	let forwardStack = $state<string[]>([]);
 	let loading = $state(false);
-	let addressValue = $state(startUrl);
+	let addressValue = $state(HOME_URL);
 	let statusText = $state('Done');
 	let favoritesOpen = $state(false);
 	let iframeRef = $state<HTMLIFrameElement | null>(null);
 	let infoDismissed = $state(false);
+	let proxyRecoveryNotice = $state<string | null>(null);
+	let recoveryInFlight = $state(false);
 	/** Separate from currentUrl — only changes on explicit user navigation, not in-iframe clicks. */
 	let iframeSrc = $state('');
+
+	$effect.pre(() => {
+		const url = initialUrl || HOME_URL;
+		if (historyStack.length === 0 && forwardStack.length === 0 && currentUrl === HOME_URL && addressValue === HOME_URL) {
+			currentUrl = url;
+			addressValue = url;
+		}
+	});
 
 	// ── Route resolution ──────────────────────────────────────────────────
 
@@ -203,6 +212,8 @@
 		historyStack = [...historyStack, currentUrl];
 		forwardStack = [];
 		infoDismissed = false;
+		proxyRecoveryNotice = null;
+		recoveryInFlight = false;
 		// Set iframe src for external pages (drives the actual iframe load)
 		if (resolveRoute(url).page === 'external') {
 			iframeSrc = proxyUrl(url);
@@ -218,6 +229,8 @@
 		const prev = historyStack.at(-1)!;
 		historyStack = historyStack.slice(0, -1);
 		forwardStack = [...forwardStack, currentUrl];
+		proxyRecoveryNotice = null;
+		recoveryInFlight = false;
 		if (resolveRoute(prev).page === 'external') {
 			iframeSrc = proxyUrl(prev);
 		}
@@ -232,6 +245,8 @@
 		const next = forwardStack.at(-1)!;
 		forwardStack = forwardStack.slice(0, -1);
 		historyStack = [...historyStack, currentUrl];
+		proxyRecoveryNotice = null;
+		recoveryInFlight = false;
 		if (resolveRoute(next).page === 'external') {
 			iframeSrc = proxyUrl(next);
 		}
@@ -245,6 +260,8 @@
 		if (route.page === 'external' && iframeRef) {
 			loading = true;
 			statusText = `Opening page ${currentUrl}...`;
+			proxyRecoveryNotice = null;
+			recoveryInFlight = false;
 			// Force reload by toggling src
 			iframeSrc = '';
 			requestAnimationFrame(() => {
@@ -303,8 +320,39 @@
 	}
 
 	function onIframeLoad() {
+		if (route.page === 'external' && iframeRef) {
+			const frame = iframeRef;
+			const frameState = inspectFrameLocation(
+				() => frame.contentWindow?.location.href ?? '',
+				window.location.origin,
+			);
+
+			if (frameState.kind === 'escaped') {
+				recoverEscapedIframe(frameState.reason);
+				return;
+			}
+		}
+
+		recoveryInFlight = false;
 		loading = false;
 		statusText = 'Done';
+	}
+
+	function recoverEscapedIframe(reason: 'cross-origin' | 'same-origin-non-proxy' | 'empty' | 'invalid') {
+		if (recoveryInFlight) return;
+		recoveryInFlight = true;
+		loading = true;
+		statusText = 'Recovering escaped navigation...';
+		proxyRecoveryNotice =
+			reason === 'same-origin-non-proxy'
+				? 'This page tried to navigate outside /api/proxy. Restored the last proxied page.'
+				: 'This page triggered a direct browser navigation the proxy cannot safely keep embedded. Restored the last proxied page.';
+
+		const recoveryUrl = proxyUrl(currentUrl);
+		iframeSrc = '';
+		requestAnimationFrame(() => {
+			iframeSrc = recoveryUrl;
+		});
 	}
 
 	/** Open the current external URL in the user's real browser tab. */
@@ -321,8 +369,10 @@
 
 	/** Handle postMessage from proxied pages (address bar + history sync). */
 	function onProxyMessage(e: MessageEvent) {
+		if (iframeRef && e.source !== iframeRef.contentWindow) return;
 		if (e.data?.type === 'ie-nav' && typeof e.data.url === 'string') {
 			const realUrl = e.data.url;
+			if (!realUrl.startsWith('http://') && !realUrl.startsWith('https://')) return;
 			if (realUrl !== currentUrl) {
 				// In-iframe navigation: push old URL to history so Back works
 				historyStack = [...historyStack, currentUrl];
@@ -451,8 +501,12 @@
 					<img src={ICO_FAVORITES} alt="" width="20" height="20" draggable="false" />
 				</button>
 				{#if favoritesOpen}
-					<!-- svelte-ignore a11y_no_static_element_interactions -->
-					<div class="ie-dropdown-backdrop" onclick={closeFavorites}></div>
+						<button
+							class="ie-dropdown-backdrop"
+							onclick={closeFavorites}
+							type="button"
+							aria-label="Close favorites menu"
+						></button>
 					<div class="ie-favorites-dropdown">
 						<div class="ie-fav-header">Favorites</div>
 						{#each FAVORITES as fav}
@@ -498,6 +552,12 @@
 	<!-- ── Content area ─────────────────────────────────────────────────── -->
 	{#if route.page === 'external'}
 		<!-- External website loaded through server-side proxy -->
+		{#if proxyRecoveryNotice}
+			<div class="ie-recovery-info">
+				<span>{proxyRecoveryNotice}</span>
+				<button class="ie-info-close" onclick={() => (proxyRecoveryNotice = null)}>&times;</button>
+			</div>
+		{/if}
 		{#if !infoDismissed}
 			<div class="ie-external-info">
 				<span>&#127760; <b>{extractDomain(route.params.url)}</b></span>
@@ -669,6 +729,15 @@
 		position: fixed;
 		inset: 0;
 		z-index: 99;
+		background: transparent;
+		border: none;
+		box-shadow: none;
+		padding: 0;
+		margin: 0;
+		min-width: 0;
+		min-height: 0;
+		appearance: none;
+		outline: none;
 	}
 
 	.ie-favorites-dropdown {
@@ -855,6 +924,18 @@
 		border-bottom: 1px solid #c0c0a0;
 		font-size: 10px;
 		color: #404020;
+		flex-shrink: 0;
+	}
+
+	.ie-recovery-info {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 2px 8px;
+		background: linear-gradient(180deg, #fff4d8 0%, #ebddba 100%);
+		border-bottom: 1px solid #b9a97e;
+		font-size: 10px;
+		color: #4a3f1f;
 		flex-shrink: 0;
 	}
 

@@ -260,9 +260,15 @@ export const windowManager = {
 		if (!win || win.maximized) return;
 
 		const newSize = clampSize({ width, height }, win.minSize);
-		// If resizing from left/top edge, adjust position to keep the opposite edge fixed
-		if (anchorX !== undefined) win.position.x = anchorX;
-		if (anchorY !== undefined) win.position.y = anchorY;
+		const nextPosition = clampPosition(
+			{
+				x: anchorX ?? win.position.x,
+				y: anchorY ?? win.position.y,
+			},
+			newSize,
+		);
+
+		win.position = nextPosition;
 		win.size = newSize;
 	},
 

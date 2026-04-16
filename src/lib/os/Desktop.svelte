@@ -63,16 +63,17 @@
 	}
 
 	function desktopClick(e: MouseEvent) {
-		// Click on the desktop background deselects icons and closes menus
-		if ((e.target as HTMLElement).classList.contains('desktop-area')) {
-			selectedIcon = null;
-			startMenuOpen = false;
-			contextMenu = null;
-		}
+		const target = e.target as HTMLElement;
+		if (target.closest('.desktop-icon')) return;
+
+		selectedIcon = null;
+		startMenuOpen = false;
+		contextMenu = null;
 	}
 
 	function desktopContextMenu(e: MouseEvent) {
-		if (!(e.target as HTMLElement).classList.contains('desktop-area')) return;
+		const target = e.target as HTMLElement;
+		if (target.closest('.desktop-icon, .window, .taskbar, .start-menu, .context-menu')) return;
 		e.preventDefault();
 		contextMenu = { x: e.clientX, y: e.clientY, items: desktopContextItems };
 		startMenuOpen = false;

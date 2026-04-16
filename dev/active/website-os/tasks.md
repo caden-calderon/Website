@@ -42,6 +42,7 @@
 - [x] Cascading position for new windows (30px offset, wrap at viewport edge)
 - [x] Mobile-aware: open maximized on small viewports (<640px width)
 - [x] Clamp windows to viewport bounds
+- [x] Clamp left/top resize anchors back into the viewport during edge resize
 - [ ] Session integration: save/restore window state
 
 ### App Registry
@@ -68,6 +69,7 @@
 - [x] White text labels, regular weight, no text shadow (correct Win98)
 - [x] Win98 selection: blue tint on icon + navy label background
 - [x] Click desktop to deselect icons
+- [x] Desktop background click/right-click works correctly through the icon-grid container, not just on the bare background node
 - [ ] Source desktop icons from filesystem (`C:\Windows\Desktop\`)
 - [ ] Drag icons to reposition (persist positions in session)
 
@@ -90,14 +92,16 @@
 - [x] Submenu overlaps parent by 2px (Win98 attached look)
 - [x] Menu overlaps taskbar slightly
 - [x] Black text default, white on hover highlight
+- [x] Escape closes the menu even when focus is inside nested submenu items
 - [ ] Source Programs submenu from filesystem
-- [ ] Keyboard: Escape to close (partially — works from Desktop, not internal)
+- [ ] Keyboard: Arrow-key navigation between items/submenus
 
 ### Context Menus
 - [x] Build `ContextMenu.svelte` with absolute positioning
 - [x] Desktop right-click: Arrange Icons, New, Properties
 - [x] Nested submenu support
 - [x] Dismiss on click-outside or Escape
+- [x] Basic keyboard activation for focused items (Enter / Space)
 - [ ] Desktop icon right-click: Open, Rename, Delete, Properties
 - [ ] Taskbar right-click: Cascade Windows, Tile Windows, Minimize All
 
@@ -135,7 +139,21 @@
 - [x] Default homepage (portal-style landing)
 - [x] Window title updates dynamically ("Page Title - Microsoft Internet Explorer")
 - [x] Content area click interception (anchors route through IE navigator)
+- [x] `postMessage` sync only accepts messages from the active proxied iframe
 - [ ] Menu bar dropdowns (File, Edit, View, Go, Favorites, Help — currently labels only)
+
+### Proxy / External Browsing
+- [x] Split proxy implementation into dedicated server modules (`html.ts`, `upstream.ts`, `sessionStore.ts`)
+- [x] Per-session proxy cookie jars instead of a process-global singleton
+- [x] Manual upstream redirect handling with intermediate `Set-Cookie` capture
+- [x] Support non-GET upstream requests (POST/PUT/PATCH/DELETE) through the proxy
+- [x] Distinguish full HTML documents from fragment responses before injecting the browser shim
+- [x] Preserve query params in injected `<base>` handling
+- [x] Add SSRF hostname-to-private-IP validation and upstream timeout
+- [x] Add direct server tests for cookie semantics, redirect handling, and HTML-shell decisions
+- [x] Keep JS-driven upstream cookies and navigations inside the proxy session (`document.cookie`, `location.replace/assign`, form submits)
+- [ ] Live-verify GitHub deferred content / commit info against the current site
+- [ ] Decide whether global `COEP: credentialless` should be narrowed to only the routes that need cross-origin isolation
 
 ### Portfolio Content (inside IE) — COMPLETE
 - [x] Define project manifests in `src/lib/portfolio/projects.ts` (Point Engine, Axial, Chess, Aperture, Argus, Chromatic)

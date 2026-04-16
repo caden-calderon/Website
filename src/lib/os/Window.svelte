@@ -23,6 +23,8 @@
 
 	let dragging = $state(false);
 	let dragOffset = { x: 0, y: 0 };
+	let pendingDragPosition: { x: number; y: number } | null = null;
+	let dragFrame = 0;
 
 	function onTitlePointerDown(e: PointerEvent) {
 		if (windowState.maximized) return;
@@ -41,14 +43,37 @@
 
 	function onTitlePointerMove(e: PointerEvent) {
 		if (!dragging) return;
-		windowManager.updatePosition(
-			windowState.id,
-			e.clientX - dragOffset.x,
-			e.clientY - dragOffset.y,
-		);
+		pendingDragPosition = {
+			x: e.clientX - dragOffset.x,
+			y: e.clientY - dragOffset.y,
+		};
+
+		if (dragFrame) return;
+		dragFrame = requestAnimationFrame(() => {
+			dragFrame = 0;
+			if (!pendingDragPosition) return;
+			windowManager.updatePosition(
+				windowState.id,
+				pendingDragPosition.x,
+				pendingDragPosition.y,
+			);
+			pendingDragPosition = null;
+		});
 	}
 
 	function onTitlePointerUp() {
+		if (pendingDragPosition) {
+			windowManager.updatePosition(
+				windowState.id,
+				pendingDragPosition.x,
+				pendingDragPosition.y,
+			);
+			pendingDragPosition = null;
+		}
+		if (dragFrame) {
+			cancelAnimationFrame(dragFrame);
+			dragFrame = 0;
+		}
 		dragging = false;
 	}
 
@@ -59,6 +84,10 @@
 	let resizing = $state(false);
 	let resizeEdge = '';
 	let resizeStart = { x: 0, y: 0, width: 0, height: 0, winX: 0, winY: 0 };
+	let pendingResize:
+		| { width: number; height: number; anchorX: number | undefined; anchorY: number | undefined }
+		| null = null;
+	let resizeFrame = 0;
 
 	function onResizePointerDown(e: PointerEvent, edge: string) {
 		if (windowState.maximized) return;
@@ -105,10 +134,43 @@
 			}
 		}
 
-		windowManager.updateSize(windowState.id, newWidth, newHeight, anchorX, anchorY);
+		pendingResize = {
+			width: newWidth,
+			height: newHeight,
+			anchorX,
+			anchorY,
+		};
+
+		if (resizeFrame) return;
+		resizeFrame = requestAnimationFrame(() => {
+			resizeFrame = 0;
+			if (!pendingResize) return;
+			windowManager.updateSize(
+				windowState.id,
+				pendingResize.width,
+				pendingResize.height,
+				pendingResize.anchorX,
+				pendingResize.anchorY,
+			);
+			pendingResize = null;
+		});
 	}
 
 	function onResizePointerUp() {
+		if (pendingResize) {
+			windowManager.updateSize(
+				windowState.id,
+				pendingResize.width,
+				pendingResize.height,
+				pendingResize.anchorX,
+				pendingResize.anchorY,
+			);
+			pendingResize = null;
+		}
+		if (resizeFrame) {
+			cancelAnimationFrame(resizeFrame);
+			resizeFrame = 0;
+		}
 		resizing = false;
 		resizeEdge = '';
 	}
