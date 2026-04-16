@@ -14,7 +14,7 @@ const APP_DEFS: AppDef[] = [
 		icon: getIcon('internet-explorer'),
 		defaultSize: { width: 640, height: 480 },
 		minSize: { width: 320, height: 240 },
-		component: () => import('./apps/Placeholder.svelte'),
+		component: () => import('./apps/InternetExplorer.svelte'),
 		singleton: false,
 	},
 	{

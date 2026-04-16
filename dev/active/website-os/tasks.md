@@ -121,27 +121,30 @@
 
 ## Phase 2: Core Apps
 
-### Internet Explorer
-- [ ] Build `InternetExplorer.svelte` with IE4 layout
-- [ ] Menu bar (File, Edit, View, Go, Favorites, Help)
-- [ ] Toolbar: Back, Forward, Stop, Refresh, Home, Search, Favorites (cool-button hover style)
-- [ ] Address bar with editable URL input, page icon, Go action on Enter
-- [ ] Throbber animation in top-right (spinning/animated during load, static when idle)
-- [ ] Status bar with loading text and zone icon
-- [ ] Internal URL → content component routing
-- [ ] Back/forward navigation with history stacks
-- [ ] Simulated loading delay (200-500ms) with throbber and status text
-- [ ] "This page cannot be displayed" error for unknown URLs
-- [ ] Default homepage (portal-style landing)
+### Internet Explorer — COMPLETE
+- [x] Build `InternetExplorer.svelte` with IE4 layout
+- [x] Menu bar (File, Edit, View, Go, Favorites, Help)
+- [x] Toolbar: Back, Forward, Stop, Refresh, Home, Search, Favorites, History (cool-button hover style)
+- [x] Address bar with editable URL input, page icon, Go action on Enter
+- [x] Throbber animation in top-right (pulsing during load, static when idle)
+- [x] Status bar with loading text and zone icon
+- [x] Internal URL → content component routing
+- [x] Back/forward navigation with history stacks
+- [x] Simulated loading delay (200-500ms) with throbber and status text
+- [x] "This page cannot be displayed" error for unknown URLs
+- [x] Default homepage (portal-style landing)
+- [x] Window title updates dynamically ("Page Title - Microsoft Internet Explorer")
+- [x] Content area click interception (anchors route through IE navigator)
+- [ ] Menu bar dropdowns (File, Edit, View, Go, Favorites, Help — currently labels only)
 
-### Portfolio Content (inside IE)
-- [ ] Define project manifests in `src/lib/portfolio/projects.ts` (Axial, Aperture, Argus, Point Engine, Chess)
-- [ ] Build `HomePage.svelte` — portal with search, categorized links, featured projects
-- [ ] Build `ProjectList.svelte` — grid/list of all projects
-- [ ] Build `ProjectDetail.svelte` — per-project page with description, stack, media, "Launch Demo"
-- [ ] Build `AboutPage.svelte` — bio, skills, contact info
-- [ ] Build `ErrorPage.svelte` — IE "page cannot be displayed"
-- [ ] "Launch Demo" button opens the project's app in its own OS window
+### Portfolio Content (inside IE) — COMPLETE
+- [x] Define project manifests in `src/lib/portfolio/projects.ts` (Point Engine, Axial, Chess, Aperture, Argus, Chromatic)
+- [x] Build `HomePage.svelte` — portal with categorized links, featured projects, game launchers
+- [x] Build `ProjectList.svelte` — table view of all projects with type badges
+- [x] Build `ProjectDetail.svelte` — per-project page with description, stack, "Launch Demo"
+- [x] Build `AboutPage.svelte` — bio, skills, contact info
+- [x] Build `ErrorPage.svelte` — IE "page cannot be displayed"
+- [x] "Launch Demo" button opens the project's app in its own OS window
 
 ### Notepad
 - [ ] Build `Notepad.svelte` with menu bar and textarea

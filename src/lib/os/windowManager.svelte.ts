@@ -266,6 +266,14 @@ export const windowManager = {
 		win.size = newSize;
 	},
 
+	/** Update a window's title bar text (also updates the taskbar entry). */
+	updateTitle(windowId: string, title: string): void {
+		const win = windows.find((w) => w.id === windowId);
+		if (!win || win.title === title) return;
+		win.title = title;
+		windows = [...windows];
+	},
+
 	/** Get a window by ID. */
 	get(windowId: string): WindowState | undefined {
 		return windows.find((w) => w.id === windowId);

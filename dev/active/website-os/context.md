@@ -11,6 +11,7 @@ Build a Windows 95/98 desktop OS as the 2D interface for the Chromatic portfolio
 ## Current Position
 
 - Phase 1 OS shell is functional: Desktop, Window manager, Taskbar, Start menu, context menus, icons
+- **Phase 2 started**: Internet Explorer 4 is the first real app — fully functional with IE4 chrome
 - Visual accuracy pass completed: exact Win98 colors, proper font weight, viewport-relative icons
 - 98.css installed with color overrides applied to fix its inaccurate defaults
 - Route layout groups working: `(main)/` for Tailwind routes, `(os)/` for 98.css routes
@@ -90,14 +91,41 @@ src/routes/
 - PNGs use numbered suffixes for size variants: `-0` = largest, `-1` = smaller
 - Real Win98 icons sourced from the Alex Meub collection (win98icons.alexmeub.com)
 
-## What's Next (Phase 2: Core Apps)
+## What's Built — Phase 2 (in progress)
+
+### Internet Explorer 4 (`src/lib/os/apps/InternetExplorer.svelte`)
+- Full IE4 chrome: menu bar, toolbar with cool-button hover, address bar, throbber, status bar
+- 8 toolbar buttons: Back, Forward, Stop, Refresh, Home, Search, Favorites, History
+- Cool-button CSS: flat default, raised 1px border on hover, sunken on active
+- Editable address bar with page icon and Enter-to-navigate
+- Animated throbber (pulsing globe during load, static when idle)
+- Internal URL routing: `http://chromatic.dev/` domain → content component mapping
+- Back/Forward navigation with full history stacks
+- Simulated loading delay (200-500ms) with status text and throbber animation
+- Click interception on content area: all `<a>` tags route through the IE navigator
+- Window title updates dynamically: "Page Title - Microsoft Internet Explorer"
+- `windowManager.updateTitle()` added to enable this
+- Status bar: "Opening page..." during load, "Done" when idle, "Internet" zone indicator
+- Can open via desktop icon, Start menu, or programmatically with a URL prop
+
+### Portfolio Content Pages (`src/lib/portfolio/`)
+- `types.ts` — `PortfolioProject` interface with appId for OS integration
+- `projects.ts` — 6 project manifests (Point Engine, Axial, Chess, Aperture, Argus, Chromatic)
+- `HomePage.svelte` — portal-style landing with banner, featured projects grid, sidebar with quick links + game launchers
+- `ProjectList.svelte` — table view of all projects with type badges and year
+- `ProjectDetail.svelte` — breadcrumb, description, tech stack tags, "Launch Demo" button, details table
+- `AboutPage.svelte` — bio, skills table, contact sidebar
+- `ErrorPage.svelte` — faithful IE "The page cannot be displayed" with troubleshooting steps
+- All pages styled as clean late-90s web pages (navy headings, blue links, gray borders)
+
+## What's Next
 
 Priority order:
-1. Internet Explorer 4 browser — the portfolio navigation surface
-2. Portfolio content (homepage, project list, project detail, about page)
+1. ~~Internet Explorer 4 browser — the portfolio navigation surface~~ ✓
+2. ~~Portfolio content pages~~ ✓
 3. Notepad — simple text editor
 4. Calculator — Win98 calculator
-5. File Explorer — two-pane folder/file browser
+5. File Explorer — two-pane folder/file browser (needs virtual filesystem)
 
 See `tasks.md` for the full checklist.
 

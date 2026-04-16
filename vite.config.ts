@@ -16,7 +16,9 @@ export default defineConfig({
 	},
 	server: {
 		headers: {
-			// Required for SharedArrayBuffer (onnxruntime-web WASM multi-threading)
+			// Match hooks.server.ts — consistent COEP across all routes.
+			// The IE4 browser uses a same-origin proxy for external sites,
+			// so credentialless doesn't block the iframe.
 			'Cross-Origin-Opener-Policy': 'same-origin',
 			'Cross-Origin-Embedder-Policy': 'credentialless',
 		},

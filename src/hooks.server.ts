@@ -6,7 +6,12 @@ import type { Handle } from '@sveltejs/kit';
  *
  * credentialless is used instead of require-corp — it enables
  * crossOriginIsolated without requiring all cross-origin resources
- * to have explicit CORP headers (which HuggingFace CDN models may lack).
+ * to have explicit CORP headers.
+ *
+ * The IE4 browser loads external sites through a same-origin proxy
+ * (/api/proxy), so COEP doesn't block those iframes. Using the same
+ * policy on every route avoids Firefox's cross-origin isolation
+ * mismatch errors when navigating between routes.
  */
 export const handle: Handle = async ({ event, resolve }) => {
 	const response = await resolve(event);
