@@ -21,9 +21,9 @@ export const portfolioStaticRoutes = {
 		params: { section: 'Writings', status: 'Draft shelf coming online' },
 	},
 	'/contact': {
-		page: 'placeholder',
+		page: 'contact',
 		title: 'Contact - Chromatic',
-		params: { section: 'Contact', status: 'Contact panel coming online' },
+		params: {},
 	},
 } satisfies Record<string, StaticRoute>;
 

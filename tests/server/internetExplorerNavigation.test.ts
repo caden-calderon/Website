@@ -24,9 +24,9 @@ describe('internet explorer navigation helpers', () => {
 			title: 'Microsoft Network - Search',
 		});
 		expect(resolveInternetExplorerRoute('/contact')).toMatchObject({
-			page: 'placeholder',
+			page: 'contact',
 			title: 'Contact - Chromatic',
-			params: { section: 'Contact' },
+			params: {},
 		});
 		expect(resolveInternetExplorerRoute('/projects?view=details#top')).toMatchObject({
 			page: 'projects',

@@ -27,6 +27,7 @@ export type PortfolioRoutePage =
 	| 'projects'
 	| 'project-detail'
 	| 'about'
+	| 'contact'
 	| 'search'
 	| 'placeholder';
 
