@@ -1,27 +1,43 @@
 <!--
   Internet Explorer 4 browser shell.
 
-  Full IE4 chrome with real browsing capability: menu bar, toolbar with
-  cool-button hover, address bar, animated throbber, Favorites dropdown,
-  status bar. Internal chromatic.dev URLs render portfolio content;
-  external URLs load in an iframe for real web browsing.
+  Three-row chrome modelled 1:1 against the IE4 reference:
+    1. Menu bar (File / Edit / View / Go / Favorites / Help) with a black
+       corner panel on the right holding the animated "e" logo.
+    2. Toolbar with rebar bands: Back · Forward/Stop/Refresh/Home ·
+       Search/Favorites/History/Channels · Fullscreen/Mail/Print/Edit.
+       Each band has a vertical gripper on the left and raised 3D edges.
+       Icons render grayscale by default and return to full color on
+       hover / active — a deliberate modern touch over pure 1997.
+    3. Address bar rebar + Links rebar, side by side, same row.
+
+  Internal chromatic.dev URLs render portfolio content; external URLs
+  load through the server-side proxy in an iframe.
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { windowManager } from '$lib/os/windowManager.svelte.js';
 	import type { AppId } from '$lib/os/types.js';
-	import { getProject } from '$lib/portfolio/projects.js';
 	import { inspectFrameLocation } from './internetExplorerFrame.js';
+	import {
+		IE_HOME_URL,
+		IE_SEARCH_URL,
+		extractDomain,
+		normalizeInternetExplorerUrl,
+		proxyUrl,
+		resolveInternetExplorerRoute,
+		shortUrl,
+	} from './internetExplorerNavigation.js';
 	import HomePage from '$lib/portfolio/HomePage.svelte';
 	import ProjectList from '$lib/portfolio/ProjectList.svelte';
 	import ProjectDetail from '$lib/portfolio/ProjectDetail.svelte';
 	import AboutPage from '$lib/portfolio/AboutPage.svelte';
 	import ErrorPage from '$lib/portfolio/ErrorPage.svelte';
+	import SearchStartPage from '$lib/portfolio/SearchStartPage.svelte';
 
 	// ── Constants ─────────────────────────────────────────────────────────
 
-	const HOME_URL = 'http://chromatic.dev/';
-	const DOMAIN = 'chromatic.dev';
+	const ICON_BASE = '/os-assets/icons/ie4';
 
 	let {
 		windowId = '',
@@ -33,7 +49,7 @@
 		url?: string;
 	} = $props();
 
-	// ── Favorites ─────────────────────────────────────────────────────────
+	// ── Favorites & Links ─────────────────────────────────────────────────
 
 	const FAVORITES = [
 		{ label: 'Chromatic Home', url: 'http://chromatic.dev/' },
@@ -46,15 +62,27 @@
 		{ label: 'CSS Zen Garden', url: 'http://www.csszengarden.com/' },
 	] as const;
 
+	const LINKS = [
+		{ label: 'Best of the Web', url: 'https://en.wikipedia.org/' },
+		{ label: 'Channel Guide', url: 'http://chromatic.dev/projects' },
+		{ label: 'Customize Links', url: 'http://chromatic.dev/about' },
+		{ label: 'Internet Start', url: 'http://chromatic.dev/search' },
+		{ label: 'Microsoft', url: 'https://en.wikipedia.org/wiki/Microsoft' },
+	] as const;
+
 	// ── Browser state ─────────────────────────────────────────────────────
 
-	let currentUrl = $state(HOME_URL);
+	let currentUrl = $state(IE_HOME_URL);
 	let historyStack = $state<string[]>([]);
 	let forwardStack = $state<string[]>([]);
 	let loading = $state(false);
-	let addressValue = $state(HOME_URL);
+	let addressValue = $state(IE_HOME_URL);
 	let statusText = $state('Done');
 	let favoritesOpen = $state(false);
+	let backDropdownOpen = $state(false);
+	let forwardDropdownOpen = $state(false);
+	let linksOpen = $state(false);
+	let fullscreen = $state(false);
 	let iframeRef = $state<HTMLIFrameElement | null>(null);
 	let infoDismissed = $state(false);
 	let proxyRecoveryNotice = $state<string | null>(null);
@@ -63,129 +91,32 @@
 	let iframeSrc = $state('');
 
 	$effect.pre(() => {
-		const url = initialUrl || HOME_URL;
-		if (historyStack.length === 0 && forwardStack.length === 0 && currentUrl === HOME_URL && addressValue === HOME_URL) {
-			currentUrl = url;
-			addressValue = url;
+		const url = initialUrl || IE_HOME_URL;
+		if (
+			historyStack.length === 0 &&
+			forwardStack.length === 0 &&
+			currentUrl === IE_HOME_URL &&
+			addressValue === IE_HOME_URL
+		) {
+			const normalized = normalizeInternetExplorerUrl(url);
+			currentUrl = normalized;
+			addressValue = normalized;
+			if (resolveInternetExplorerRoute(normalized).page === 'external') {
+				iframeSrc = proxyUrl(normalized);
+			}
 		}
 	});
 
 	// ── Route resolution ──────────────────────────────────────────────────
 
-	type PageKind = 'home' | 'projects' | 'project-detail' | 'about' | 'external' | 'error';
-
-	interface ResolvedRoute {
-		page: PageKind;
-		title: string;
-		params: Record<string, string>;
-	}
-
-	/** Check if a URL points to our internal site. */
-	function isInternal(url: string): boolean {
-		if (url.startsWith('/')) return true;
-		try {
-			const u = new URL(url);
-			return u.hostname === DOMAIN || u.hostname === `www.${DOMAIN}`;
-		} catch { /* fall through */ }
-		try {
-			const u = new URL(`http://${url}`);
-			return u.hostname === DOMAIN || u.hostname === `www.${DOMAIN}`;
-		} catch { /* fall through */ }
-		return false;
-	}
-
-	function parsePath(url: string): string | null {
-		if (url.startsWith('/')) return url;
-		try {
-			const u = new URL(url);
-			if (u.hostname === DOMAIN || u.hostname === `www.${DOMAIN}`) return u.pathname;
-		} catch {
-			try {
-				const u = new URL(`http://${url}`);
-				if (u.hostname === DOMAIN || u.hostname === `www.${DOMAIN}`) return u.pathname;
-			} catch { /* not valid */ }
-		}
-		return null;
-	}
-
-	/** Extract a readable domain name from a URL for the title bar. */
-	function extractDomain(url: string): string {
-		try {
-			return new URL(url).hostname;
-		} catch {
-			return url;
-		}
-	}
-
-	function resolveRoute(url: string): ResolvedRoute {
-		// ── Internal chromatic.dev routes ──
-		if (isInternal(url)) {
-			const pathname = parsePath(url);
-			if (pathname === null) {
-				return { page: 'error', title: 'The page cannot be displayed', params: { url } };
-			}
-			const path = pathname === '/' ? '/' : pathname.replace(/\/$/, '');
-
-			if (path === '/' || path === '') {
-				return { page: 'home', title: 'Chromatic', params: {} };
-			}
-			if (path === '/projects') {
-				return { page: 'projects', title: 'Projects - Chromatic', params: {} };
-			}
-			if (path.startsWith('/projects/')) {
-				const slug = path.slice('/projects/'.length);
-				if (getProject(slug)) {
-					return {
-						page: 'project-detail',
-						title: `${getProject(slug)!.title} - Chromatic`,
-						params: { slug },
-					};
-				}
-			}
-			if (path === '/about') {
-				return { page: 'about', title: 'About - Chromatic', params: {} };
-			}
-			return { page: 'error', title: 'The page cannot be displayed', params: { url } };
-		}
-
-		// ── External URLs → iframe ──
-		if (url.startsWith('http://') || url.startsWith('https://')) {
-			return { page: 'external', title: extractDomain(url), params: { url } };
-		}
-
-		return { page: 'error', title: 'The page cannot be displayed', params: { url } };
-	}
-
-	const route = $derived(resolveRoute(currentUrl));
-	const isInternalPage = $derived(route.page !== 'external' && route.page !== 'error');
+	const route = $derived(resolveInternetExplorerRoute(currentUrl));
 	const canGoBack = $derived(historyStack.length > 0);
 	const canGoForward = $derived(forwardStack.length > 0);
 
 	// ── Navigation ────────────────────────────────────────────────────────
 
-	/** Detect if input looks like a URL or a search query. */
-	function isLikelyUrl(input: string): boolean {
-		if (input.includes('://')) return true;
-		if (input.startsWith('/')) return true;
-		if (input.startsWith(DOMAIN)) return true;
-		// Has a dot and no spaces → probably a domain (github.com, apple.com)
-		if (input.includes('.') && !input.includes(' ')) return true;
-		return false;
-	}
-
-	function normalizeUrl(url: string): string {
-		const trimmed = url.trim();
-		if (!trimmed) return HOME_URL;
-		if (trimmed.startsWith('/')) return `http://${DOMAIN}${trimmed}`;
-		if (trimmed.startsWith(DOMAIN)) return `http://${trimmed}`;
-		if (trimmed.includes('://')) return trimmed;
-		// Looks like a domain → add protocol
-		if (isLikelyUrl(trimmed)) return `http://${trimmed}`;
-		// Not a URL → search Google
-		return `https://www.google.com/search?q=${encodeURIComponent(trimmed)}`;
-	}
-
 	let loadTimer: ReturnType<typeof setTimeout> | null = null;
+	let statusTimer: ReturnType<typeof setTimeout> | null = null;
 
 	function simulateLoad(url: string, onDone: () => void) {
 		if (loadTimer) clearTimeout(loadTimer);
@@ -203,19 +134,26 @@
 
 	function updateWindowTitle(url: string) {
 		if (!windowId) return;
-		const resolved = resolveRoute(url);
+		const resolved = resolveInternetExplorerRoute(url);
 		windowManager.updateTitle(windowId, `${resolved.title} - Microsoft Internet Explorer`);
 	}
 
+	function closeAllDropdowns() {
+		favoritesOpen = false;
+		backDropdownOpen = false;
+		forwardDropdownOpen = false;
+		linksOpen = false;
+	}
+
 	function navigate(url: string) {
-		url = normalizeUrl(url);
+		url = normalizeInternetExplorerUrl(url);
 		historyStack = [...historyStack, currentUrl];
 		forwardStack = [];
 		infoDismissed = false;
 		proxyRecoveryNotice = null;
 		recoveryInFlight = false;
-		// Set iframe src for external pages (drives the actual iframe load)
-		if (resolveRoute(url).page === 'external') {
+		closeAllDropdowns();
+		if (resolveInternetExplorerRoute(url).page === 'external') {
 			iframeSrc = proxyUrl(url);
 		}
 		simulateLoad(url, () => {
@@ -231,7 +169,8 @@
 		forwardStack = [...forwardStack, currentUrl];
 		proxyRecoveryNotice = null;
 		recoveryInFlight = false;
-		if (resolveRoute(prev).page === 'external') {
+		closeAllDropdowns();
+		if (resolveInternetExplorerRoute(prev).page === 'external') {
 			iframeSrc = proxyUrl(prev);
 		}
 		simulateLoad(prev, () => {
@@ -247,12 +186,49 @@
 		historyStack = [...historyStack, currentUrl];
 		proxyRecoveryNotice = null;
 		recoveryInFlight = false;
-		if (resolveRoute(next).page === 'external') {
+		closeAllDropdowns();
+		if (resolveInternetExplorerRoute(next).page === 'external') {
 			iframeSrc = proxyUrl(next);
 		}
 		simulateLoad(next, () => {
 			currentUrl = next;
 			updateWindowTitle(next);
+		});
+	}
+
+	function jumpBackTo(index: number) {
+		if (index < 0 || index >= historyStack.length) return;
+		const target = historyStack[index];
+		const skipped = historyStack.slice(index + 1).reverse();
+		forwardStack = [...forwardStack, currentUrl, ...skipped];
+		historyStack = historyStack.slice(0, index);
+		proxyRecoveryNotice = null;
+		recoveryInFlight = false;
+		closeAllDropdowns();
+		if (resolveInternetExplorerRoute(target).page === 'external') {
+			iframeSrc = proxyUrl(target);
+		}
+		simulateLoad(target, () => {
+			currentUrl = target;
+			updateWindowTitle(target);
+		});
+	}
+
+	function jumpForwardTo(index: number) {
+		if (index < 0 || index >= forwardStack.length) return;
+		const target = forwardStack[index];
+		const skipped = forwardStack.slice(index + 1).reverse();
+		historyStack = [...historyStack, currentUrl, ...skipped];
+		forwardStack = forwardStack.slice(0, index);
+		proxyRecoveryNotice = null;
+		recoveryInFlight = false;
+		closeAllDropdowns();
+		if (resolveInternetExplorerRoute(target).page === 'external') {
+			iframeSrc = proxyUrl(target);
+		}
+		simulateLoad(target, () => {
+			currentUrl = target;
+			updateWindowTitle(target);
 		});
 	}
 
@@ -262,7 +238,6 @@
 			statusText = `Opening page ${currentUrl}...`;
 			proxyRecoveryNotice = null;
 			recoveryInFlight = false;
-			// Force reload by toggling src
 			iframeSrc = '';
 			requestAnimationFrame(() => {
 				iframeSrc = proxyUrl(currentUrl);
@@ -282,7 +257,7 @@
 	}
 
 	function goHome() {
-		navigate(HOME_URL);
+		navigate(IE_HOME_URL);
 	}
 
 	function onAddressKeydown(e: KeyboardEvent) {
@@ -292,7 +267,6 @@
 		}
 	}
 
-	/** Intercept anchor clicks in the content area for internal navigation. */
 	function handleContentClick(e: MouseEvent) {
 		const anchor = (e.target as HTMLElement).closest('a[href]') as HTMLAnchorElement | null;
 		if (!anchor) return;
@@ -306,16 +280,79 @@
 		windowManager.open(appId);
 	}
 
+	// ── Toolbar button behaviors ──────────────────────────────────────────
+
 	function toggleFavorites() {
-		favoritesOpen = !favoritesOpen;
+		const next = !favoritesOpen;
+		closeAllDropdowns();
+		favoritesOpen = next;
 	}
 
-	function closeFavorites() {
-		favoritesOpen = false;
+	function toggleBackDropdown() {
+		if (!canGoBack) return;
+		const next = !backDropdownOpen;
+		closeAllDropdowns();
+		backDropdownOpen = next;
+	}
+
+	function toggleForwardDropdown() {
+		if (!canGoForward) return;
+		const next = !forwardDropdownOpen;
+		closeAllDropdowns();
+		forwardDropdownOpen = next;
+	}
+
+	function toggleLinks() {
+		const next = !linksOpen;
+		closeAllDropdowns();
+		linksOpen = next;
+	}
+
+	/** Search opens a new IE window pointed at the MSN start page. */
+	function openSearch() {
+		windowManager.open('internet-explorer', { url: IE_SEARCH_URL });
+	}
+
+	function openChannels() {
+		if (statusTimer) clearTimeout(statusTimer);
+		statusText = 'Channel Guide unavailable in this build.';
+		statusTimer = setTimeout(() => {
+			if (statusText.startsWith('Channel Guide')) statusText = 'Done';
+			statusTimer = null;
+		}, 2500);
+	}
+
+	function toggleFullscreen() {
+		fullscreen = !fullscreen;
+	}
+
+	function openMail() {
+		window.open('mailto:caden.calderon03@gmail.com', '_blank', 'noopener');
+	}
+
+	function printPage() {
+		if (route.page === 'external' && iframeRef?.contentWindow) {
+			try {
+				iframeRef.contentWindow.focus();
+				iframeRef.contentWindow.print();
+				return;
+			} catch { /* cross-origin — fall back to window.print */ }
+		}
+		window.print();
+	}
+
+	/** Edit button: in IE4 this opened FrontPage Express. We launch Notepad on current URL. */
+	function editPage() {
+		windowManager.open('notepad', { url: currentUrl });
 	}
 
 	function onFavoriteClick(url: string) {
 		favoritesOpen = false;
+		navigate(url);
+	}
+
+	function onLinkClick(url: string) {
+		linksOpen = false;
 		navigate(url);
 	}
 
@@ -355,26 +392,18 @@
 		});
 	}
 
-	/** Open the current external URL in the user's real browser tab. */
 	function openInNewTab() {
 		if (route.page === 'external') {
 			window.open(route.params.url, '_blank', 'noopener');
 		}
 	}
 
-	/** Build the proxy URL for loading an external site through our server. */
-	function proxyUrl(externalUrl: string): string {
-		return `/api/proxy?url=${encodeURIComponent(externalUrl)}`;
-	}
-
-	/** Handle postMessage from proxied pages (address bar + history sync). */
 	function onProxyMessage(e: MessageEvent) {
 		if (iframeRef && e.source !== iframeRef.contentWindow) return;
 		if (e.data?.type === 'ie-nav' && typeof e.data.url === 'string') {
 			const realUrl = e.data.url;
 			if (!realUrl.startsWith('http://') && !realUrl.startsWith('https://')) return;
 			if (realUrl !== currentUrl) {
-				// In-iframe navigation: push old URL to history so Back works
 				historyStack = [...historyStack, currentUrl];
 				forwardStack = [];
 				addressValue = realUrl;
@@ -382,7 +411,6 @@
 				updateWindowTitle(realUrl);
 				loading = false;
 				statusText = 'Done';
-				// DON'T update iframeSrc — the iframe already navigated there
 			}
 		}
 	}
@@ -392,121 +420,196 @@
 	onMount(() => {
 		updateWindowTitle(currentUrl);
 		window.addEventListener('message', onProxyMessage);
-		return () => window.removeEventListener('message', onProxyMessage);
+		return () => {
+			if (loadTimer) clearTimeout(loadTimer);
+			if (statusTimer) clearTimeout(statusTimer);
+			window.removeEventListener('message', onProxyMessage);
+		};
 	});
 
-	// ── Toolbar icons (20×20 SVG, pixel-art rendering) ────────────────────
+	// ── Toolbar arrow icons (SVG — not in Win98 icon pack) ────────────────
+	//
+	// Flat, chunky, IE4-faithful: single solid fill with a thin black outline.
+	// No gradients, no highlights — the reference icons are that simple.
 
-	function tb(inner: string): string {
+	function svg(body: string, size = 32): string {
 		return `data:image/svg+xml,${encodeURIComponent(
-			`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" shape-rendering="crispEdges">${inner}</svg>`,
+			`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" shape-rendering="crispEdges">${body}</svg>`,
 		)}`;
 	}
 
-	const ICO_BACK = tb(
-		`<path d="M3 10l7-7v4h7v6h-7v4z" fill="#3a6ea5"/>`,
-	);
-	const ICO_FORWARD = tb(
-		`<path d="M17 10l-7-7v4H3v6h7v4z" fill="#3a6ea5"/>`,
-	);
-	const ICO_STOP = tb(
-		`<path d="M5 5l10 10M15 5L5 15" stroke="#cc0000" stroke-width="2.5" fill="none"/>`,
-	);
-	const ICO_REFRESH = tb(
-		`<path d="M10 3a7 7 0 1 0 7 7h-2a5 5 0 1 1-5-5V1l5 4-5 4z" fill="#3a6ea5"/>`,
-	);
-	const ICO_HOME = tb(
-		`<path d="M10 2L2 9h3v8h4v-5h2v5h4V9h3z" fill="#808000"/>` +
-		`<rect x="5" y="9" width="10" height="8" fill="#c4a050"/>` +
-		`<rect x="8" y="12" width="4" height="5" fill="#604020"/>` +
-		`<path d="M10 2L2 9h3L10 4.5 15 9h3z" fill="#a00000"/>`,
-	);
-	const ICO_SEARCH = tb(
-		`<circle cx="8" cy="8" r="5" fill="none" stroke="#3a6ea5" stroke-width="2"/>` +
-		`<line x1="12" y1="12" x2="18" y2="18" stroke="#3a6ea5" stroke-width="2.5"/>`,
-	);
-	const ICO_FAVORITES = tb(
-		`<path d="M10 2l2.4 5.2 5.6.7-4 4.1.9 5.7L10 15l-4.9 2.7.9-5.7-4-4.1 5.6-.7z" fill="#c0a000"/>`,
-	);
-	const ICO_HISTORY = tb(
-		`<circle cx="10" cy="10" r="7" fill="#3a6ea5"/>` +
-		`<circle cx="10" cy="10" r="5.5" fill="#5a8ec5"/>` +
-		`<path d="M10 5v5l3 3" stroke="#fff" stroke-width="1.5" fill="none"/>`,
-	);
+	const ICO_BACK = svg(`
+		<path d="M3 16 L13 7 L13 12 L27 12 L27 20 L13 20 L13 25 Z"
+		      fill="#3063b8" stroke="#0a2050" stroke-width="1" stroke-linejoin="miter"/>
+	`);
+	const ICO_FORWARD = svg(`
+		<path d="M29 16 L19 7 L19 12 L5 12 L5 20 L19 20 L19 25 Z"
+		      fill="#3063b8" stroke="#0a2050" stroke-width="1" stroke-linejoin="miter"/>
+	`);
 
-	const ICO_PAGE = tb(
-		`<rect x="4" y="2" width="10" height="14" fill="#fff" stroke="#808080" stroke-width="1"/>` +
-		`<path d="M11 2v4h4" fill="#c0c0c0" stroke="#808080" stroke-width="1"/>` +
-		`<line x1="6" y1="8" x2="12" y2="8" stroke="#000080" stroke-width="1"/>` +
-		`<line x1="6" y1="10" x2="12" y2="10" stroke="#000080" stroke-width="1"/>` +
-		`<line x1="6" y1="12" x2="10" y2="12" stroke="#000080" stroke-width="1"/>`,
-	);
+	const ICO_STOP = svg(`
+		<circle cx="16" cy="16" r="12" fill="#d81020" stroke="#500000" stroke-width="1"/>
+		<path d="M10 10 L22 22 M22 10 L10 22" stroke="#ffffff" stroke-width="3" stroke-linecap="square"/>
+	`);
 
-	const ICO_GLOBE = tb(
-		`<circle cx="10" cy="10" r="8" fill="#3a6ea5"/>` +
-		`<ellipse cx="10" cy="10" rx="4" ry="8" fill="none" stroke="#6aa0d0" stroke-width="0.8"/>` +
-		`<line x1="2" y1="7" x2="18" y2="7" stroke="#6aa0d0" stroke-width="0.8"/>` +
-		`<line x1="2" y1="13" x2="18" y2="13" stroke="#6aa0d0" stroke-width="0.8"/>` +
-		`<line x1="10" y1="2" x2="10" y2="18" stroke="#6aa0d0" stroke-width="0.8"/>`,
-	);
+	// Simple clockwise circular refresh arrow, blue to match Back/Forward.
+	// Body: arc sweeping ~270°. Head: triangle flag pointing down-right at top end.
+	const ICO_REFRESH = svg(`
+		<path d="M 16 4 A 12 12 0 1 1 4 16" fill="none" stroke="#3063b8" stroke-width="4" stroke-linecap="butt"/>
+		<path d="M 12 1 L 20 4 L 16 11 Z" fill="#3063b8" stroke="#0a2050" stroke-width="1" stroke-linejoin="miter"/>
+	`);
+
+	const ICO_DROPDOWN = svg(`<path d="M1 3 L9 3 L5 8 Z" fill="#000"/>`, 10);
+
+	const ICO_PAGE = svg(`
+		<rect x="4" y="2" width="10" height="14" fill="#fff" stroke="#808080" stroke-width="1"/>
+		<path d="M11 2v4h4" fill="#c0c0c0" stroke="#808080" stroke-width="1"/>
+		<line x1="6" y1="8" x2="12" y2="8" stroke="#000080" stroke-width="1"/>
+		<line x1="6" y1="10" x2="12" y2="10" stroke="#000080" stroke-width="1"/>
+		<line x1="6" y1="12" x2="10" y2="12" stroke="#000080" stroke-width="1"/>
+	`);
+	const ICO_GLOBE = svg(`
+		<circle cx="10" cy="10" r="8" fill="#3a6ea5"/>
+		<ellipse cx="10" cy="10" rx="4" ry="8" fill="none" stroke="#6aa0d0" stroke-width="0.8"/>
+		<line x1="2" y1="7" x2="18" y2="7" stroke="#6aa0d0" stroke-width="0.8"/>
+		<line x1="2" y1="13" x2="18" y2="13" stroke="#6aa0d0" stroke-width="0.8"/>
+		<line x1="10" y1="2" x2="10" y2="18" stroke="#6aa0d0" stroke-width="0.8"/>
+	`, 20);
+
+	const backHistoryList = $derived(historyStack.slice().reverse().slice(0, 10));
+	const forwardHistoryList = $derived(forwardStack.slice().reverse().slice(0, 10));
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="ie-shell">
-	<!-- ── Menu bar ─────────────────────────────────────────────────────── -->
-	<div class="ie-menubar">
-		{#each ['File', 'Edit', 'View', 'Go', 'Favorites', 'Help'] as item}
-			<span class="ie-menu-item">{item}</span>
-		{/each}
+<div class="ie-shell" class:fullscreen>
+	<!-- ── Row 1: Menu bar + black corner with "e" logo ─────────────────── -->
+	<div class="ie-menubar-row">
+		<div class="ie-rebar ie-rebar-menu">
+			<div class="ie-gripper"></div>
+			<div class="ie-menubar">
+				<span class="ie-menu-item"><span class="ie-acc">F</span>ile</span>
+				<span class="ie-menu-item"><span class="ie-acc">E</span>dit</span>
+				<span class="ie-menu-item"><span class="ie-acc">V</span>iew</span>
+				<span class="ie-menu-item"><span class="ie-acc">G</span>o</span>
+				<span class="ie-menu-item">F<span class="ie-acc">a</span>vorites</span>
+				<span class="ie-menu-item"><span class="ie-acc">H</span>elp</span>
+			</div>
+		</div>
+		<div class="ie-corner-logo" class:spin={loading} aria-hidden="true">
+			<img src="{ICON_BASE}/ie-logo.png" alt="" width="32" height="32" draggable="false" />
+		</div>
 	</div>
 
-	<!-- ── Toolbar + Throbber ───────────────────────────────────────────── -->
+	<!-- ── Row 2: Toolbar — rebar bands, icon-above-label ─────────────── -->
 	<div class="ie-toolbar-row">
-		<div class="ie-toolbar">
-			<!-- Navigation group -->
-			<button
-				class="ie-cool-btn"
-				disabled={!canGoBack}
-				onclick={goBack}
-				title="Back"
-			>
-				<img src={ICO_BACK} alt="" width="20" height="20" draggable="false" />
-			</button>
-			<button
-				class="ie-cool-btn"
-				disabled={!canGoForward}
-				onclick={goForward}
-				title="Forward"
-			>
-				<img src={ICO_FORWARD} alt="" width="20" height="20" draggable="false" />
-			</button>
-			<button class="ie-cool-btn" onclick={stop} title="Stop">
-				<img src={ICO_STOP} alt="" width="20" height="20" draggable="false" />
+		<!-- Back (standalone band, with dropdown) -->
+		<div class="ie-rebar">
+			<div class="ie-gripper"></div>
+			<div class="ie-btn-combo" class:open={backDropdownOpen}>
+				<button
+					class="ie-cool-btn"
+					disabled={!canGoBack}
+					onclick={goBack}
+					title={canGoBack ? `Back (${shortUrl(historyStack.at(-1)!)})` : 'Back'}
+				>
+					<img src={ICO_BACK} alt="" width="32" height="32" draggable="false" />
+					<span class="ie-btn-label">Back</span>
+				</button>
+				<button
+					class="ie-cool-btn-arrow"
+					disabled={!canGoBack}
+					onclick={toggleBackDropdown}
+					aria-label="Back history"
+				>
+					<img src={ICO_DROPDOWN} alt="" width="10" height="10" draggable="false" />
+				</button>
+				{#if backDropdownOpen && canGoBack}
+					<button
+						class="ie-dropdown-backdrop"
+						onclick={() => (backDropdownOpen = false)}
+						aria-label="Close back history"
+					></button>
+					<div class="ie-history-dropdown">
+						{#each backHistoryList as u, i}
+							<button class="ie-history-item" onclick={() => jumpBackTo(historyStack.length - 1 - i)}>
+								<img src={ICO_PAGE} alt="" width="14" height="14" draggable="false" />
+								<span>{shortUrl(u)}</span>
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		</div>
+
+		<!-- Forward / Stop / Refresh / Home -->
+		<div class="ie-rebar">
+			<div class="ie-gripper"></div>
+			<div class="ie-btn-combo" class:open={forwardDropdownOpen}>
+				<button
+					class="ie-cool-btn"
+					disabled={!canGoForward}
+					onclick={goForward}
+					title="Forward"
+				>
+					<img src={ICO_FORWARD} alt="" width="32" height="32" draggable="false" />
+					<span class="ie-btn-label">Forward</span>
+				</button>
+				<button
+					class="ie-cool-btn-arrow"
+					disabled={!canGoForward}
+					onclick={toggleForwardDropdown}
+					aria-label="Forward history"
+				>
+					<img src={ICO_DROPDOWN} alt="" width="10" height="10" draggable="false" />
+				</button>
+				{#if forwardDropdownOpen && canGoForward}
+					<button
+						class="ie-dropdown-backdrop"
+						onclick={() => (forwardDropdownOpen = false)}
+						aria-label="Close forward history"
+					></button>
+					<div class="ie-history-dropdown">
+						{#each forwardHistoryList as u, i}
+							<button class="ie-history-item" onclick={() => jumpForwardTo(forwardStack.length - 1 - i)}>
+								<img src={ICO_PAGE} alt="" width="14" height="14" draggable="false" />
+								<span>{shortUrl(u)}</span>
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
+			<button class="ie-cool-btn" onclick={stop} disabled={!loading} title="Stop">
+				<img src={ICO_STOP} alt="" width="32" height="32" draggable="false" />
+				<span class="ie-btn-label">Stop</span>
 			</button>
 			<button class="ie-cool-btn" onclick={refresh} title="Refresh">
-				<img src={ICO_REFRESH} alt="" width="20" height="20" draggable="false" />
+				<img src={ICO_REFRESH} alt="" width="32" height="32" draggable="false" />
+				<span class="ie-btn-label">Refresh</span>
 			</button>
 			<button class="ie-cool-btn" onclick={goHome} title="Home">
-				<img src={ICO_HOME} alt="" width="20" height="20" draggable="false" />
+				<img src="{ICON_BASE}/home.png" alt="" width="32" height="32" draggable="false" class="pixel" />
+				<span class="ie-btn-label">Home</span>
 			</button>
+		</div>
 
-			<div class="ie-toolbar-sep"></div>
-
-			<!-- Utility group -->
-			<button class="ie-cool-btn" disabled title="Search">
-				<img src={ICO_SEARCH} alt="" width="20" height="20" draggable="false" />
+		<!-- Search / Favorites / History / Channels -->
+		<div class="ie-rebar">
+			<div class="ie-gripper"></div>
+			<button class="ie-cool-btn" onclick={openSearch} title="Search">
+				<img src="{ICON_BASE}/search.png" alt="" width="32" height="32" draggable="false" class="pixel" />
+				<span class="ie-btn-label">Search</span>
 			</button>
-			<div class="ie-btn-wrap">
+			<div class="ie-btn-combo" class:open={favoritesOpen}>
 				<button class="ie-cool-btn" onclick={toggleFavorites} title="Favorites">
-					<img src={ICO_FAVORITES} alt="" width="20" height="20" draggable="false" />
+					<img src="{ICON_BASE}/favorites.png" alt="" width="32" height="32" draggable="false" class="pixel" />
+					<span class="ie-btn-label">Favorites</span>
 				</button>
 				{#if favoritesOpen}
-						<button
-							class="ie-dropdown-backdrop"
-							onclick={closeFavorites}
-							type="button"
-							aria-label="Close favorites menu"
-						></button>
+					<button
+						class="ie-dropdown-backdrop"
+						onclick={() => (favoritesOpen = false)}
+						aria-label="Close favorites"
+					></button>
 					<div class="ie-favorites-dropdown">
 						<div class="ie-fav-header">Favorites</div>
 						{#each FAVORITES as fav}
@@ -522,36 +625,86 @@
 					</div>
 				{/if}
 			</div>
-			<button class="ie-cool-btn" disabled title="History">
-				<img src={ICO_HISTORY} alt="" width="20" height="20" draggable="false" />
+			<button
+				class="ie-cool-btn"
+				disabled={historyStack.length === 0 && forwardStack.length === 0}
+				onclick={toggleBackDropdown}
+				title="History"
+			>
+				<img src="{ICON_BASE}/history.png" alt="" width="32" height="32" draggable="false" class="pixel" />
+				<span class="ie-btn-label">History</span>
+			</button>
+			<button class="ie-cool-btn" onclick={openChannels} title="Channels">
+				<img src="{ICON_BASE}/channels.png" alt="" width="32" height="32" draggable="false" class="pixel" />
+				<span class="ie-btn-label">Channels</span>
 			</button>
 		</div>
 
-		<!-- Throbber -->
-		<div class="ie-throbber" class:active={loading}>
-			<img src={ICO_GLOBE} alt="" width="24" height="24" draggable="false" class="ie-throbber-img" />
+		<!-- Fullscreen / Mail / Print / Edit -->
+		<div class="ie-rebar">
+			<div class="ie-gripper"></div>
+			<button class="ie-cool-btn" onclick={toggleFullscreen} title="Fullscreen">
+				<img src="{ICON_BASE}/fullscreen.png" alt="" width="32" height="32" draggable="false" class="pixel" />
+				<span class="ie-btn-label">Fullscreen</span>
+			</button>
+			<button class="ie-cool-btn" onclick={openMail} title="Mail">
+				<img src="{ICON_BASE}/mail.png" alt="" width="32" height="32" draggable="false" class="pixel" />
+				<span class="ie-btn-label">Mail</span>
+			</button>
+			<button class="ie-cool-btn" onclick={printPage} title="Print">
+				<img src="{ICON_BASE}/print.png" alt="" width="32" height="32" draggable="false" class="pixel" />
+				<span class="ie-btn-label">Print</span>
+			</button>
+			<button class="ie-cool-btn" onclick={editPage} title="Edit">
+				<img src="{ICON_BASE}/edit.png" alt="" width="32" height="32" draggable="false" class="pixel" />
+				<span class="ie-btn-label">Edit</span>
+			</button>
 		</div>
 	</div>
 
-	<!-- ── Address bar ──────────────────────────────────────────────────── -->
-	<div class="ie-addressbar">
-		<span class="ie-address-label">Address</span>
-		<div class="ie-address-field">
-			<img src={ICO_PAGE} alt="" width="16" height="16" draggable="false" class="ie-address-icon" />
-			<input
-				type="text"
-				class="ie-address-input"
-				bind:value={addressValue}
-				onkeydown={onAddressKeydown}
-				spellcheck="false"
-				autocomplete="off"
-			/>
+	<!-- ── Row 3: Address bar rebar + Links rebar (same row) ───────────── -->
+	<div class="ie-addressbar-row">
+		<div class="ie-rebar ie-rebar-address">
+			<div class="ie-gripper"></div>
+			<span class="ie-address-label"><span class="ie-acc">A</span>ddress</span>
+			<div class="ie-address-field">
+				<img src={ICO_PAGE} alt="" width="16" height="16" draggable="false" class="ie-address-icon" />
+				<input
+					type="text"
+					class="ie-address-input"
+					bind:value={addressValue}
+					onkeydown={onAddressKeydown}
+					spellcheck="false"
+					autocomplete="off"
+				/>
+				<button class="ie-address-dropdown" aria-label="Address history" disabled>
+					<img src={ICO_DROPDOWN} alt="" width="10" height="10" draggable="false" />
+				</button>
+			</div>
+		</div>
+		<div class="ie-rebar ie-rebar-links">
+			<div class="ie-gripper"></div>
+			<button class="ie-links-tab" onclick={toggleLinks} title="Links">Links</button>
+			{#if linksOpen}
+				<button
+					class="ie-dropdown-backdrop"
+					onclick={() => (linksOpen = false)}
+					aria-label="Close links"
+				></button>
+				<div class="ie-links-dropdown">
+					{#each LINKS as link}
+						<button class="ie-fav-item" onclick={() => onLinkClick(link.url)}>
+							<img src={ICO_GLOBE} alt="" width="14" height="14" draggable="false" />
+							{link.label}
+						</button>
+					{/each}
+				</div>
+			{/if}
 		</div>
 	</div>
 
-	<!-- ── Content area ─────────────────────────────────────────────────── -->
+	<!-- ── Content area ────────────────────────────────────────────────── -->
 	{#if route.page === 'external'}
-		<!-- External website loaded through server-side proxy -->
 		{#if proxyRecoveryNotice}
 			<div class="ie-recovery-info">
 				<span>{proxyRecoveryNotice}</span>
@@ -563,7 +716,7 @@
 				<span>&#127760; <b>{extractDomain(route.params.url)}</b></span>
 				<div class="ie-info-actions">
 					<button class="ie-newtab-btn" onclick={openInNewTab}>Open in new tab &#8599;</button>
-					<button class="ie-info-close" onclick={() => infoDismissed = true}>&times;</button>
+					<button class="ie-info-close" onclick={() => (infoDismissed = true)}>&times;</button>
 				</div>
 			</div>
 		{/if}
@@ -577,15 +730,6 @@
 	{:else}
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<div class="ie-content" onclick={handleContentClick}>
-			<!-- Site navigation bar (part of the website, not IE chrome) -->
-			{#if isInternalPage}
-				<nav class="site-nav">
-					<a href="/" class="nav-tab" class:active={route.page === 'home'}>Home</a>
-					<a href="/projects" class="nav-tab" class:active={route.page === 'projects' || route.page === 'project-detail'}>Projects</a>
-					<a href="/about" class="nav-tab" class:active={route.page === 'about'}>About</a>
-				</nav>
-			{/if}
-
 			{#if route.page === 'home'}
 				<HomePage {launchApp} />
 			{:else if route.page === 'projects'}
@@ -594,13 +738,15 @@
 				<ProjectDetail slug={route.params.slug} {launchApp} />
 			{:else if route.page === 'about'}
 				<AboutPage />
+			{:else if route.page === 'search'}
+				<SearchStartPage onNavigate={navigate} />
 			{:else}
 				<ErrorPage url={route.params.url || currentUrl} />
 			{/if}
 		</div>
 	{/if}
 
-	<!-- ── Status bar ───────────────────────────────────────────────────── -->
+	<!-- ── Status bar ──────────────────────────────────────────────────── -->
 	<div class="ie-statusbar">
 		<div class="ie-status-text">{statusText}</div>
 		<div class="ie-status-zone">
@@ -620,21 +766,73 @@
 		flex-direction: column;
 		height: 100%;
 		background: #c0c0c0;
-		font-family: 'Pixelated MS Sans Serif', Arial, sans-serif;
+		font-family: 'Pixelated MS Sans Serif', 'MS Sans Serif', 'Microsoft Sans Serif', Arial, sans-serif;
 		font-size: 11px;
 		color: #000;
 	}
 
+	/* Pixelated PNG rendering — keep Win98 icons crisp */
+	img.pixel {
+		image-rendering: pixelated;
+		image-rendering: -moz-crisp-edges;
+		image-rendering: crisp-edges;
+	}
+
 	/* ═══════════════════════════════════════════════════════════════════════
-	   Menu bar
+	   Rebar bands — raised 3D panels with a dotted "gripper" on the left.
+	   Every toolbar section sits in one of these. Real IE4 lets the user
+	   drag them around; we just render the static visual.
 	   ═══════════════════════════════════════════════════════════════════ */
+
+	.ie-rebar {
+		position: relative;
+		display: flex;
+		align-items: stretch;
+		padding: 0;
+		background: #c0c0c0;
+		/* Raised 3D look: white highlight on top+left, gray shadow on bottom+right. */
+		box-shadow:
+			inset 1px 1px 0 #ffffff,
+			inset -1px -1px 0 #808080;
+		flex-shrink: 0;
+	}
+
+	/* Vertical dotted gripper on the left edge of every rebar band. */
+	.ie-gripper {
+		flex-shrink: 0;
+		width: 4px;
+		margin: 2px 3px 2px 2px;
+		background:
+			linear-gradient(to bottom,
+				#ffffff 0, #ffffff 1px,
+				transparent 1px, transparent 2px,
+				#808080 2px, #808080 3px,
+				transparent 3px, transparent 4px) 0 0 / 4px 4px;
+		box-shadow: inset 1px 0 0 #ffffff;
+	}
+
+	/* ═══════════════════════════════════════════════════════════════════════
+	   Row 1: Menu bar + black corner logo
+	   ═══════════════════════════════════════════════════════════════════ */
+
+	.ie-menubar-row {
+		display: flex;
+		align-items: stretch;
+		flex-shrink: 0;
+		background: #c0c0c0;
+	}
+
+	.ie-rebar-menu {
+		flex: 1;
+		min-width: 0;
+	}
 
 	.ie-menubar {
 		display: flex;
 		align-items: center;
 		padding: 1px 2px;
-		border-bottom: 1px solid #808080;
-		flex-shrink: 0;
+		flex: 1;
+		min-width: 0;
 	}
 
 	.ie-menu-item {
@@ -648,82 +846,162 @@
 		color: #fff;
 	}
 
+	.ie-menu-item:hover .ie-acc {
+		color: #fff;
+	}
+
+	.ie-acc {
+		text-decoration: underline;
+	}
+
+	/* Black corner box with the "e" logo — fills the right side of the menu row. */
+	.ie-corner-logo {
+		width: 44px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		background: #000000;
+		box-shadow:
+			inset 1px 1px 0 #808080,
+			inset -1px -1px 0 #000000;
+	}
+
+	.ie-corner-logo img {
+		image-rendering: pixelated;
+		image-rendering: -moz-crisp-edges;
+		image-rendering: crisp-edges;
+		filter: grayscale(0.3);
+	}
+
+	.ie-corner-logo.spin img {
+		animation: ie-spin 1.2s linear infinite;
+		filter: none;
+	}
+
+	@keyframes ie-spin {
+		0%   { transform: rotate(0deg) scale(1); }
+		50%  { transform: rotate(12deg) scale(0.92); }
+		100% { transform: rotate(0deg) scale(1); }
+	}
+
 	/* ═══════════════════════════════════════════════════════════════════════
-	   Toolbar row (buttons + throbber)
+	   Row 2: Toolbar
 	   ═══════════════════════════════════════════════════════════════════ */
 
 	.ie-toolbar-row {
 		display: flex;
-		align-items: center;
-		border-bottom: 1px solid #808080;
+		align-items: stretch;
 		flex-shrink: 0;
+		background: #c0c0c0;
+		min-height: 46px;
 	}
 
-	.ie-toolbar {
-		display: flex;
-		align-items: center;
-		padding: 2px 4px;
-		gap: 1px;
-		flex: 1;
-	}
-
-	/* ── Cool buttons (flat default, raised on hover) ──────────────────── */
+	/* ── Cool buttons (icon above label) ──────────────────────────────── */
 
 	.ie-cool-btn {
 		display: flex;
+		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		width: 26px;
-		height: 24px;
-		padding: 2px;
+		gap: 1px;
+		min-width: 54px;
+		padding: 2px 4px 1px;
 		background: transparent;
-		border: none;
+		border: 1px solid transparent;
 		box-shadow: none;
 		cursor: default;
 		color: #000;
 		text-shadow: none;
-		min-width: unset;
 		min-height: unset;
-	}
-
-	.ie-cool-btn:not(:disabled):hover {
-		box-shadow: inset -1px -1px #808080, inset 1px 1px #ffffff;
-	}
-
-	.ie-cool-btn:not(:disabled):active {
-		box-shadow: inset 1px 1px #808080, inset -1px -1px #ffffff;
-	}
-
-	.ie-cool-btn:disabled {
-		opacity: 0.4;
-		cursor: default;
-	}
-
-	.ie-cool-btn:disabled img {
-		filter: grayscale(1);
+		font-family: inherit;
+		font-size: 11px;
+		line-height: 1;
 	}
 
 	.ie-cool-btn img {
 		pointer-events: none;
+		flex-shrink: 0;
+		/* Grayscale by default — full color on hover. Applied to both PNG
+		   and SVG icons so the styling is uniform. */
+		filter: grayscale(1) contrast(0.85) opacity(0.95);
+		transition: filter 80ms linear;
 	}
 
-	/* ── Toolbar separator ─────────────────────────────────────────────── */
-
-	.ie-toolbar-sep {
-		width: 2px;
-		height: 20px;
-		margin: 0 3px;
-		border-left: 1px solid #808080;
-		border-right: 1px solid #ffffff;
+	.ie-cool-btn:not(:disabled):hover img,
+	.ie-cool-btn:not(:disabled):active img,
+	.ie-btn-combo.open .ie-cool-btn img {
+		filter: none;
 	}
 
-	/* ── Button wrapper (for dropdown positioning) ─────────────────────── */
+	.ie-btn-label {
+		font-size: 11px;
+		white-space: nowrap;
+		margin-top: 1px;
+	}
 
-	.ie-btn-wrap {
+	.ie-cool-btn:not(:disabled):hover {
+		border: 1px solid;
+		border-color: #ffffff #808080 #808080 #ffffff;
+	}
+
+	.ie-cool-btn:not(:disabled):active {
+		border: 1px solid;
+		border-color: #808080 #ffffff #ffffff #808080;
+		padding: 3px 3px 0 5px;
+	}
+
+	.ie-cool-btn:disabled {
+		color: #808080;
+		text-shadow: 1px 1px 0 #ffffff;
+	}
+
+	.ie-cool-btn:disabled img {
+		opacity: 0.45;
+	}
+
+	/* ── Combo button: main button + dropdown arrow ───────────────────── */
+
+	.ie-btn-combo {
 		position: relative;
+		display: flex;
+		align-items: stretch;
 	}
 
-	/* ── Favorites dropdown ────────────────────────────────────────────── */
+	.ie-cool-btn-arrow {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 12px;
+		padding: 0;
+		margin-left: -2px;
+		background: transparent;
+		border: 1px solid transparent;
+		box-shadow: none;
+		cursor: default;
+		min-width: unset;
+		min-height: unset;
+	}
+
+	.ie-cool-btn-arrow:not(:disabled):hover,
+	.ie-btn-combo.open .ie-cool-btn-arrow {
+		border: 1px solid;
+		border-color: #ffffff #808080 #808080 #ffffff;
+	}
+
+	.ie-btn-combo.open .ie-cool-btn-arrow {
+		border-color: #808080 #ffffff #ffffff #808080;
+	}
+
+	.ie-cool-btn-arrow:disabled {
+		opacity: 0.4;
+	}
+
+	.ie-cool-btn-arrow img {
+		pointer-events: none;
+	}
+
+	/* ── Dropdown backdrop / list ─────────────────────────────────────── */
 
 	.ie-dropdown-backdrop {
 		position: fixed;
@@ -740,7 +1018,9 @@
 		outline: none;
 	}
 
-	.ie-favorites-dropdown {
+	.ie-history-dropdown,
+	.ie-favorites-dropdown,
+	.ie-links-dropdown {
 		position: absolute;
 		top: 100%;
 		left: -2px;
@@ -748,8 +1028,13 @@
 		background: #c0c0c0;
 		border: 1px solid #000;
 		box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.3);
-		min-width: 200px;
+		min-width: 220px;
 		padding: 1px;
+	}
+
+	.ie-links-dropdown {
+		right: 0;
+		left: auto;
 	}
 
 	.ie-fav-header {
@@ -766,7 +1051,8 @@
 		margin: 2px 4px;
 	}
 
-	.ie-fav-item {
+	.ie-fav-item,
+	.ie-history-item {
 		display: flex;
 		align-items: center;
 		gap: 6px;
@@ -786,59 +1072,45 @@
 		white-space: nowrap;
 	}
 
-	.ie-fav-item:hover {
+	.ie-fav-item:hover,
+	.ie-history-item:hover {
 		background: #000080;
 		color: #fff;
 	}
 
-	.ie-fav-item img {
+	.ie-fav-item img,
+	.ie-history-item img {
 		flex-shrink: 0;
 		pointer-events: none;
 	}
 
-	/* ── Throbber ───────────────────────────────────────────────────────── */
-
-	.ie-throbber {
-		width: 38px;
-		height: 28px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		flex-shrink: 0;
-		border-left: 1px solid #808080;
-		margin-right: 2px;
-	}
-
-	.ie-throbber-img {
-		transition: none;
-	}
-
-	.ie-throbber.active .ie-throbber-img {
-		animation: throbber-pulse 0.6s ease-in-out infinite;
-	}
-
-	@keyframes throbber-pulse {
-		0%, 100% { opacity: 1; transform: scale(1); }
-		50% { opacity: 0.6; transform: scale(0.85); }
+	.ie-history-item span {
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	/* ═══════════════════════════════════════════════════════════════════════
-	   Address bar
+	   Row 3: Address bar + Links — same row, two rebar bands
 	   ═══════════════════════════════════════════════════════════════════ */
 
-	.ie-addressbar {
+	.ie-addressbar-row {
 		display: flex;
-		align-items: center;
-		padding: 2px 4px;
-		gap: 4px;
-		border-bottom: 1px solid #808080;
+		align-items: stretch;
 		flex-shrink: 0;
+	}
+
+	.ie-rebar-address {
+		flex: 1;
+		min-width: 0;
+		align-items: center;
+		padding: 2px 4px 2px 0;
+		gap: 4px;
 	}
 
 	.ie-address-label {
 		font-weight: bold;
 		white-space: nowrap;
-		padding: 0 2px;
+		padding: 0 4px 0 0;
 	}
 
 	.ie-address-field {
@@ -848,7 +1120,7 @@
 		background: #fff;
 		box-shadow: inset -1px -1px #fff, inset 1px 1px #808080,
 		            inset -2px -2px #dfdfdf, inset 2px 2px #0a0a0a;
-		padding: 1px 2px;
+		padding: 1px 0 1px 2px;
 	}
 
 	.ie-address-icon {
@@ -858,6 +1130,7 @@
 
 	.ie-address-input {
 		flex: 1;
+		min-width: 0;
 		border: none;
 		background: transparent;
 		outline: none;
@@ -870,6 +1143,63 @@
 		color: #000;
 	}
 
+	.ie-address-dropdown {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 17px;
+		height: 18px;
+		margin: 0;
+		padding: 0;
+		background: #c0c0c0;
+		border: 1px solid;
+		border-color: #ffffff #808080 #808080 #ffffff;
+		box-shadow: inset -1px -1px #808080, inset 1px 1px #ffffff;
+		cursor: default;
+		min-width: unset;
+		min-height: unset;
+	}
+
+	.ie-address-dropdown img {
+		pointer-events: none;
+	}
+
+	/* Links rebar sits to the right, sized to match the Address label. */
+	.ie-rebar-links {
+		flex-shrink: 0;
+		align-items: center;
+		padding: 2px 4px 2px 0;
+	}
+
+	.ie-links-tab {
+		padding: 0 12px;
+		background: transparent;
+		border: none;
+		box-shadow: none;
+		font-family: inherit;
+		font-size: 11px;
+		font-weight: bold;
+		cursor: default;
+		color: #000;
+		text-shadow: none;
+		min-width: unset;
+		min-height: unset;
+		height: 18px;
+	}
+
+	.ie-links-tab:hover {
+		background: rgba(0, 0, 0, 0.05);
+	}
+
+	/* ═══════════════════════════════════════════════════════════════════════
+	   Fullscreen mode — hide menu + address
+	   ═══════════════════════════════════════════════════════════════════ */
+
+	.ie-shell.fullscreen .ie-menubar-row,
+	.ie-shell.fullscreen .ie-addressbar-row {
+		display: none;
+	}
+
 	/* ═══════════════════════════════════════════════════════════════════════
 	   Content area (internal pages)
 	   ═══════════════════════════════════════════════════════════════════ */
@@ -879,36 +1209,6 @@
 		overflow: auto;
 		background: #fff;
 		min-height: 0;
-	}
-
-	/* ── Site navigation (part of the website, not IE chrome) ──────────── */
-
-	.site-nav {
-		display: flex;
-		background: linear-gradient(180deg, #6699cc 0%, #335f99 100%);
-		border-bottom: 2px solid #1a3a66;
-		padding: 0;
-	}
-
-	.nav-tab {
-		display: block;
-		padding: 4px 14px;
-		color: #e8f0ff;
-		text-decoration: none;
-		font-weight: bold;
-		font-size: 11px;
-		border-right: 1px solid rgba(255, 255, 255, 0.2);
-		font-family: 'Pixelated MS Sans Serif', Arial, sans-serif;
-	}
-
-	.nav-tab:hover {
-		background: rgba(255, 255, 255, 0.15);
-		color: #fff;
-	}
-
-	.nav-tab.active {
-		background: #fff;
-		color: #335f99;
 	}
 
 	/* ═══════════════════════════════════════════════════════════════════════

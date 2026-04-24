@@ -70,17 +70,16 @@ function isSmallViewport(): boolean {
 // ---------------------------------------------------------------------------
 
 function nextCascadePosition(size: Size): Position {
-	const base = CASCADE_OFFSET;
 	const offset = (cascadeIndex % 8) * CASCADE_OFFSET;
-	let x = base + offset;
-	let y = base + offset;
-
-	// Wrap if the window would start mostly off-screen
-	if (x + size.width > viewportWidth() + MIN_VISIBLE_TITLE_BAR) x = base;
-	if (y + size.height > desktopHeight() + MIN_VISIBLE_TITLE_BAR) y = base;
 
 	cascadeIndex++;
-	return { x, y };
+	return clampPosition(
+		{
+			x: Math.round((viewportWidth() - size.width) / 2 + offset),
+			y: Math.round((desktopHeight() - size.height) / 2 + offset),
+		},
+		size,
+	);
 }
 
 function clampPosition(pos: Position, size: Size): Position {

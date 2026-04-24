@@ -5,6 +5,24 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
 	plugins: [sveltekit(), tailwindcss(), glsl()],
+	build: {
+		// 98.css v0.1.21 ships `@media (not(hover))`, which Lightning CSS
+		// currently rejects during minification. Keep CSS unminified rather
+		// than patching node_modules or adding another build dependency.
+		cssMinify: false,
+	},
+	environments: {
+		ssr: {
+			build: {
+				cssMinify: false,
+			},
+		},
+		client: {
+			build: {
+				cssMinify: false,
+			},
+		},
+	},
 	test: {
 		include: ['tests/**/*.test.ts'],
 	},

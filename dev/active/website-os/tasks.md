@@ -155,9 +155,10 @@
 - [ ] Live-verify GitHub deferred content / commit info against the current site
 - [ ] Decide whether global `COEP: credentialless` should be narrowed to only the routes that need cross-origin isolation
 
-### Portfolio Content (inside IE) — COMPLETE
+### Portfolio Content (inside IE) — CURRENT HOME PASS COMPLETE
 - [x] Define project manifests in `src/lib/portfolio/projects.ts` (Point Engine, Axial, Chess, Aperture, Argus, Chromatic)
-- [x] Build `HomePage.svelte` — portal with categorized links, featured projects, game launchers
+- [x] Build `HomePage.svelte` — editorial OS-dashboard home with dense rails, oversized name lockup, featured project module, height-aware left sidebar panels, and game launchers
+- [x] Split home-page constants into `homePageData.ts`
 - [x] Build `ProjectList.svelte` — table view of all projects with type badges
 - [x] Build `ProjectDetail.svelte` — per-project page with description, stack, "Launch Demo"
 - [x] Build `AboutPage.svelte` — bio, skills, contact info

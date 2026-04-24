@@ -64,7 +64,12 @@
 
 	function desktopClick(e: MouseEvent) {
 		const target = e.target as HTMLElement;
-		if (target.closest('.desktop-icon')) return;
+		// The Start button (inside .taskbar) and the open Start / context menus
+		// must handle their own open/close. If we ran the general close logic on
+		// those clicks the menu would open and shut in the same tick.
+		// Window clicks still fall through — Win98 closes the Start menu when
+		// you click into any app window.
+		if (target.closest('.desktop-icon, .taskbar, .start-menu, .context-menu')) return;
 
 		selectedIcon = null;
 		startMenuOpen = false;

@@ -268,7 +268,12 @@
 		role="toolbar"
 		tabindex="-1"
 	>
-		<div class="title-bar-text">{windowState.title}</div>
+		<div class="title-bar-text">
+			{#if windowState.icon}
+				<img src={windowState.icon} alt="" width="16" height="16" class="title-bar-icon" draggable="false" />
+			{/if}
+			<span>{windowState.title}</span>
+		</div>
 		<div class="title-bar-controls">
 			<button aria-label="Minimize" onclick={onMinimize}></button>
 			<button aria-label="Maximize" onclick={onMaximizeRestore}></button>
@@ -309,6 +314,19 @@
 	.title-bar {
 		cursor: default;
 		flex-shrink: 0;
+	}
+
+	.title-bar-text {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+	}
+
+	.title-bar-icon {
+		flex-shrink: 0;
+		image-rendering: pixelated;
+		image-rendering: -moz-crisp-edges;
+		image-rendering: crisp-edges;
 	}
 
 	.window-body {

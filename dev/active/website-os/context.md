@@ -19,7 +19,7 @@ Build a Windows 95/98 desktop OS as the 2D interface for the Chromatic portfolio
 - 98.css installed with color overrides applied to fix its inaccurate defaults
 - Route layout groups working: `(main)/` for Tailwind routes, `(os)/` for 98.css routes
 - All existing routes (`/`, `/capture-control`) unchanged and functional
-- `pnpm check` = 0 errors, `pnpm test` = 139 tests pass
+- `pnpm check` = 0 errors, `pnpm test` = 145 tests pass, `pnpm build` succeeds
 
 ## Active Work
 
@@ -35,12 +35,12 @@ Build a Windows 95/98 desktop OS as the 2D interface for the Chromatic portfolio
 ### OS Shell (Phase 1 — complete)
 - `src/lib/os/Desktop.svelte` — wallpaper, icon grid, keyboard shortcuts, context menu wiring
 - `src/lib/os/Window.svelte` — 98.css chrome, drag via pointer capture, 8-edge resize, lazy app loading
-- `src/lib/os/windowManager.svelte.ts` — open/close/focus/minimize/maximize/restore, z-stacking, cascade positioning, mobile-aware
+- `src/lib/os/windowManager.svelte.ts` — open/close/focus/minimize/maximize/restore, z-stacking, centered cascade positioning, mobile-aware
 - `src/lib/os/Taskbar.svelte` — Start button with Windows flag, running window list with icons, live clock, system tray
 - `src/lib/os/StartMenu.svelte` — hierarchical Win98 menu: Programs (Accessories, Games, IE), Favorites, Documents, Settings, Find, Help, Run, Log Off, Shut Down. 32x32 icons on top-level, 16x16 in submenus. Submenu overlap.
 - `src/lib/os/ContextMenu.svelte` — right-click menus with submenu support
 - `src/lib/os/DesktopIcon.svelte` — viewport-relative sizing, Win98 selection behavior (blue tint + navy label bg)
-- `src/lib/os/appRegistry.ts` — lazy component imports for 10 apps, all pointing to Placeholder for now
+- `src/lib/os/appRegistry.ts` — lazy component imports for 10 apps, larger useful default sizes for IE/main apps, placeholders for unimplemented apps
 - `src/lib/os/icons.ts` — real Win98 PNG icons for system apps, inline SVG for custom apps (Chess, Axial, Point Engine)
 - `src/lib/os/palette.ts` — complete Win98 color palette, font specs, icon metrics, 98.css override values
 - `src/lib/os/types.ts` — WindowState, AppDef, AppId, TaskbarEntry, DesktopTheme, ContextMenuItem, constants
@@ -123,6 +123,8 @@ src/routes/
 - Status bar: "Opening page..." during load, "Done" when idle, zone switches Internet/Local intranet
 - Dismissable info strip on external pages with "Open in new tab" option
 - Can open via desktop icon, Start menu, or programmatically with a URL prop
+- Direct app launches to external IE URLs seed `iframeSrc` immediately, so externally opened IE windows do not render a blank iframe before the first explicit navigation
+- URL normalization, internal route resolution, proxy URL building, and short URL formatting live in tested pure helpers at `src/lib/os/apps/internetExplorerNavigation.ts`
 - `postMessage` sync from proxied pages is source-checked so unrelated windows cannot spoof the address bar
 - Iframe-escape recovery: if a proxied page navigates the iframe outside `/api/proxy` (cross-origin or same-origin non-proxy URL), the IE shell detects it on `iframe.onload`, shows a small recovery info strip, and reloads the last known proxied URL
 
@@ -155,12 +157,17 @@ src/routes/
 ### Portfolio Content Pages (`src/lib/portfolio/`)
 - `types.ts` — `PortfolioProject` interface with appId for OS integration
 - `projects.ts` — 6 project manifests (Point Engine, Axial, Chess, Aperture, Argus, Chromatic)
-- `HomePage.svelte` — portal-style landing with banner, featured projects grid, sidebar with quick links + game launchers
+- `HomePage.svelte` — editorial OS-dashboard portfolio home: dense left/right rails, oversized Caden Calderon lockup, featured perception project module, collapsible panels, draggable/snap-collapsible rails, height-aware left-rail expansion, and portfolio-specific utility modules
+- `homePageData.ts` — home-page navigation/focus/stack/game launcher/sidebar constants kept out of the Svelte component
 - `ProjectList.svelte` — table view of all projects with type badges and year
 - `ProjectDetail.svelte` — breadcrumb, description, tech stack tags, "Launch Demo" button, details table
 - `AboutPage.svelte` — bio, skills table, contact sidebar
+- `SearchStartPage.svelte` — MSN-era search start page; date is generated client-side instead of hard-coded
 - `ErrorPage.svelte` — faithful IE "The page cannot be displayed" with troubleshooting steps
-- All pages styled as clean late-90s web pages (navy headings, blue links, gray borders)
+- Home page now follows the user-provided CADEN CALDERON editorial reference more closely; secondary portfolio pages still use the older clean late-90s web style and need a later visual pass.
+
+### Build Configuration
+- `vite.config.ts` disables CSS minification for both SSR and client builds because `98.css@0.1.21` includes `@media (not(hover))`, which Vite 8's default Lightning CSS minifier rejects. This keeps the vendor package intact and avoids adding an extra CSS build dependency.
 
 ## What's Next
 
@@ -168,7 +175,7 @@ src/routes/
 1. Verify Google’s current `sorry` / CAPTCHA flows in an actual browser session now that JS cookie sync and location/form interception are in place
 2. Verify GitHub repo pages in an actual browser session and confirm current deferred fragments still behave through the proxy
 3. Decide whether `COEP: credentialless` should stay global or move to route-scoped isolation for only the ML-heavy surfaces
-4. Discuss visual direction for portfolio pages — more Wii/webcore, less corporate early-2000s
+4. Continue home-page visual refinement against the editorial reference: replace temporary generated/CSS project art with stronger real assets, tune the portrait treatment, and decide whether collapsible panel/rail state should persist
 
 **Open questions / nice-to-haves**:
 - Win95-style "outline only while resizing" remains an interesting authenticity touch (not a perf fix anymore). Medium effort.
