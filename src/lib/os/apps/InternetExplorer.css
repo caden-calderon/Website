@@ -1,0 +1,567 @@
+/* ═══════════════════════════════════════════════════════════════════════
+	   IE4 Shell — root layout
+	   ═══════════════════════════════════════════════════════════════════ */
+
+	.ie-shell {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		background: #c0c0c0;
+		font-family: 'Pixelated MS Sans Serif', 'MS Sans Serif', 'Microsoft Sans Serif', Arial, sans-serif;
+		font-size: 11px;
+		color: #000;
+	}
+
+	/* Pixelated PNG rendering — keep Win98 icons crisp */
+	img.pixel {
+		image-rendering: pixelated;
+		image-rendering: -moz-crisp-edges;
+		image-rendering: crisp-edges;
+	}
+
+	/* ═══════════════════════════════════════════════════════════════════════
+	   Rebar bands — raised 3D panels with a dotted "gripper" on the left.
+	   Every toolbar section sits in one of these. Real IE4 lets the user
+	   drag them around; we just render the static visual.
+	   ═══════════════════════════════════════════════════════════════════ */
+
+	.ie-rebar {
+		position: relative;
+		display: flex;
+		align-items: stretch;
+		padding: 0;
+		background: #c0c0c0;
+		/* Raised 3D look: white highlight on top+left, gray shadow on bottom+right. */
+		box-shadow:
+			inset 1px 1px 0 #ffffff,
+			inset -1px -1px 0 #808080;
+		flex-shrink: 0;
+	}
+
+	/* Vertical dotted gripper on the left edge of every rebar band. */
+	.ie-gripper {
+		flex-shrink: 0;
+		width: 4px;
+		margin: 2px 3px 2px 2px;
+		background:
+			linear-gradient(to bottom,
+				#ffffff 0, #ffffff 1px,
+				transparent 1px, transparent 2px,
+				#808080 2px, #808080 3px,
+				transparent 3px, transparent 4px) 0 0 / 4px 4px;
+		box-shadow: inset 1px 0 0 #ffffff;
+	}
+
+	/* ═══════════════════════════════════════════════════════════════════════
+	   Row 1: Menu bar + black corner logo
+	   ═══════════════════════════════════════════════════════════════════ */
+
+	.ie-menubar-row {
+		display: flex;
+		align-items: stretch;
+		flex-shrink: 0;
+		background: #c0c0c0;
+	}
+
+	.ie-rebar-menu {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.ie-menubar {
+		display: flex;
+		align-items: center;
+		padding: 1px 2px;
+		flex: 1;
+		min-width: 0;
+	}
+
+	.ie-menu-item {
+		padding: 2px 6px;
+		cursor: default;
+		white-space: nowrap;
+	}
+
+	.ie-menu-item:hover {
+		background: #000080;
+		color: #fff;
+	}
+
+	.ie-menu-item:hover .ie-acc {
+		color: #fff;
+	}
+
+	.ie-acc {
+		text-decoration: underline;
+	}
+
+	/* Black corner box with the "e" logo — fills the right side of the menu row. */
+	.ie-corner-logo {
+		width: 44px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		background: #000000;
+		box-shadow:
+			inset 1px 1px 0 #808080,
+			inset -1px -1px 0 #000000;
+	}
+
+	.ie-corner-logo img {
+		image-rendering: pixelated;
+		image-rendering: -moz-crisp-edges;
+		image-rendering: crisp-edges;
+		filter: grayscale(0.3);
+	}
+
+	.ie-corner-logo.spin img {
+		animation: ie-spin 1.2s linear infinite;
+		filter: none;
+	}
+
+	@keyframes ie-spin {
+		0%   { transform: rotate(0deg) scale(1); }
+		50%  { transform: rotate(12deg) scale(0.92); }
+		100% { transform: rotate(0deg) scale(1); }
+	}
+
+	/* ═══════════════════════════════════════════════════════════════════════
+	   Row 2: Toolbar
+	   ═══════════════════════════════════════════════════════════════════ */
+
+	.ie-toolbar-row {
+		display: flex;
+		align-items: stretch;
+		flex-shrink: 0;
+		background: #c0c0c0;
+		min-height: 46px;
+	}
+
+	/* ── Cool buttons (icon above label) ──────────────────────────────── */
+
+	.ie-cool-btn {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 1px;
+		min-width: 54px;
+		padding: 2px 4px 1px;
+		background: transparent;
+		border: 1px solid transparent;
+		box-shadow: none;
+		cursor: default;
+		color: #000;
+		text-shadow: none;
+		min-height: unset;
+		font-family: inherit;
+		font-size: 11px;
+		line-height: 1;
+	}
+
+	.ie-cool-btn img {
+		pointer-events: none;
+		flex-shrink: 0;
+		/* Grayscale by default — full color on hover. Applied to both PNG
+		   and SVG icons so the styling is uniform. */
+		filter: grayscale(1) contrast(0.85) opacity(0.95);
+		transition: filter 80ms linear;
+	}
+
+	.ie-cool-btn:not(:disabled):hover img,
+	.ie-cool-btn:not(:disabled):active img,
+	.ie-btn-combo.open .ie-cool-btn img {
+		filter: none;
+	}
+
+	.ie-btn-label {
+		font-size: 11px;
+		white-space: nowrap;
+		margin-top: 1px;
+	}
+
+	.ie-cool-btn:not(:disabled):hover {
+		border: 1px solid;
+		border-color: #ffffff #808080 #808080 #ffffff;
+	}
+
+	.ie-cool-btn:not(:disabled):active {
+		border: 1px solid;
+		border-color: #808080 #ffffff #ffffff #808080;
+		padding: 3px 3px 0 5px;
+	}
+
+	.ie-cool-btn:disabled {
+		color: #808080;
+		text-shadow: 1px 1px 0 #ffffff;
+	}
+
+	.ie-cool-btn:disabled img {
+		opacity: 0.45;
+	}
+
+	/* ── Combo button: main button + dropdown arrow ───────────────────── */
+
+	.ie-btn-combo {
+		position: relative;
+		display: flex;
+		align-items: stretch;
+	}
+
+	.ie-cool-btn-arrow {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 12px;
+		padding: 0;
+		margin-left: -2px;
+		background: transparent;
+		border: 1px solid transparent;
+		box-shadow: none;
+		cursor: default;
+		min-width: unset;
+		min-height: unset;
+	}
+
+	.ie-cool-btn-arrow:not(:disabled):hover,
+	.ie-btn-combo.open .ie-cool-btn-arrow {
+		border: 1px solid;
+		border-color: #ffffff #808080 #808080 #ffffff;
+	}
+
+	.ie-btn-combo.open .ie-cool-btn-arrow {
+		border-color: #808080 #ffffff #ffffff #808080;
+	}
+
+	.ie-cool-btn-arrow:disabled {
+		opacity: 0.4;
+	}
+
+	.ie-cool-btn-arrow img {
+		pointer-events: none;
+	}
+
+	/* ── Dropdown backdrop / list ─────────────────────────────────────── */
+
+	.ie-dropdown-backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 99;
+		background: transparent;
+		border: none;
+		box-shadow: none;
+		padding: 0;
+		margin: 0;
+		min-width: 0;
+		min-height: 0;
+		appearance: none;
+		outline: none;
+	}
+
+	.ie-history-dropdown,
+	.ie-favorites-dropdown,
+	.ie-links-dropdown {
+		position: absolute;
+		top: 100%;
+		left: -2px;
+		z-index: 100;
+		background: #c0c0c0;
+		border: 1px solid #000;
+		box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.3);
+		min-width: 220px;
+		padding: 1px;
+	}
+
+	.ie-links-dropdown {
+		right: 0;
+		left: auto;
+	}
+
+	.ie-fav-header {
+		padding: 2px 6px;
+		font-weight: bold;
+		color: #000080;
+		border-bottom: 1px solid #808080;
+		margin-bottom: 1px;
+	}
+
+	.ie-fav-sep {
+		height: 1px;
+		background: #808080;
+		margin: 2px 4px;
+	}
+
+	.ie-fav-item,
+	.ie-history-item {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		width: 100%;
+		padding: 3px 6px;
+		text-align: left;
+		background: transparent;
+		border: none;
+		box-shadow: none;
+		min-width: unset;
+		min-height: unset;
+		color: #000;
+		text-shadow: none;
+		font-family: inherit;
+		font-size: 11px;
+		cursor: default;
+		white-space: nowrap;
+	}
+
+	.ie-fav-item:hover,
+	.ie-history-item:hover {
+		background: #000080;
+		color: #fff;
+	}
+
+	.ie-fav-item img,
+	.ie-history-item img {
+		flex-shrink: 0;
+		pointer-events: none;
+	}
+
+	.ie-history-item span {
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	/* ═══════════════════════════════════════════════════════════════════════
+	   Row 3: Address bar + Links — same row, two rebar bands
+	   ═══════════════════════════════════════════════════════════════════ */
+
+	.ie-addressbar-row {
+		display: flex;
+		align-items: stretch;
+		flex-shrink: 0;
+	}
+
+	.ie-rebar-address {
+		flex: 1;
+		min-width: 0;
+		align-items: center;
+		padding: 2px 4px 2px 0;
+		gap: 4px;
+	}
+
+	.ie-address-label {
+		font-weight: bold;
+		white-space: nowrap;
+		padding: 0 4px 0 0;
+	}
+
+	.ie-address-field {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		background: #fff;
+		box-shadow: inset -1px -1px #fff, inset 1px 1px #808080,
+		            inset -2px -2px #dfdfdf, inset 2px 2px #0a0a0a;
+		padding: 1px 0 1px 2px;
+	}
+
+	.ie-address-icon {
+		flex-shrink: 0;
+		margin-right: 2px;
+	}
+
+	.ie-address-input {
+		flex: 1;
+		min-width: 0;
+		border: none;
+		background: transparent;
+		outline: none;
+		font-family: inherit;
+		font-size: 11px;
+		padding: 1px 2px;
+		height: 18px;
+		min-height: unset;
+		box-shadow: none;
+		color: #000;
+	}
+
+	.ie-address-dropdown {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 17px;
+		height: 18px;
+		margin: 0;
+		padding: 0;
+		background: #c0c0c0;
+		border: 1px solid;
+		border-color: #ffffff #808080 #808080 #ffffff;
+		box-shadow: inset -1px -1px #808080, inset 1px 1px #ffffff;
+		cursor: default;
+		min-width: unset;
+		min-height: unset;
+	}
+
+	.ie-address-dropdown img {
+		pointer-events: none;
+	}
+
+	/* Links rebar sits to the right, sized to match the Address label. */
+	.ie-rebar-links {
+		flex-shrink: 0;
+		align-items: center;
+		padding: 2px 4px 2px 0;
+	}
+
+	.ie-links-tab {
+		padding: 0 12px;
+		background: transparent;
+		border: none;
+		box-shadow: none;
+		font-family: inherit;
+		font-size: 11px;
+		font-weight: bold;
+		cursor: default;
+		color: #000;
+		text-shadow: none;
+		min-width: unset;
+		min-height: unset;
+		height: 18px;
+	}
+
+	.ie-links-tab:hover {
+		background: rgba(0, 0, 0, 0.05);
+	}
+
+	/* ═══════════════════════════════════════════════════════════════════════
+	   Fullscreen mode — hide menu + address
+	   ═══════════════════════════════════════════════════════════════════ */
+
+	.ie-shell.fullscreen .ie-menubar-row,
+	.ie-shell.fullscreen .ie-addressbar-row {
+		display: none;
+	}
+
+	/* ═══════════════════════════════════════════════════════════════════════
+	   Content area (internal pages)
+	   ═══════════════════════════════════════════════════════════════════ */
+
+	.ie-content {
+		flex: 1;
+		overflow: auto;
+		background: #fff;
+		min-height: 0;
+	}
+
+	/* ═══════════════════════════════════════════════════════════════════════
+	   External page (iframe)
+	   ═══════════════════════════════════════════════════════════════════ */
+
+	.ie-external-info {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 2px 8px;
+		background: linear-gradient(180deg, #fffff0 0%, #f0f0d8 100%);
+		border-bottom: 1px solid #c0c0a0;
+		font-size: 10px;
+		color: #404020;
+		flex-shrink: 0;
+	}
+
+	.ie-recovery-info {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 2px 8px;
+		background: linear-gradient(180deg, #fff4d8 0%, #ebddba 100%);
+		border-bottom: 1px solid #b9a97e;
+		font-size: 10px;
+		color: #4a3f1f;
+		flex-shrink: 0;
+	}
+
+	.ie-info-actions {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+	}
+
+	.ie-newtab-btn {
+		background: linear-gradient(180deg, #e8e8d8 0%, #d0d0c0 100%);
+		border: 1px solid #a0a080;
+		border-radius: 2px;
+		padding: 1px 8px;
+		font-family: inherit;
+		font-size: 10px;
+		cursor: pointer;
+		color: #000;
+		text-shadow: none;
+		min-width: unset;
+		min-height: unset;
+		box-shadow: none;
+	}
+
+	.ie-newtab-btn:hover {
+		background: linear-gradient(180deg, #f0f0e0 0%, #e0e0cc 100%);
+		border-color: #808060;
+	}
+
+	.ie-info-close {
+		background: transparent;
+		border: none;
+		box-shadow: none;
+		padding: 0 3px;
+		font-size: 14px;
+		line-height: 1;
+		cursor: pointer;
+		color: #808060;
+		min-width: unset;
+		min-height: unset;
+		text-shadow: none;
+	}
+
+	.ie-info-close:hover {
+		color: #000;
+	}
+
+	.ie-iframe {
+		flex: 1;
+		width: 100%;
+		border: none;
+		background: #fff;
+		min-height: 0;
+	}
+
+	/* ═══════════════════════════════════════════════════════════════════════
+	   Status bar
+	   ═══════════════════════════════════════════════════════════════════ */
+
+	.ie-statusbar {
+		display: flex;
+		align-items: center;
+		flex-shrink: 0;
+		gap: 1px;
+		padding: 1px 2px;
+	}
+
+	.ie-status-text {
+		flex: 1;
+		padding: 1px 4px;
+		box-shadow: inset -1px -1px #dfdfdf, inset 1px 1px #808080;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.ie-status-zone {
+		display: flex;
+		align-items: center;
+		gap: 2px;
+		padding: 1px 6px;
+		box-shadow: inset -1px -1px #dfdfdf, inset 1px 1px #808080;
+		white-space: nowrap;
+	}
+
+	.ie-status-zone img {
+		opacity: 0.7;
+	}

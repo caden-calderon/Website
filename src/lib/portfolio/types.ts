@@ -13,3 +13,17 @@ export interface PortfolioProject {
 	/** OS app to launch for live demos. */
 	appId?: AppId;
 }
+
+export type PortfolioRoutePage =
+	| 'home'
+	| 'projects'
+	| 'project-detail'
+	| 'about'
+	| 'search'
+	| 'placeholder';
+
+export interface PortfolioRouteMatch {
+	page: PortfolioRoutePage;
+	title: string;
+	params: Record<string, string>;
+}

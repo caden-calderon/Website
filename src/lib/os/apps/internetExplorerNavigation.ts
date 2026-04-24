@@ -1,17 +1,15 @@
-import { getProject } from '$lib/portfolio/projects.js';
+import {
+	PORTFOLIO_DOMAIN,
+	PORTFOLIO_HOME_URL,
+	resolvePortfolioRoute,
+} from '$lib/portfolio/routes.js';
+import type { PortfolioRoutePage } from '$lib/portfolio/types.js';
 
-export const IE_HOME_URL = 'http://chromatic.dev/';
+export const IE_HOME_URL = PORTFOLIO_HOME_URL;
 export const IE_SEARCH_URL = 'http://chromatic.dev/search';
-export const IE_DOMAIN = 'chromatic.dev';
+export const IE_DOMAIN = PORTFOLIO_DOMAIN;
 
-export type InternetExplorerPageKind =
-	| 'home'
-	| 'projects'
-	| 'project-detail'
-	| 'about'
-	| 'search'
-	| 'external'
-	| 'error';
+export type InternetExplorerPageKind = PortfolioRoutePage | 'external' | 'error';
 
 export interface InternetExplorerRoute {
 	page: InternetExplorerPageKind;
@@ -65,31 +63,10 @@ export function resolveInternetExplorerRoute(url: string): InternetExplorerRoute
 		if (pathname === null) {
 			return { page: 'error', title: 'The page cannot be displayed', params: { url } };
 		}
-		const path = pathname === '/' ? '/' : pathname.replace(/\/$/, '');
 
-		if (path === '/' || path === '') {
-			return { page: 'home', title: 'Chromatic', params: {} };
-		}
-		if (path === '/projects') {
-			return { page: 'projects', title: 'Projects - Chromatic', params: {} };
-		}
-		if (path.startsWith('/projects/')) {
-			const slug = path.slice('/projects/'.length);
-			const project = getProject(slug);
-			if (project) {
-				return {
-					page: 'project-detail',
-					title: `${project.title} - Chromatic`,
-					params: { slug },
-				};
-			}
-		}
-		if (path === '/about') {
-			return { page: 'about', title: 'About - Chromatic', params: {} };
-		}
-		if (path === '/search') {
-			return { page: 'search', title: 'Microsoft Network - Search', params: {} };
-		}
+		const route = resolvePortfolioRoute(pathname);
+		if (route) return route;
+
 		return { page: 'error', title: 'The page cannot be displayed', params: { url } };
 	}
 

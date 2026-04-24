@@ -157,16 +157,24 @@ src/routes/
 - `credentialless` COEP is still global, which may be a worse tradeoff than route-scoped isolation once the browser work settles
 
 ### Portfolio Content Pages (`src/lib/portfolio/`)
-- `types.ts` — `PortfolioProject` interface with appId for OS integration
-- `projects.ts` — 6 project manifests (Point Engine, Axial, Chess, Aperture, Argus, Chromatic)
-- `HomePage.svelte` — editorial OS-dashboard portfolio home: dense left/right rails, oversized Caden Calderon lockup, featured perception project module, collapsible panels, draggable/snap-collapsible rails, height-aware left-rail expansion, and portfolio-specific utility modules
+- `types.ts` — `PortfolioProject` and `PortfolioRouteMatch` interfaces with appId/page contracts for OS integration
+- `projectCatalog.ts` — static project manifests only (Point Engine, Axial, Chess, Aperture, Argus, Chromatic)
+- `projectQueries.ts` — pure lookup/filter helpers for project data
+- `projects.ts` — compatibility barrel re-exporting project catalog/query helpers for existing imports
+- `routes.ts` — internal `chromatic.dev` route contract consumed by IE navigation helpers
+- `HomePage.svelte` — editorial OS-dashboard portfolio home orchestration: rail state, rail resizing, and height-aware left-rail expansion
+- `HomeLeftRail.svelte`, `HomeMainPanel.svelte`, `HomeRightRail.svelte` — extracted home-page sections for navigation/status modules, hero/feature/project modules, and profile/contact modules
+- `HomePage.css` — page-owned portfolio home styles shared by the extracted home components
 - `homePageData.ts` — home-page navigation/focus/stack/game launcher/sidebar constants kept out of the Svelte component
 - `ProjectList.svelte` — table view of all projects with type badges and year
 - `ProjectDetail.svelte` — breadcrumb, description, tech stack tags, "Launch Demo" button, details table
 - `AboutPage.svelte` — bio, skills table, contact sidebar
 - `SearchStartPage.svelte` — MSN-era search start page; date is generated client-side instead of hard-coded
+- `PlaceholderPage.svelte` — reserved-route page for `/writings` and `/contact` until those surfaces get real content
 - `ErrorPage.svelte` — faithful IE "The page cannot be displayed" with troubleshooting steps
 - Home page now follows the user-provided CADEN CALDERON editorial reference more closely; secondary portfolio pages still use the older clean late-90s web style and need a later visual pass.
+- IE internal route resolution now delegates portfolio page paths to `resolvePortfolioRoute(pathname)` so future portfolio pages can be added without changing the browser's address normalization/proxy logic.
+- IE chrome/content cleanup split static toolbar data into `internetExplorerChrome.ts`, moved internal content rendering into `InternetExplorerContent.svelte`, and moved the shell stylesheet into `InternetExplorer.css`. `InternetExplorer.svelte` still owns browser state and proxy/iframe behavior.
 
 ### Build Configuration
 - `vite.config.ts` disables CSS minification for both SSR and client builds because `98.css@0.1.21` includes `@media (not(hover))`, which Vite 8's default Lightning CSS minifier rejects. This keeps the vendor package intact and avoids adding an extra CSS build dependency.
