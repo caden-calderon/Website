@@ -2,7 +2,7 @@
 
 ## Date
 
-2026-04-16
+2026-04-24
 
 ## Purpose
 
@@ -47,6 +47,7 @@ Build a Windows 95/98 desktop OS as the 2D interface for the Chromatic portfolio
 - `src/lib/os/palette.ts` — complete Win98 color palette, font specs, icon metrics, 98.css override values
 - `src/lib/os/types.ts` — WindowState, AppDef, AppId, TaskbarEntry, DesktopTheme, ContextMenuItem, constants
 - `src/lib/os/apps/Placeholder.svelte` — stub for unimplemented apps
+- `src/lib/os/apps/PointEngine.svelte` — thin Win98-style OS shell around the existing point engine demo, with container-relative demo layout for window resizing
 - `static/os-assets/icons/` — 20 real Win98 PNG icons from the win98_icons pack
 
 ### Route Structure
@@ -178,6 +179,13 @@ src/routes/
 
 ### Build Configuration
 - `vite.config.ts` disables CSS minification for both SSR and client builds because `98.css@0.1.21` includes `@media (not(hover))`, which Vite 8's default Lightning CSS minifier rejects. This keeps the vendor package intact and avoids adding an extra CSS build dependency.
+
+### Point Engine OS App
+- Point Engine now launches from the desktop icon, Start menu, and portfolio project launch action into a real OS window instead of `Placeholder.svelte`.
+- The OS app is intentionally a wrapper around `src/lib/demo/PointEngineDemo.svelte`; it does not duplicate editor/viewer implementation or move app policy into `src/lib/engine/`.
+- `PointEngineDemo.svelte` accepts `presentation="standalone" | "embedded"` so the existing `/` route keeps full-viewport behavior while the OS app uses container-relative sizing.
+- `Controls.svelte` accepts `panelLayout="viewport" | "container"` so the control panel stays inside the OS window during resize.
+- The OS app imports a Tailwind theme/utilities-only CSS entry for the demo controls, avoiding Tailwind preflight in the Win98 desktop surface.
 
 ### Wallpaper Sizing Decision
 - Do not cap the whole OS viewport for ultrawide displays yet. The desktop should stay fluid like the teal default.

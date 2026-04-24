@@ -102,9 +102,9 @@ const APP_DEFS: AppDef[] = [
 		id: 'point-engine',
 		label: 'Point Engine',
 		icon: getIcon('point-engine'),
-		defaultSize: { width: 1040, height: 720 },
-		minSize: { width: 480, height: 360 },
-		component: () => import('./apps/Placeholder.svelte'),
+		defaultSize: { width: 1120, height: 760 },
+		minSize: { width: 620, height: 440 },
+		component: () => import('./apps/PointEngine.svelte'),
 		singleton: true,
 	},
 ];
