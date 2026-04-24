@@ -7,6 +7,7 @@ import type { Component } from 'svelte';
 export type AppId =
 	| 'internet-explorer'
 	| 'file-explorer'
+	| 'settings'
 	| 'notepad'
 	| 'calculator'
 	| 'run-dialog'
@@ -79,7 +80,7 @@ export interface TaskbarEntry {
 // ---------------------------------------------------------------------------
 
 export interface WallpaperDef {
-	type: 'solid' | 'tiled' | 'centered' | 'stretched';
+	type: 'solid' | 'tiled' | 'centered' | 'stretched' | 'fit' | 'fill';
 	color?: string;
 	src?: string;
 }

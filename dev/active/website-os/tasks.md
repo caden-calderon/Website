@@ -47,9 +47,14 @@
 
 ### App Registry
 - [x] Implement `appRegistry.ts` with lazy component imports
-- [x] Register initial apps: IE, File Explorer, Notepad, Calculator, Run Dialog, Chess, Axial, Solitaire, Minesweeper, Point Engine
+- [x] Register initial apps: IE, File Explorer, Settings, Notepad, Calculator, Run Dialog, Chess, Axial, Solitaire, Minesweeper, Point Engine
 - [x] Singleton enforcement (only one Calculator, etc.)
 - [ ] App launch from filesystem shortcut resolution
+
+### Desktop Settings
+- [x] Add Control Panel app reachable from Start → Settings
+- [x] Add persistent wallpaper settings with presets, custom image URL, solid color, and image display modes
+- [x] Apply wallpaper settings to the desktop surface
 
 ### Window Component
 - [x] Build `Window.svelte` with 98.css title bar chrome

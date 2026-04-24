@@ -4,6 +4,9 @@
 	import Taskbar from './Taskbar.svelte';
 	import StartMenu from './StartMenu.svelte';
 	import ContextMenu from './ContextMenu.svelte';
+	import { onMount } from 'svelte';
+	import { desktopSettings } from './desktopSettings.svelte.js';
+	import { wallpaperStyle } from './wallpaperStyle.js';
 	import { windowManager } from './windowManager.svelte.js';
 	import { getIcon } from './icons.js';
 	import { TASKBAR_HEIGHT, type AppId, type ContextMenuItem } from './types.js';
@@ -23,6 +26,11 @@
 	let selectedIcon = $state<string | null>(null);
 	let startMenuOpen = $state(false);
 	let contextMenu = $state<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
+	const desktopStyle = $derived(wallpaperStyle(desktopSettings.wallpaper));
+
+	onMount(() => {
+		desktopSettings.init();
+	});
 
 	// Desktop right-click menu items
 	const desktopContextItems: ContextMenuItem[] = [
@@ -50,7 +58,7 @@
 			],
 		},
 		{ separator: true, label: '' },
-		{ label: 'Properties', disabled: true },
+		{ label: 'Properties', action: () => windowManager.open('settings') },
 	];
 
 	function openApp(appId: AppId) {
@@ -111,7 +119,7 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="desktop" onclick={desktopClick} oncontextmenu={desktopContextMenu}>
+<div class="desktop" style={desktopStyle} onclick={desktopClick} oncontextmenu={desktopContextMenu}>
 	<!-- Icon grid -->
 	<div class="desktop-area" style="padding-bottom: {TASKBAR_HEIGHT}px;">
 		<div class="icon-grid">

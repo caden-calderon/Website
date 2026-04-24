@@ -71,7 +71,7 @@
 			label: 'Settings',
 			icon: getIcon('settings'),
 			children: [
-				{ label: 'Control Panel', icon: getIcon('settings'), disabled: true },
+				{ label: 'Control Panel', icon: getIcon('settings'), appId: 'settings' },
 				{ label: 'Taskbar & Start Menu...', icon: getIcon('settings'), disabled: true },
 			],
 		},

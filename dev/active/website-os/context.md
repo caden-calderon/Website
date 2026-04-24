@@ -38,6 +38,8 @@ Build a Windows 95/98 desktop OS as the 2D interface for the Chromatic portfolio
 - `src/lib/os/windowManager.svelte.ts` — open/close/focus/minimize/maximize/restore, z-stacking, centered cascade positioning, mobile-aware
 - `src/lib/os/Taskbar.svelte` — Start button with Windows flag, running window list with icons, live clock, system tray
 - `src/lib/os/StartMenu.svelte` — hierarchical Win98 menu: Programs (Accessories, Games, IE), Favorites, Documents, Settings, Find, Help, Run, Log Off, Shut Down. 32x32 icons on top-level, 16x16 in submenus. Submenu overlap.
+- `src/lib/os/apps/Settings.svelte` — Control Panel background settings, reachable from Start → Settings → Control Panel and desktop Properties
+- `src/lib/os/desktopSettings.svelte.ts` + `wallpaperStyle.ts` — persistent wallpaper state with solid, fill, fit, center, tile, and stretch modes
 - `src/lib/os/ContextMenu.svelte` — right-click menus with submenu support
 - `src/lib/os/DesktopIcon.svelte` — viewport-relative sizing, Win98 selection behavior (blue tint + navy label bg)
 - `src/lib/os/appRegistry.ts` — lazy component imports for 10 apps, larger useful default sizes for IE/main apps, placeholders for unimplemented apps
@@ -168,6 +170,11 @@ src/routes/
 
 ### Build Configuration
 - `vite.config.ts` disables CSS minification for both SSR and client builds because `98.css@0.1.21` includes `@media (not(hover))`, which Vite 8's default Lightning CSS minifier rejects. This keeps the vendor package intact and avoids adding an extra CSS build dependency.
+
+### Wallpaper Sizing Decision
+- Do not cap the whole OS viewport for ultrawide displays yet. The desktop should stay fluid like the teal default.
+- Image wallpapers use display modes instead: `Fill` for full-bleed responsive backgrounds, `Fit` for preserving the full image, `Center` / `Tile` for Win98-style assets, and `Stretch` only when intentional distortion is acceptable.
+- Practical source image target: provide at least `3440x1440` for ultrawide fill, or `2560x1440` for normal widescreen. Smaller classic wallpapers still work best as `Tile` or `Center`.
 
 ## What's Next
 

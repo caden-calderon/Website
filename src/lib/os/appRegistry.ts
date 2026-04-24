@@ -27,6 +27,15 @@ const APP_DEFS: AppDef[] = [
 		singleton: false,
 	},
 	{
+		id: 'settings',
+		label: 'Control Panel',
+		icon: getIcon('settings'),
+		defaultSize: { width: 520, height: 420 },
+		minSize: { width: 420, height: 320 },
+		component: () => import('./apps/Settings.svelte'),
+		singleton: true,
+	},
+	{
 		id: 'notepad',
 		label: 'Notepad',
 		icon: getIcon('notepad'),
