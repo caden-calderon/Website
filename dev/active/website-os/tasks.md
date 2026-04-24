@@ -175,6 +175,13 @@
 - [x] Build `ErrorPage.svelte` — IE "page cannot be displayed"
 - [x] "Launch Demo" button opens the project's app in its own OS window
 
+### Point Engine App
+- [x] Replace Point Engine placeholder registry entry with a real OS app component
+- [x] Keep the OS app as a thin wrapper around the existing PointEngineDemo surface
+- [x] Add embedded demo sizing so the canvas/editor fit inside a resizable OS window
+- [x] Preserve standalone `/` route behavior
+- [x] Browser-smoke Point Engine launch from desktop icon and portfolio project launch action after implementation changes
+
 ### Notepad
 - [ ] Build `Notepad.svelte` with menu bar and textarea
 - [ ] File menu: New, Open (from filesystem), Save (to filesystem)

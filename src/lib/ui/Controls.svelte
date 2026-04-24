@@ -100,6 +100,7 @@
 		onFrameParamsChange: (params: FrameParams) => void;
 		onSaveSettings: () => void;
 		onResetSettings: () => void;
+		panelLayout?: 'viewport' | 'container';
 	}
 
 	let {
@@ -184,6 +185,7 @@
 		onFrameParamsChange,
 		onSaveSettings,
 		onResetSettings,
+		panelLayout = 'viewport',
 	}: Props = $props();
 
 	import { onMount } from 'svelte';
@@ -256,12 +258,21 @@
 	function formatBytes(bytes: number): string {
 		return `${(bytes / (1024 * 1024)).toFixed(bytes >= 100 * 1024 * 1024 ? 0 : 1)} MiB`;
 	}
+
+	const panelStyle = $derived(
+		panelLayout === 'container'
+			? 'max-height: calc(100% - 2rem); max-width: calc(100% - 2rem);'
+			: 'max-height: 95vh; max-width: calc(100vw - 2rem);',
+	);
 </script>
 
 <div
-	class="controls-panel fixed top-4 right-4 z-50 max-h-[95vh] max-w-[calc(100vw-2rem)] overflow-y-auto overflow-x-hidden font-mono text-xs select-none"
+	class="controls-panel top-4 right-4 z-50 overflow-y-auto overflow-x-hidden font-mono text-xs select-none"
+	class:fixed={panelLayout === 'viewport'}
+	class:absolute={panelLayout === 'container'}
 	class:w-[22rem]={!collapsed}
 	class:w-auto={collapsed}
+	style={panelStyle}
 >
 	<button
 		class="mb-2 rounded bg-white/10 px-3 py-1 text-white/60 backdrop-blur hover:bg-white/20"

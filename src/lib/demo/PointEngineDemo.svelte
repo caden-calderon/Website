@@ -104,6 +104,14 @@
 		}>;
 	}
 
+	let { presentation = 'standalone' }: { presentation?: 'standalone' | 'embedded' } = $props();
+	const rootClass = $derived(
+		presentation === 'embedded'
+			? 'point-engine-demo point-engine-demo--embedded'
+			: 'point-engine-demo point-engine-demo--standalone',
+	);
+	const controlsPanelLayout = $derived(presentation === 'embedded' ? 'container' : 'viewport');
+
 	// ── Tunable state ────────────────────────────────────────────────────
 	let renderParams = $state<RenderParams>({ ...DEFAULT_RENDER_PARAMS });
 	let bloomParams = $state<BloomParams>({ ...DEFAULT_BLOOM_PARAMS });
@@ -1573,7 +1581,7 @@
 	}
 </script>
 
-<div class="relative h-screen w-screen" style:background-color={outerBackgroundColor ?? '#000000'}>
+<div class={rootClass} style:background-color={outerBackgroundColor ?? '#000000'}>
 	{#if ready}
 		<Canvas>
 			<PointCloudScene
@@ -1671,19 +1679,20 @@
 			onFrameParamsChange={handleFrameParamsChange}
 			onSaveSettings={saveSettings}
 			onResetSettings={resetSettings}
+			panelLayout={controlsPanelLayout}
 		/>
 
 		{#if processingStatus}
-			<div class="fixed bottom-4 left-4 z-50 flex min-w-[18rem] max-w-[24rem] flex-col gap-2 rounded bg-black/80 px-4 py-3 font-mono text-xs text-white/80 backdrop-blur">
+			<div class="point-engine-status-card">
 				<div>{processingStatus}</div>
 				{#if processingProgress !== null}
-					<div class="h-1.5 overflow-hidden rounded bg-white/10">
+					<div class="point-engine-status-track">
 						<div
-							class="h-full bg-blue-400/80 transition-[width] duration-150"
+							class="point-engine-status-progress"
 							style={`width: ${Math.max(2, Math.round(processingProgress * 100))}%`}
 						></div>
 					</div>
-					<div class="text-white/45">
+					<div class="point-engine-status-meta">
 						{Math.round(processingProgress * 100)}%
 						{#if processingEstimatedRemainingMs !== null && processingEstimatedRemainingMs >= 5_000}
 							· {formatDuration(processingEstimatedRemainingMs)} remaining
@@ -1694,3 +1703,59 @@
 		{/if}
 	{/if}
 </div>
+
+<style>
+	.point-engine-demo {
+		position: relative;
+		width: 100%;
+		min-width: 0;
+		overflow: hidden;
+	}
+
+	.point-engine-demo--standalone {
+		width: 100vw;
+		height: 100vh;
+	}
+
+	.point-engine-demo--embedded {
+		height: 100%;
+		min-height: 0;
+	}
+
+	.point-engine-status-card {
+		position: absolute;
+		left: 1rem;
+		bottom: 1rem;
+		z-index: 50;
+		display: flex;
+		min-width: min(18rem, calc(100% - 2rem));
+		max-width: min(24rem, calc(100% - 2rem));
+		flex-direction: column;
+		gap: 0.5rem;
+		border-radius: 0.25rem;
+		background: rgb(0 0 0 / 0.8);
+		padding: 0.75rem 1rem;
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+		font-size: 0.75rem;
+		line-height: 1rem;
+		color: rgb(255 255 255 / 0.8);
+		backdrop-filter: blur(8px);
+	}
+
+	.point-engine-status-track {
+		height: 0.375rem;
+		overflow: hidden;
+		border-radius: 9999px;
+		background: rgb(255 255 255 / 0.1);
+	}
+
+	.point-engine-status-progress {
+		height: 100%;
+		background: rgb(96 165 250 / 0.8);
+		transition: width 150ms;
+	}
+
+	.point-engine-status-meta {
+		color: rgb(255 255 255 / 0.45);
+	}
+</style>
