@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { AppId } from '$lib/os/types.js';
 	import AboutPage from '$lib/portfolio/AboutPage.svelte';
+	import ContactPage from '$lib/portfolio/ContactPage.svelte';
 	import ErrorPage from '$lib/portfolio/ErrorPage.svelte';
 	import HomePage from '$lib/portfolio/HomePage.svelte';
 	import PlaceholderPage from '$lib/portfolio/PlaceholderPage.svelte';
@@ -42,6 +43,8 @@
 		<ProjectDetail slug={route.params.slug} {launchApp} />
 	{:else if route.page === 'about'}
 		<AboutPage />
+	{:else if route.page === 'contact'}
+		<ContactPage />
 	{:else if route.page === 'search'}
 		<SearchStartPage onNavigate={navigate} />
 	{:else if route.page === 'placeholder'}
