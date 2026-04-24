@@ -52,6 +52,49 @@ src/lib/server/cookieJar.ts             ← RFC-ish cookie parsing/matching logi
 
 This is still not durable multi-instance storage. It is acceptable for the current single-node portfolio deployment, but it is intentionally a step short of Redis/database-backed session infrastructure.
 
+## Portfolio / IE Boundary
+
+The portfolio content model is intentionally separate from the Internet Explorer app shell:
+
+```
+src/lib/portfolio/projectCatalog.ts   ← static project manifests only
+src/lib/portfolio/projectQueries.ts   ← pure lookup/filter helpers
+src/lib/portfolio/routes.ts           ← internal chromatic.dev route contract
+src/lib/portfolio/HomePage.svelte     ← home orchestration and rail state
+src/lib/portfolio/Home*Rail.svelte    ← home rail/sidebar sections
+src/lib/portfolio/HomeMainPanel.svelte← home hero/feature/project modules
+src/lib/portfolio/HomePage.css        ← page-owned portfolio-home styling
+src/lib/portfolio/*Page.svelte        ← other page rendering inside IE content area
+src/lib/os/apps/InternetExplorer.svelte
+src/lib/os/apps/InternetExplorer.css
+src/lib/os/apps/InternetExplorerContent.svelte
+src/lib/os/apps/internetExplorerChrome.ts
+src/lib/os/apps/internetExplorerNavigation.ts
+```
+
+### Responsibilities
+
+- `src/lib/portfolio/` owns portfolio data, page-level content components, and the internal `chromatic.dev` route map.
+- `internetExplorerNavigation.ts` owns browser address-bar normalization, internal-vs-external classification, proxy URL formatting, and conversion from a normalized URL to an IE route.
+- `InternetExplorer.svelte` owns browser state: chrome event handlers, history stacks, iframe/proxy behavior, loading/status text, and window title updates.
+- `InternetExplorerContent.svelte` owns rendering the already-resolved internal portfolio route and delegating internal anchor clicks back to the browser shell.
+- `internetExplorerChrome.ts` owns static toolbar/favorites/link/icon data. Keep visual assets and button labels there instead of burying them in the shell.
+
+### Route Contract
+
+Portfolio routes are resolved through `resolvePortfolioRoute(pathname)`. The IE app should not hard-code portfolio page paths beyond asking whether a URL belongs to `chromatic.dev`.
+
+Current internal routes:
+
+- `/` → portfolio home
+- `/projects` → project index
+- `/projects/:slug` → project detail, only when `:slug` matches a project manifest
+- `/about` → about page
+- `/search` → MSN-style search start page
+- `/writings` and `/contact` → reserved placeholder pages for future content
+
+This lets portfolio and OS app work proceed in parallel: new portfolio pages extend the portfolio route contract and add a content component, while IE browser mechanics stay stable.
+
 ### Redirect Policy
 
 - Upstream redirects are handled manually, not with `redirect: 'follow'`.

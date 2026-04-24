@@ -145,6 +145,7 @@
 - [x] Window title updates dynamically ("Page Title - Microsoft Internet Explorer")
 - [x] Content area click interception (anchors route through IE navigator)
 - [x] `postMessage` sync only accepts messages from the active proxied iframe
+- [x] Split static IE chrome data/icons and internal route content rendering out of the browser shell
 - [ ] Menu bar dropdowns (File, Edit, View, Go, Favorites, Help — currently labels only)
 
 ### Proxy / External Browsing
@@ -162,6 +163,10 @@
 
 ### Portfolio Content (inside IE) — CURRENT HOME PASS COMPLETE
 - [x] Define project manifests in `src/lib/portfolio/projects.ts` (Point Engine, Axial, Chess, Aperture, Argus, Chromatic)
+- [x] Split project manifests, project query helpers, and internal portfolio route contracts into focused modules
+- [x] Add reserved `/writings` and `/contact` route contracts with placeholder rendering
+- [x] Route IE internal page resolution through the portfolio route contract instead of hard-coded browser literals
+- [x] Split the portfolio home page into orchestration, left rail, main panel, right rail, and page-owned CSS
 - [x] Build `HomePage.svelte` — editorial OS-dashboard home with dense rails, oversized name lockup, featured project module, height-aware left sidebar panels, and game launchers
 - [x] Split home-page constants into `homePageData.ts`
 - [x] Build `ProjectList.svelte` — table view of all projects with type badges

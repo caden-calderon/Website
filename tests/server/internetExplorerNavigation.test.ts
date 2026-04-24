@@ -6,6 +6,7 @@ import {
 	resolveInternetExplorerRoute,
 	shortUrl,
 } from '../../src/lib/os/apps/internetExplorerNavigation.js';
+import { resolvePortfolioRoute } from '../../src/lib/portfolio/routes.js';
 
 describe('internet explorer navigation helpers', () => {
 	it('resolves internal portfolio routes', () => {
@@ -22,10 +23,30 @@ describe('internet explorer navigation helpers', () => {
 			page: 'search',
 			title: 'Microsoft Network - Search',
 		});
+		expect(resolveInternetExplorerRoute('/contact')).toMatchObject({
+			page: 'placeholder',
+			title: 'Contact - Chromatic',
+			params: { section: 'Contact' },
+		});
 		expect(resolveInternetExplorerRoute('/projects?view=details#top')).toMatchObject({
 			page: 'projects',
 			title: 'Projects - Chromatic',
 		});
+	});
+
+	it('keeps portfolio route contracts independent from the browser shell', () => {
+		expect(resolvePortfolioRoute('/writings/')).toEqual({
+			page: 'placeholder',
+			title: 'Writings - Chromatic',
+			params: { section: 'Writings', status: 'Draft shelf coming online' },
+		});
+		expect(resolvePortfolioRoute('/projects/chess')).toEqual({
+			page: 'project-detail',
+			title: 'Chess - Chromatic',
+			params: { slug: 'chess' },
+		});
+		expect(resolvePortfolioRoute('/projects/chess/opening')).toBeNull();
+		expect(resolvePortfolioRoute('/missing')).toBeNull();
 	});
 
 	it('classifies external URLs and unknown internal pages', () => {

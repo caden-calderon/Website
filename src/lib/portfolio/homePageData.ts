@@ -28,10 +28,10 @@ type PortfolioNavItem = {
 export const navItems: PortfolioNavItem[] = [
 	{ label: 'Home', href: '/', icon: '/os-assets/icons/my-computer.png', active: true },
 	{ label: 'Projects', href: '/projects', icon: '/os-assets/icons/folder-open.png' },
-	{ label: 'Writings', href: '/projects/chromatic', icon: '/os-assets/icons/notepad-file.png' },
+	{ label: 'Writings', href: '/writings', icon: '/os-assets/icons/notepad-file.png' },
 	{ label: 'Experiments', href: '/projects/point-engine', icon: '/os-assets/icons/world-star.png' },
 	{ label: 'About', href: '/about', icon: '/os-assets/icons/mii-head.png' },
-	{ label: 'Contact', href: '/about', icon: '/os-assets/icons/internet-wiz.png' },
+	{ label: 'Contact', href: '/contact', icon: '/os-assets/icons/internet-wiz.png' },
 ];
 
 export const quickLinks = [
