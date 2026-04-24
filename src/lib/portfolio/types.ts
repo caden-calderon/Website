@@ -10,6 +10,14 @@ export interface PortfolioProject {
 	tags: string[];
 	year: string;
 	type: 'interactive' | 'walkthrough';
+	status?: 'active' | 'research' | 'archived' | 'shipping';
+	role?: string;
+	code?: string;
+	accent?: 'blue' | 'orange' | 'cyan' | 'black';
+	links?: {
+		label: string;
+		href: string;
+	}[];
 	/** OS app to launch for live demos. */
 	appId?: AppId;
 }
